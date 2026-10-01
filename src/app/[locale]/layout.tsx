@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
+import { Fredoka, Nunito, JetBrains_Mono } from "next/font/google";
 import { NextIntlClientProvider, hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { routing } from "@/i18n/routing";
 import "../globals.css";
 
-const ui = Space_Grotesk({ subsets: ["latin"], variable: "--font-ui" });
+const display = Fredoka({ subsets: ["latin"], variable: "--font-display", weight: ["500", "600", "700"] });
+const ui = Nunito({ subsets: ["latin"], variable: "--font-ui" });
 const code = JetBrains_Mono({ subsets: ["latin"], variable: "--font-code" });
 
 export function generateStaticParams() {
@@ -25,7 +26,7 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
   setRequestLocale(locale);
 
   return (
-    <html lang={locale} className={`${ui.variable} ${code.variable}`}>
+    <html lang={locale} className={`${display.variable} ${ui.variable} ${code.variable}`}>
       <body className="min-h-dvh antialiased">
         <NextIntlClientProvider>{children}</NextIntlClientProvider>
       </body>

@@ -4,9 +4,9 @@
     "description": "Un juego visual que enseña Apache Kafka: enruta paquetes, opera particiones y mantén fluyendo los eventos de la ciudad."
   },
   "landing": {
-    "kicker": "Centro logístico de eventos · Turno 1",
+    "kicker": "Buscamos despachadores",
     "title": "Kafka Express",
-    "tagline": "Eres el nuevo despachador. Enruta cada evento de la ciudad: sin pérdidas, sin duplicados, sin atascos.",
+    "tagline": "Opera el centro de eventos de la ciudad. Lleva cada pedido a la banda correcta — sin pérdidas, sin duplicados, sin atascos — y aprende Apache Kafka de verdad en el camino.",
     "start": "Empezar turno",
     "facts": {
       "visual": "Mira moverse cada registro",
@@ -15,26 +15,65 @@
     }
   },
   "hud": {
-    "mute": "Silenciar sonido",
-    "unmute": "Activar sonido",
-    "language": "English",
-    "back": "Volver"
+    "musicOn": "Activar música",
+    "musicOff": "Silenciar música",
+    "sfxOn": "Activar efectos",
+    "sfxOff": "Silenciar efectos",
+    "language": "Switch to English"
   },
   "play": {
+    "level": "Turno 0 · Despacho libre",
     "title": "Mesa de despacho",
-    "subtitle": "Topic “orders” · 3 particiones",
-    "hint": "Envía un pedido. Mira en qué banda cae — y luego envía al mismo cliente otra vez.",
+    "back": "Volver al inicio",
+    "mission": "Misión",
+    "missionText": "El topic “orders” tiene 3 particiones: tres bandas. Envía pedidos y descubre dónde cae cada uno.",
+    "objectives": {
+      "send5": "Envía 5 pedidos",
+      "sameKey": "Envía al mismo cliente dos veces",
+      "noKey": "Envía un pedido sin key",
+      "allBelts": "Consigue un paquete en cada banda"
+    },
+    "progress": "Progreso del turno",
+    "insights": {
+      "send5": {
+        "title": "Los offsets solo suben",
+        "body": "Cada banda sella los paquetes 0, 1, 2… en orden de llegada. Ese número es el offset: su posición en el log de esa partición."
+      },
+      "sameKey": {
+        "title": "Misma key → misma partición",
+        "body": "murmur2(key) % particiones siempre da la misma banda para la misma key. Así Kafka mantiene en orden los pedidos de un cliente."
+      },
+      "noKey": {
+        "title": "¿Sin key? Partición sticky",
+        "body": "Los registros sin key se quedan en una banda hasta llenar un batch y luego cambian. Rápido, pero sin garantía de orden entre ellos."
+      },
+      "allBelts": {
+        "title": "Las particiones reparten la carga",
+        "body": "Keys distintas caen en bandas distintas, así el trabajo corre en paralelo. El orden solo se garantiza dentro de una partición."
+      }
+    },
+    "complete": {
+      "title": "¡Turno completado!",
+      "body": "Ya dominas keys, particiones y offsets. Sigue despachando: el Mundo 1 abre pronto."
+    },
     "customers": "Clientes",
-    "custom": "Otra key…",
+    "sendTo": "Enviar un pedido de {key}",
+    "custom": "Cualquier key…",
     "send": "Enviar",
-    "noKey": "Sin key",
+    "noKey": "sin key",
     "stats": "Registros por partición",
-    "insight": "Misma key → misma partición → mismo orden. Siempre."
+    "controls": {
+      "title": "Controles",
+      "customers": "enviar un cliente",
+      "noKey": "enviar sin key",
+      "music": "música on/off",
+      "sfx": "efectos on/off"
+    }
   },
   "stage": {
     "producer": "producer",
     "topic": "topic: {name}",
     "partition": "partición {n}",
-    "offset": "offset"
+    "next": "sig. {n}"
   }
 }

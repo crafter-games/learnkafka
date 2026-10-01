@@ -4,9 +4,9 @@
     "description": "A visual game that teaches Apache Kafka: route parcels, run partitions and keep the city's events flowing."
   },
   "landing": {
-    "kicker": "Event logistics hub · Shift 1",
+    "kicker": "Now hiring dispatchers",
     "title": "Kafka Express",
-    "tagline": "You're the new dispatcher. Route every event in the city — no losses, no duplicates, no jams.",
+    "tagline": "Run the city's event hub. Route every order onto the right belt — no losses, no duplicates, no jams — and learn real Apache Kafka along the way.",
     "start": "Start shift",
     "facts": {
       "visual": "See every record move",
@@ -15,26 +15,65 @@
     }
   },
   "hud": {
-    "mute": "Mute sound",
-    "unmute": "Unmute sound",
-    "language": "Español",
-    "back": "Back"
+    "musicOn": "Turn music on",
+    "musicOff": "Turn music off",
+    "sfxOn": "Turn sound effects on",
+    "sfxOff": "Turn sound effects off",
+    "language": "Cambiar a español"
   },
   "play": {
+    "level": "Shift 0 · Free dispatch",
     "title": "Dispatch desk",
-    "subtitle": "Topic “orders” · 3 partitions",
-    "hint": "Send an order. Watch which belt it lands on — then send the same customer again.",
+    "back": "Back to start",
+    "mission": "Mission",
+    "missionText": "The “orders” topic has 3 partitions — three belts. Send orders and find out where each one lands.",
+    "objectives": {
+      "send5": "Send 5 orders",
+      "sameKey": "Send the same customer twice",
+      "noKey": "Send an order with no key",
+      "allBelts": "Get a parcel onto every belt"
+    },
+    "progress": "Shift progress",
+    "insights": {
+      "send5": {
+        "title": "Offsets only go up",
+        "body": "Each belt stamps parcels 0, 1, 2… in arrival order. That number is the offset — its position in this partition's log."
+      },
+      "sameKey": {
+        "title": "Same key → same partition",
+        "body": "murmur2(key) % partitions always gives the same belt for the same key. That's how Kafka keeps one customer's orders in order."
+      },
+      "noKey": {
+        "title": "No key? Sticky partition",
+        "body": "Records without a key stick to one belt until a batch fills, then switch. Fast — but no ordering guarantee across them."
+      },
+      "allBelts": {
+        "title": "Partitions spread the load",
+        "body": "Different keys land on different belts, so work runs in parallel. Order is only guaranteed inside one partition."
+      }
+    },
+    "complete": {
+      "title": "Shift complete!",
+      "body": "You've got keys, partitions and offsets. Keep dispatching — World 1 opens soon."
+    },
     "customers": "Customers",
-    "custom": "Other key…",
+    "sendTo": "Send an order for {key}",
+    "custom": "Any key…",
     "send": "Send",
-    "noKey": "No key",
+    "noKey": "no key",
     "stats": "Records per partition",
-    "insight": "Same key → same partition → same order. Always."
+    "controls": {
+      "title": "Controls",
+      "customers": "send a customer",
+      "noKey": "send with no key",
+      "music": "music on/off",
+      "sfx": "sound effects on/off"
+    }
   },
   "stage": {
     "producer": "producer",
     "topic": "topic: {name}",
     "partition": "partition {n}",
-    "offset": "offset"
+    "next": "next {n}"
   }
 }

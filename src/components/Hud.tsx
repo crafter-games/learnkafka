@@ -1,41 +1,51 @@
 "use client";
 
-import { useEffect } from "react";
 import { useLocale, useTranslations } from "next-intl";
+import { MusicNotes, SpeakerHigh, SpeakerSlash, Translate } from "@phosphor-icons/react";
 import { Link, usePathname } from "@/i18n/navigation";
-import { audioBus } from "@/audio/audioBus";
 import { useSettings } from "@/store/settings";
+import { gameButtonClass } from "./ui/GameButton";
 
-export function Hud({ backHref }: { backHref?: string }) {
+/** Top-right controls: music, sound effects, language. Always visible (GDD → HUD). */
+export function Hud() {
   const t = useTranslations("hud");
   const locale = useLocale();
   const pathname = usePathname();
-  const { muted, toggleMuted } = useSettings();
-
-  useEffect(() => audioBus().setMuted(muted), [muted]);
-
-  const btn =
-    "rounded-full border border-white/10 bg-panel/80 px-3 py-1.5 text-sm text-text backdrop-blur transition hover:border-partition/60 hover:text-partition focus-visible:outline-2 focus-visible:outline-partition";
+  const { musicMuted, sfxMuted, toggleMusic, toggleSfx } = useSettings();
+  const other = locale === "en" ? "es" : "en";
 
   return (
-    <div className="pointer-events-auto flex items-center gap-2">
-      {backHref && (
-        <Link href={backHref} className={btn}>
-          ← {t("back")}
-        </Link>
-      )}
+    <div className="flex items-center gap-2">
       <button
         type="button"
-        className={btn}
-        onClick={toggleMuted}
-        aria-pressed={muted}
-        aria-label={muted ? t("unmute") : t("mute")}
-        title={`${muted ? t("unmute") : t("mute")} (M)`}
+        onClick={toggleMusic}
+        aria-pressed={!musicMuted}
+        aria-label={musicMuted ? t("musicOn") : t("musicOff")}
+        title={`${musicMuted ? t("musicOn") : t("musicOff")} (M)`}
+        className={`${gameButtonClass({ size: "icon" })} ${musicMuted ? "text-muted" : "text-consumer"}`}
       >
-        {muted ? "🔇" : "🔊"}
+        <MusicNotes weight={musicMuted ? "regular" : "fill"} />
+        {musicMuted && <span aria-hidden className="absolute h-0.5 w-7 rotate-45 rounded bg-current" />}
       </button>
-      <Link href={pathname} locale={locale === "en" ? "es" : "en"} className={btn} lang={locale === "en" ? "es" : "en"}>
-        {t("language")}
+      <button
+        type="button"
+        onClick={toggleSfx}
+        aria-pressed={!sfxMuted}
+        aria-label={sfxMuted ? t("sfxOn") : t("sfxOff")}
+        title={`${sfxMuted ? t("sfxOn") : t("sfxOff")} (Shift+M)`}
+        className={`${gameButtonClass({ size: "icon" })} ${sfxMuted ? "text-muted" : "text-partition"}`}
+      >
+        {sfxMuted ? <SpeakerSlash /> : <SpeakerHigh weight="fill" />}
+      </button>
+      <Link
+        href={pathname}
+        locale={other}
+        lang={other}
+        className={`${gameButtonClass({ size: "sm" })} uppercase`}
+        aria-label={t("language")}
+      >
+        <Translate size={18} />
+        {other}
       </Link>
     </div>
   );

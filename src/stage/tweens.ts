@@ -13,6 +13,7 @@ type Running = {
   elapsed: number;
   duration: number;
   ease: Ease;
+  onUpdate?: (p: number) => void;
   done: () => void;
 };
 
@@ -24,13 +25,18 @@ export class Tweens {
     ticker.add((t) => this.update(t.deltaMS));
   }
 
-  to(target: object, to: Props, duration: number, ease: Ease = easeOutCubic) {
+  to(target: object, to: Props, duration: number, ease: Ease = easeOutCubic, onUpdate?: (p: number) => void) {
     const obj = target as unknown as Props;
     const from: Props = {};
     for (const k of Object.keys(to)) from[k] = obj[k];
     return new Promise<void>((done) => {
-      this.running.push({ obj, from, to, elapsed: 0, duration, ease, done });
+      this.running.push({ obj, from, to, elapsed: 0, duration, ease, onUpdate, done });
     });
+  }
+
+  /** Drive a 0→1 progress value through a callback (arcs, custom paths). */
+  progress(duration: number, onUpdate: (p: number) => void, ease: Ease = easeInOutCubic) {
+    return this.to({ p: 0 }, { p: 1 }, duration, ease, onUpdate);
   }
 
   private update(dt: number) {
@@ -41,6 +47,7 @@ export class Tweens {
       const p = Math.min(1, tw.elapsed / tw.duration);
       const e = tw.ease(p);
       for (const k of Object.keys(tw.to)) tw.obj[k] = tw.from[k] + (tw.to[k] - tw.from[k]) * e;
+      tw.onUpdate?.(e);
       if (p < 1) still.push(tw);
       else tw.done();
     }

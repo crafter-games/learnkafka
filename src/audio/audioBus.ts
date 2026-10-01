@@ -1,12 +1,13 @@
 import { Howl, Howler } from "howler";
 import type { SimEvent } from "@/sim/events";
 
-// Every SFX key maps to a Kafka event (GDD → Audio). Music arrives in M4.
+// Every SFX key maps to a Kafka event (GDD → Audio). Music lives in ./music.ts.
 export const SFX = {
   produce: "/audio/sfx/produce.wav",
   stamp: "/audio/sfx/stamp.wav",
   hash: "/audio/sfx/hash.wav",
   click: "/audio/sfx/click.wav",
+  unlock: "/audio/sfx/unlock.wav",
 } as const;
 
 export type SfxKey = keyof typeof SFX;

@@ -52,6 +52,13 @@ const sfx = {
     const env = local >= 0 ? Math.exp(-local * 55) : 0;
     return env * osc(hz) * 0.3;
   }),
+  // objective complete: rising major arpeggio sparkle (A C# E A)
+  unlock: render(0.5, ({ t, osc }) => {
+    const notes = [880, 1108.7, 1318.5, 1760];
+    const i = Math.min(3, Math.floor(t / 0.08));
+    const local = t - i * 0.08;
+    return Math.exp(-local * 9) * osc(notes[i]) * 0.28 * (1 - t / 0.5);
+  }),
   // generic UI click
   click: render(0.05, ({ t, osc }) => Math.exp(-t * 120) * osc(1600) * 0.35),
 };

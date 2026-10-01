@@ -53,7 +53,7 @@ export function BeltCanvas({ topic, labels, onLanded }: Props) {
       stage = new BeltStage(
         app,
         topic,
-        { ui: cssVar("--font-ui", "system-ui"), mono: cssVar("--font-code", "monospace") },
+        { ui: cssVar("--font-display", "system-ui"), mono: cssVar("--font-code", "monospace") },
         latest.current.labels,
         (r) => latest.current.onLanded(r),
       );

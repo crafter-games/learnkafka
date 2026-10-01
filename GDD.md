@@ -40,7 +40,7 @@ Players come back for the **Morning Shift**, a daily 3–5 card spaced review of
 | Predict | click target; `1–9`, `Enter` confirms | tap |
 | Step / play / pause sim | `Space` (step), `P` (play/pause) | ▶ button |
 | Adjust dial (partitions, acks, linger…) | slider / `←→` | slider |
-| Mute music / all | `M` / `Shift+M` | 🔈 always visible in HUD |
+| Toggle music / sound effects | `M` / `Shift+M` | two HUD buttons, always visible |
 | Back / pause menu | `Esc` | ☰ |
 
 ## Mechanics
@@ -109,14 +109,15 @@ Players come back for the **Morning Shift**, a daily 3–5 card spaced review of
 - **Style**: flat vector drawn in code (Pixi Graphics + SVG UI), rounded shapes, 2 px strokes, isometric-free.
 - **Palette**: `#0B1020` bg · `#141B34` panels · `#FFB020` producers/parcels · `#22D3EE` partitions/belts · `#A78BFA` consumers · `#34D399` brokers/healthy · `#F43F5E` danger · `#E6EAF2` text.
 - **Readability**: each Kafka role always has the same colour and shape. Labels sit *on* the objects (offset on the parcel). Only the thing that changed animates. Text contrast is at least 4.5:1.
-- **Type**: Space Grotesk (UI), JetBrains Mono (offsets, configs, CLI).
+- **Type**: Fredoka (display, buttons, stage labels), Nunito (body), JetBrains Mono (offsets, configs, CLI).
+- **UI style**: dark "chunky game UI" — thick 2–3 px borders, 3D buttons with a 4–5 px bottom edge that sinks on press, panels with a top highlight and drop shadow, Phosphor SVG icons (no emoji). Tokens live in `src/app/globals.css`.
 - **Stage**: logical 1280×720, scaled to fit, letterboxed. The HUD is anchored to the safe area.
 - **HUD**: top-left level title + step dots · top-right mute, language, pause · bottom concept dock with dials.
 
 ## Audio
 
 - **Buses**: master / music / sfx / ui. Music **ducks −12 dB** during Brief, Predict and Recall check, and plays at full volume in menus, the sandbox and incidents.
-- **Music**: `music_calm` (lo-fi synth, ~90 BPM) for the map and levels; an `music_incident` layer is added on top when an incident starts (same key and tempo, crossfaded in 1 s). Generated with the Suno skill.
+- **Music**: generative and original (Tone.js, `src/audio/music.ts`), A-minor lo-fi at 84 BPM in vertical layers: **base** (pad + bass; menus) → **groove** (kick/hat; while playing) → **rush** (arpeggio; ≥4 sends in 3 s, held 6 s). Incidents will reuse the rush layer. It starts on the first gesture and ducks to 30% gain while an insight is on screen. It can be swapped for a recorded track (Suno/ElevenLabs) later without changing callers.
 - **SFX** (each one is a Kafka event): produce, append/stamp, fetch, commit, rebalance, broker down, leader elected, duplicate, lag warning, correct, wrong, unlock, UI click.
 
 ## Assets
@@ -137,8 +138,8 @@ Players come back for the **Morning Shift**, a daily 3–5 card spaced review of
 | sfx_lag_warn | rising pulse | jsfxr | todo |
 | sfx_correct / sfx_wrong | chime / soft buzz | kenney:interface-sounds | todo |
 | sfx_unlock | sparkle | kenney:interface-sounds | todo |
-| music_calm | calm loop, ~90 BPM | generate (Suno) | todo |
-| music_incident | tension layer, same key/tempo | generate (Suno) | todo |
+| music (all layers) | adaptive lo-fi | procedural (Tone.js) | done |
+| sfx_unlock | objective complete arpeggio | synthesized (`scripts/gen-sfx.mjs`) | done |
 
 ## Milestones
 
@@ -156,3 +157,4 @@ Players come back for the **Morning Shift**, a daily 3–5 card spaced review of
 
 - 2026-10-01: GDD created after research and a design interview (all recommendations accepted).
 - 2026-10-01: M1 done — dispatch desk (murmur2 keyed + sticky null-key partitioning, 3 belts, SFX, EN/ES), deployed to learnkafka.crafter.run. Camera fits content bounds instead of the full 1280×720 (better on phones).
+- 2026-10-01: UI polish pass (ui-ux-pro-max + game-ui-ux): chunky dark game UI, Fredoka/Nunito, Phosphor icons, mission card with 4 objectives and insights, arc flights, sparks, a log-end "next" marker per partition. Added adaptive generative music (audio-design) with separate music/SFX toggles.

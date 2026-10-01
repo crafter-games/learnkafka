@@ -1,18 +1,23 @@
 {
   "name": "m1-produce",
   "path": "/en/play",
-  "viewport": [1280, 800],
+  "viewport": [1440, 900],
   "steps": [
     { "wait": 1500 },
     { "screenshot": "empty-desk", "full": true },
     { "press": "1" }, { "wait": 250 },
     { "press": "2" }, { "wait": 250 },
-    { "press": "1" }, { "wait": 250 },
+    { "press": "1" }, { "wait": 900 },
+    { "screenshot": "insight-same-key", "full": true },
     { "press": "3" }, { "wait": 250 },
-    { "press": "0" }, { "wait": 1400 },
-    { "screenshot": "after-five", "full": true },
-    { "expect": "window.__TEST__.endOffsets().reduce((a,b)=>a+b,0) === 5" },
-    { "expect": "(() => { const ps = window.__TEST__.partitions(); const a = ps.flat().filter(r => r.key === 'alice'); return a.length === 2 && a[0].partition === a[1].partition && a[1].offset > a[0].offset; })()" },
-    { "eval": "window.__TEST__.endOffsets()" }
+    { "press": "0" }, { "wait": 250 },
+    { "press": "4" }, { "wait": 250 },
+    { "press": "5" }, { "wait": 1500 },
+    { "screenshot": "after-seven", "full": true },
+    { "expect": "window.__TEST__.endOffsets().reduce((a,b)=>a+b,0) === 7" },
+    { "expect": "(() => { const a = window.__TEST__.partitions().flat().filter(r => r.key === 'alice'); return a.length === 2 && a[0].partition === a[1].partition && a[1].offset > a[0].offset; })()" },
+    { "expect": "window.__TEST__.musicStarted() === true" },
+    { "wait": 6000 },
+    { "screenshot": "shift-complete", "full": true }
   ]
 }
