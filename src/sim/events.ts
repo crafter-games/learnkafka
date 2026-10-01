@@ -17,7 +17,7 @@ export type SimEvent =
   | { type: "produced"; topic: string; record: SimRecord; hashed: boolean }
   | { type: "appended"; topic: string; record: SimRecord }
   /** A consumer group read a record. Reading never removes it from the log. */
-  | { type: "fetched"; topic: string; group: string; record: SimRecord; position: number }
+  | { type: "fetched"; topic: string; group: string; record: SimRecord; position: number; member?: string }
   | { type: "partitionsAdded"; topic: string; total: number }
   /** Producer batching: records waiting for a batch to fill or linger.ms to expire (0 = sent). */
   | { type: "buffered"; topic: string; partition: number; count: number; batchSize: number }
@@ -27,7 +27,12 @@ export type SimEvent =
   | { type: "duplicateRejected"; topic: string; partition: number; key: string; seq: number }
   /** Replication: a broker went down / a replica became leader. */
   | { type: "brokerDown"; topic: string }
-  | { type: "leaderElected"; topic: string; lost: number };
+  | { type: "leaderElected"; topic: string; lost: number }
+  /** Consumer groups (World 4). */
+  | { type: "assignment"; group: string; topic: string; members: { id: string; partitions: number[]; color: string }[]; paused: number[] }
+  | { type: "committed"; group: string; topic: string; partition: number; offset: number }
+  | { type: "memberDown"; group: string; member: string }
+  | { type: "processed"; group: string; member: string; partition: number; offset: number; duplicate: boolean };
 
 type Listener = (event: SimEvent) => void;
 

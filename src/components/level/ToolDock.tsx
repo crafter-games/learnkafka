@@ -20,6 +20,8 @@ export type ToolHandlers = {
   setting: (field: Extract<Tool, { type: "setting" }>["field"]) => SettingValue | undefined;
   setSetting: (field: Extract<Tool, { type: "setting" }>["field"], value: SettingValue) => void;
   crash: () => void;
+  member: (action: "join" | "leave" | "crash") => void;
+  members: () => number;
   produce: (topic: string, key: string | null, value: string, headers: Headers, roundRobin?: boolean) => void;
   addPartition: (topic: string) => void;
   fetch: (group: string, topic: string, partition: number) => void;
@@ -189,6 +191,27 @@ function SettingTool({ tool, on }: { tool: Extract<Tool, { type: "setting" }>; o
   );
 }
 
+function MembersTool({ tool, on }: { tool: Extract<Tool, { type: "members" }>; on: ToolHandlers }) {
+  const t = useTranslations("level.tools");
+  const n = on.members();
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {tool.actions.map((a) => (
+        <button
+          key={a}
+          type="button"
+          disabled={(a === "join" && n >= tool.max) || (a !== "join" && n === 0)}
+          onClick={() => on.member(a)}
+          className={`${gameButtonClass({ variant: a === "join" ? "accent" : "secondary", size: "md" })} ${a === "crash" ? "border-danger/40 text-danger" : ""}`}
+        >
+          {a === "join" ? <Plus weight="bold" /> : a === "crash" ? <Lightning weight="fill" /> : null}
+          {t(`member.${a}`, { n })}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function CrashTool({ on }: { on: ToolHandlers }) {
   const t = useTranslations("level.tools");
   return (
@@ -274,6 +297,8 @@ export function ToolDock({ tools, consumers, partitions, on }: { tools: Tool[]; 
           <SettingTool key={i} tool={tool} on={on} />
         ) : tool.type === "crash" ? (
           <CrashTool key={i} on={on} />
+        ) : tool.type === "members" ? (
+          <MembersTool key={i} tool={tool} on={on} />
         ) : (
           <RouteTool key={i} tool={tool} on={on} />
         ),

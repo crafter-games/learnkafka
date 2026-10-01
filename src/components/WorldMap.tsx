@@ -13,7 +13,7 @@ import { Text } from "./level/parts";
 import { gameButtonClass } from "./ui/GameButton";
 import { Logo } from "./ui/Logo";
 
-const UPCOMING = [4, 5, 6] as const;
+const UPCOMING = [5, 6, 7] as const;
 const noop = () => () => {};
 
 export function WorldMap() {

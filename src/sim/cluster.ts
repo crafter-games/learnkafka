@@ -58,13 +58,18 @@ export class Cluster {
   }
 
   /** Read the next record for a group in one partition, or null when caught up. */
-  fetch(group: string, topic: string, partition: number): SimRecord | null {
+  fetch(group: string, topic: string, partition: number, member?: string): SimRecord | null {
     const positions = this.pos(group, topic);
     const record = this.topic(topic).partitions[partition][positions[partition]];
     if (!record) return null;
     positions[partition]++;
-    this.events.emit({ type: "fetched", topic, group, record, position: positions[partition] });
+    this.events.emit({ type: "fetched", topic, group, record, position: positions[partition], member });
     return record;
+  }
+
+  /** Move a group's position (e.g. back to the committed offset after a crash). */
+  seek(group: string, topic: string, partition: number, offset: number) {
+    this.pos(group, topic)[partition] = offset;
   }
 
   /** Records the group still has to read in a partition (log-end offset − position). */

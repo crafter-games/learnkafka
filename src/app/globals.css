@@ -176,6 +176,26 @@ button, a { touch-action: manipulation; }
 .stage-tag--topic.is-leader { background: var(--broker); border-color: #2c7a4a; }
 .stage-lane.is-down { background: #6b6584; box-shadow: 0 0.2em 0 #4a4560; }
 
+.stage-commit, .stage-dup { white-space: nowrap; line-height: 1; }
+.stage-commit {
+  font: 900 calc(16px * var(--stage-zoom, 1)) var(--font-display);
+  color: var(--producer-dark);
+  text-shadow: 0 1px 0 var(--paper), 0 -1px 0 var(--paper), 1px 0 0 var(--paper), -1px 0 0 var(--paper);
+}
+.stage-dup {
+  font: 900 calc(11px * var(--stage-zoom, 1)) var(--font-display);
+  color: #fff;
+  background: var(--danger);
+  border-radius: 999px;
+  padding: 0.25em 0.45em;
+  animation: pop 280ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.stage-tag--consumer.is-idle { opacity: 0.7; }
+.stage-lane.is-paused::after { content: " ⏸"; }
+.stage-lane.is-paused { background: #8a84b8; box-shadow: 0 0.2em 0 #5b5680; }
+
+[data-quiet] .stage-key, [data-quiet] .stage-cursor { display: none; }
+
 [data-compact] .stage-next,
 [data-compact] .stage-key,
 [data-compact] .stage-tag--partitioner,

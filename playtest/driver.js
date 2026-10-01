@@ -42,7 +42,7 @@
     }
     if (s.kind === "task") {
       // Settings first: pick the "right" option for each dial if it isn't selected yet
-      const want = ["acks=all", "idempotent=true", "codec=zstd", "batchSize=4", "lingerMs=1000"];
+      const want = ["acks=all", "idempotent=true", "codec=zstd", "batchSize=4", "lingerMs=1000", "maxPollRecords=5", "protocol=cooperative", "commit=after"];
       const setting = want.map((w) => document.querySelector(`[data-setting="${w}"]`)).find((b) => b && b.getAttribute("aria-checked") !== "true");
       if (setting) {
         setting.click();
@@ -57,12 +57,26 @@
         await sleep(2500);
         continue;
       }
+      // Consumer groups: crash one robot per task, then only hire
+      window.__crashed = window.__crashed || {};
+      const robotCrash = btn(/Crash a robot|Tumbar un robot/);
+      if (robotCrash && !window.__crashed[s.index]) {
+        await sleep(2500);
+        robotCrash.click();
+        window.__crashed[s.index] = true;
+        await sleep(1200);
+        continue;
+      }
       if (btn(/→ orders/)) {
         btn(/New order|Nuevo pedido/.test(document.body.innerText) ? /→ orders/ : /→ payments/).click();
         await sleep(450);
         continue;
       }
       const dock = [...document.querySelectorAll("footer button")].filter((b) => !b.disabled && b.type !== "submit" && !b.dataset.setting && !/Crash|Tumbar/.test(b.textContent));
+      if (!dock.length) {
+        await sleep(600);
+        continue;
+      }
       if (dock.length) dock[g % dock.length].click();
       await sleep(700);
       continue;

@@ -1,0 +1,23 @@
+{
+ "name": "m4-eager-during",
+ "path": "/es/level/4-3",
+ "viewport": [
+  1440,
+  900
+ ],
+ "steps": [
+  {
+   "wait": 3500
+  },
+  {
+   "eval": "[...document.querySelectorAll('button')].find(b=>/Siguiente/.test(b.textContent)).click()"
+  },
+  {
+   "wait": 2400
+  },
+  {
+   "screenshot": "eager-during",
+   "full": true
+  }
+ ]
+}

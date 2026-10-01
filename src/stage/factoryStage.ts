@@ -40,6 +40,8 @@ export type StageOptions = {
   consumers?: ConsumerSpec[];
   /** Topic names that are replicas of one partition (first = initial leader). */
   replicas?: string[];
+  /** World 4: one robot arm per consumer-group member, driven by assignment events. */
+  memberArms?: boolean;
   onLanded?: (record: SimRecord) => void;
 };
 
@@ -111,6 +113,8 @@ export class FactoryStage {
   private alertLabel!: HTMLElement;
   private alertObj!: CSS2DObject;
   private topicTags = new Map<string, HTMLElement>();
+  private members = new Map<string, { obj: THREE.Object3D; tag: HTMLElement; color: string; alive: boolean }>();
+  private commitMarks = new Map<string, CSS2DObject>();
   private leader: string | undefined;
   private down = new Set<string>();
   private frame = 0;
@@ -140,6 +144,8 @@ export class FactoryStage {
     this.labels2d = new CSS2DRenderer();
     Object.assign(this.labels2d.domElement.style, { position: "absolute", inset: "0", pointerEvents: "none" });
     host.appendChild(this.labels2d.domElement);
+    // Consumer-group levels are about robots and offsets, not keys: hide per-box key tags
+    host.toggleAttribute("data-quiet", !!options.memberArms);
 
     this.lights();
     this.resizeObs = new ResizeObserver(() => this.resize());
@@ -191,7 +197,7 @@ export class FactoryStage {
     const zMin = layout[0].z, zMax = layout[layout.length - 1].z;
     const armSpan = ((this.options.consumers?.length ?? 0) - 1) * 0.75 + 0.8;
     const halfZ = Math.ceil(Math.max(-zMin, zMax, armSpan) + 1.7);
-    this.floor = { minX: -6, maxX: this.slots + (this.options.consumers?.length ? 4 : 2), halfZ };
+    this.floor = { minX: -6, maxX: this.slots + (this.options.memberArms ? 5 : this.options.consumers?.length ? 4 : 2), halfZ };
     const { minX, maxX } = this.floor;
 
     // Floor: a diorama platform of checkerboard tiles; outside it only shadows show (page colour)
@@ -332,7 +338,7 @@ export class FactoryStage {
         this.arms.set(spec.group, { spec, obj: arm });
         for (const lane of this.lanes) if (lane.active) this.ensureCursor(lane, spec);
       }
-    } else {
+    } else if (!this.options.memberArms) {
       for (const z of [zMin - 0.9, zMax + 0.9]) {
         const arm = await model("robot-arm-a");
         arm.position.set(this.slots + 1.2, 0, z);
@@ -488,7 +494,11 @@ export class FactoryStage {
     if (this.disposed) return;
     await this.ready;
     if (event.type === "appended") await this.onAppended(event.record);
-    if (event.type === "fetched") this.onFetched(event.group, event.record, event.position);
+    if (event.type === "fetched") this.onFetched(event.group, event.record, event.position, event.member);
+    if (event.type === "assignment") await this.onAssignment(event.topic, event.members, event.paused);
+    if (event.type === "committed") this.onCommitted(event.topic, event.partition, event.offset);
+    if (event.type === "memberDown") this.onMemberDown(event.member);
+    if (event.type === "processed" && event.duplicate) this.onDuplicate(event.partition, event.offset);
     if (event.type === "partitionsAdded") this.revealLanes(event.topic, event.total);
     if (event.type === "buffered") this.onBuffered(event.partition, event.count, event.batchSize);
     if (event.type === "ackLost" && this.text.ackLost) this.flashAlert(this.text.ackLost);
@@ -499,6 +509,67 @@ export class FactoryStage {
       this.refreshTags();
       this.pulse(event.topic, 0, COLORS.broker);
     }
+  }
+
+  /** Members walk to the conveyors they own; idle members wait off to the side. Paused lanes show ⏸. */
+  private async onAssignment(topic: string, members: { id: string; partitions: number[]; color: string }[], paused: number[]) {
+    let idle = 0;
+    for (const mem of members) {
+      let m = this.members.get(mem.id);
+      if (!m) {
+        const obj = await model("robot-arm-a");
+        const tl = label("stage-tag stage-tag--consumer", mem.id);
+        tl.inner.style.background = mem.color;
+        const tagObj = css2d(tl);
+        tagObj.position.set(0, 1.9, 0);
+        obj.add(tagObj);
+        obj.position.set(this.slots + 3.2, 3, 0);
+        this.scene.add(obj);
+        m = { obj, tag: tl.inner, color: mem.color, alive: true };
+        this.members.set(mem.id, m);
+      }
+      const lanes = mem.partitions.map((p) => this.lane(topic, p)).filter(Boolean);
+      const z = lanes.length ? lanes.reduce((a, l) => a + l.z, 0) / lanes.length : this.floor.halfZ - 1.2 - idle++ * 1.3;
+      const x = lanes.length ? this.slots + 1.5 : this.slots + 3.0;
+      m.tag.textContent = lanes.length ? `${mem.id} · ${mem.partitions.map((p) => `P${p}`).join(" ")}` : `${mem.id} · zzz`;
+      m.tag.classList.toggle("is-idle", !lanes.length);
+      void this.tweens.to(m.obj.position, { x, y: 0, z }, 520, easeOutBack);
+    }
+    for (const lane of this.lanes) if (lane.topic === topic) lane.title.classList.toggle("is-paused", paused.includes(lane.partition));
+  }
+
+  private onMemberDown(id: string) {
+    const m = this.members.get(id);
+    if (!m) return;
+    this.members.delete(id);
+    this.puff(m.obj.position.clone().setY(0.8), COLORS.danger);
+    void this.tweens.to(m.obj.rotation, { z: 1.4 }, 420).then(() => this.tweens.to(m.obj.position, { y: -2 }, 500)).then(() => this.scene.remove(m.obj));
+  }
+
+  /** The committed offset: a bookmark ⚑ above the conveyor (where a restart resumes). */
+  private onCommitted(topic: string, partition: number, offset: number) {
+    const lane = this.lane(topic, partition);
+    if (!lane) return;
+    const id = `${topic}/${partition}`;
+    let mark = this.commitMarks.get(id);
+    if (!mark) {
+      mark = css2d(label("stage-commit", "⚑"));
+      mark.center.set(0.5, 1);
+      mark.position.set(this.slotX(lane, offset), 0.2, lane.z - 0.55);
+      this.scene.add(mark);
+      this.commitMarks.set(id, mark);
+    }
+    void this.tweens.to(mark.position, { x: this.slotX(lane, Math.max(offset, lane.viewStart)) - 0.5 }, 260, easeOutBack);
+  }
+
+  private onDuplicate(partition: number, offset: number) {
+    const lane = this.lanes.find((l) => l.partition === partition);
+    const box = lane?.boxes.get(offset);
+    if (!box) return;
+    const dup = css2d(label("stage-dup", "×2"));
+    dup.position.set(0.3, 0.75, 0);
+    box.add(dup);
+    this.puff(box.position.clone().setY(0.8), COLORS.danger);
   }
 
   private onBuffered(partition: number, count: number, size: number) {
@@ -635,8 +706,9 @@ export class FactoryStage {
   }
 
   /** A robot arm scans a box: beam + badge. The box stays on the belt — reading never deletes. */
-  private onFetched(group: string, record: SimRecord, position: number) {
-    const arm = this.arms.get(group);
+  private onFetched(group: string, record: SimRecord, position: number, member?: string) {
+    const m = member ? this.members.get(member) : undefined;
+    const arm = m ? { spec: { group, label: group, color: m.color }, obj: m.obj } : this.arms.get(group);
     const lane = this.lane(record.topic, record.partition);
     const box = lane.boxes.get(record.offset);
     if (!arm) return;
@@ -663,12 +735,13 @@ export class FactoryStage {
       const read = label("stage-read", "✓");
       read.inner.style.background = arm.spec.color;
       const readObj = css2d(read);
-      const idx = [...this.arms.keys()].indexOf(group);
+      const idx = Math.max(0, [...this.arms.keys()].indexOf(group));
       readObj.position.set(-0.24 + idx * 0.22, 0.62, -0.22);
       box.add(readObj);
     }
 
-    const cursor = this.ensureCursor(lane, arm.spec);
+    // Member arms share one group position flag (ink), per lane
+    const cursor = this.ensureCursor(lane, m ? { group, label: group, color: "#2b2840" } : arm.spec);
     cursor.position = position;
     void this.tweens.to(cursor.obj.position, { x: this.slotX(lane, Math.max(position, lane.viewStart)) }, 300, easeOutBack);
   }

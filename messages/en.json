@@ -131,13 +131,27 @@
         "lingerMs": "linger.ms",
         "codec": "compression",
         "idempotent": "idempotence",
-        "acks": "acks"
+        "acks": "acks",
+        "protocol": "protocol",
+        "commit": "commit",
+        "maxPollRecords": "max.poll.records"
+      },
+      "member": {
+        "join": "Hire a robot ({n})",
+        "leave": "A robot leaves",
+        "crash": "Crash a robot"
       }
     },
     "delivered": "Delivered (in completion order)",
     "nothingYet": "Nothing delivered yet…",
     "keyMoves": "Where each customer goes ({n} partitions)",
-    "receipts": "Receipts (what the producer was told)"
+    "receipts": "Receipts (what the producer was told)",
+    "group": {
+      "processed": "processed",
+      "duplicates": "twice",
+      "lost": "lost",
+      "lag": "lag"
+    }
   },
   "map": {
     "home": "Home",
@@ -158,7 +172,10 @@
       "title": "Producers",
       "body": "How records leave the producer: batching and linger, compression, the acks that decide when a write counts as saved, and the idempotence that stops retries from creating duplicates."
     },
-    "w4": "Consumers & Groups",
+    "w4": {
+      "title": "Consumers & Groups",
+      "body": "The reading side: the poll loop, consumer groups that share partitions, rebalances (and how to avoid stopping the line), committed offsets, and the lag that tells you if you’re keeping up."
+    },
     "soon": "Coming soon",
     "sandbox": {
       "title": "Free dispatch",
@@ -171,7 +188,8 @@
       "due": "{n, plural, one {# concept} other {# concepts}} ready for review",
       "clear": "All caught up. Practice anytime."
     },
-    "w6": "Delivery guarantees"
+    "w6": "Delivery guarantees",
+    "w7": "Retention & Compaction"
   },
   "levels": {
     "1-1": {
@@ -970,6 +988,322 @@
           "retries": "The retries count",
           "linger": "linger.ms",
           "why": "<code>retries</code> defaults to MAX_INT. <code>delivery.timeout.ms</code> (120 s) is the real bound."
+        }
+      }
+    },
+    "4-1": {
+      "title": "Pull, don’t push",
+      "summary": "Consumers poll: they ask for records, in batches of up to max.poll.records.",
+      "brief": {
+        "title": "Robots pull, the hub doesn’t push",
+        "body": "Kafka never pushes records at a consumer. The consumer runs a <b>poll loop</b>: “anything after my position?”, then the broker hands back a batch, the consumer processes it and asks again. How many records come back per poll is capped by <code>max.poll.records</code>.",
+        "breaks": "a real poll also waits up to <code>fetch.max.wait.ms</code> (500 ms) for data, and <code>max.poll.records</code> defaults to 500. Here everything is small and slow so you can see it."
+      },
+      "map": {
+        "robot": "A shipping robot",
+        "consumer": "A consumer",
+        "ask": "“Anything new after offset N?”",
+        "poll": "poll()",
+        "crate": "How many parcels per trip",
+        "max": "max.poll.records"
+      },
+      "keep": {
+        "title": "Keep up with the orders",
+        "body": "Orders arrive 3 per second. Every poll costs a round trip, so fetching one record at a time wastes most of the robot’s day. Tune <code>max.poll.records</code> until the backlog stays at <b>4 or less for 5 seconds</b>.",
+        "meter": "Lag (records waiting)",
+        "success": "Bigger polls, less overhead per record: the robot keeps up."
+      },
+      "next": {
+        "q": "A consumer’s position is 2, max.poll.records = 3, and the log holds offsets 0–9. What’s the last offset the next poll returns?",
+        "why": "It reads from its position: offsets 2, 3 and 4. The last one is 4, and the position moves to 5."
+      },
+      "slow": {
+        "q": "Processing one poll’s records takes longer than max.poll.interval.ms (5 minutes). What happens?",
+        "kicked": "The consumer is kicked out of the group and its partitions are rebalanced",
+        "waits": "Kafka waits patiently",
+        "skips": "The records are skipped",
+        "why": "Missing <code>max.poll.interval.ms</code> makes the group think the consumer is stuck: it leaves the group and its partitions move. Expect a rebalance and re-processing."
+      },
+      "check": {
+        "who": {
+          "q": "How do records get from the broker to a consumer?",
+          "pull": "The consumer pulls them with poll()",
+          "push": "The broker pushes them",
+          "zk": "ZooKeeper delivers them",
+          "why": "Kafka is pull-based, so each consumer reads at its own pace."
+        },
+        "default": {
+          "q": "What’s the default max.poll.records?",
+          "500": "500",
+          "1": "1",
+          "50": "50",
+          "all": "No limit",
+          "why": "Up to 500 records per poll() by default."
+        },
+        "last": {
+          "q": "Position {pos}, max.poll.records = {max}, the log ends at offset {end}. What’s the last offset the next poll returns?",
+          "why": "Offsets {pos} to {pos} + {max} − 1 = {last}."
+        },
+        "slow": {
+          "q": "A consumer takes longer than max.poll.interval.ms between polls. Then…",
+          "kicked": "It’s removed from the group and a rebalance happens",
+          "nothing": "Nothing happens",
+          "faster": "Kafka speeds it up",
+          "why": "The group assumes it’s stuck, so its partitions go to other members."
+        }
+      }
+    },
+    "4-2": {
+      "title": "Crews",
+      "summary": "Consumer groups share partitions: one owner per partition, extras sit idle.",
+      "brief": {
+        "title": "One crew, many robots",
+        "body": "Robots that do the same job form a <b>consumer group</b>. The group splits the partitions among its members: <b>each partition goes to exactly one member</b>, so work runs in parallel and no record is handled twice within the group."
+      },
+      "map": {
+        "crew": "A crew with one job",
+        "group": "A consumer group (group.id)",
+        "robot": "A robot in the crew",
+        "member": "A member (consumer instance)",
+        "assigned": "The conveyors in front of it",
+        "assignment": "Its assigned partitions"
+      },
+      "hire": {
+        "title": "Give every conveyor its own robot",
+        "body": "One robot is running all 4 conveyors. Hire robots until each conveyor has its own. Watch how the partitions get reassigned every time someone joins.",
+        "success": "Four robots, four conveyors: maximum parallelism for this topic."
+      },
+      "fifth": {
+        "q": "4 conveyors, 4 robots. You hire a 5th robot. How many conveyors does it get?",
+        "why": "None. A partition can’t be split within a group, so the 5th member sits idle (zzz) until someone leaves."
+      },
+      "cooks": {
+        "title": "Too many cooks",
+        "body": "Members beyond the partition count are idle, but not useless: they’re hot standbys that take over the moment another member dies. And a <b>different</b> group (say, Billing) gets all partitions again, independently.",
+        "breaks": "in a warehouse, extra workers can share a conveyor. In Kafka, one partition has one reader per group, full stop."
+      },
+      "range": {
+        "q": "The range assignor, 3 robots, 4 partitions. How many partitions does the first robot (C1) get?",
+        "why": "4 ÷ 3 = 1 each, with 1 left over that goes to the first member: C1 gets 2 (P0, P1), C2 gets P2, C3 gets P3."
+      },
+      "check": {
+        "idle": {
+          "q": "A topic has {n} partitions and a group has {c} consumers. How many consumers sit idle?",
+          "why": "{c} − {n} = {idle}. Each partition has exactly one owner per group."
+        },
+        "rule": {
+          "q": "Within one consumer group, a partition is read by…",
+          "one": "Exactly one member at a time",
+          "many": "All members",
+          "all": "Every group member in turn",
+          "why": "That’s how a group spreads the work without double-processing."
+        },
+        "twoGroups": {
+          "q": "Groups “billing” and “shipping” both read the topic orders. Then…",
+          "both": "Each group gets every record",
+          "split": "They split the records between them",
+          "first": "Only the first group gets them",
+          "why": "Groups are independent: each one reads the whole topic with its own positions."
+        },
+        "range": {
+          "q": "The range assignor, {c} consumers, {n} partitions. How many partitions does the first consumer get?",
+          "why": "⌈{n} ÷ {c}⌉ = {first}: the first members take the remainder."
+        }
+      }
+    },
+    "4-3": {
+      "title": "New hire",
+      "summary": "Rebalances: eager stops the line, cooperative and KIP-848 keep it moving.",
+      "brief": {
+        "title": "Rebalance!",
+        "body": "When a member joins, leaves or crashes, the group <b>rebalances</b>: partitions move to new owners. While a partition is moving, nobody reads it, so the conveyor pauses (⏸). How much stops depends on the protocol."
+      },
+      "map": {
+        "shift": "A shift change",
+        "rebalance": "A rebalance",
+        "paused": "Conveyors on hold ⏸",
+        "pausedK": "Partitions not being consumed"
+      },
+      "eager": {
+        "title": "The classic way",
+        "body": "Two robots share 4 conveyors with the classic <b>eager</b> protocol. A third robot is about to join…"
+      },
+      "paused": {
+        "q": "How many conveyors stopped during that eager rebalance?",
+        "all": "All of them",
+        "one": "Just the one that moved",
+        "none": "None",
+        "why": "Eager rebalancing revokes <b>every</b> partition from <b>every</b> member, then hands them out again: stop the world, even for partitions that end up with the same owner."
+      },
+      "protocols": {
+        "title": "Three ways to change shifts",
+        "body": "<b>Eager</b> (classic): everyone stops. <b>Cooperative</b> (classic + CooperativeStickyAssignor): only partitions that actually move pause. <b>KIP-848</b> (<code>group.protocol=consumer</code>): the broker computes the assignment and members reconcile incrementally, with no global barrier. Brokers support KIP-848 by default since 4.0, but consumers still default to <code>classic</code>."
+      },
+      "smooth": {
+        "title": "Hire without stopping the line",
+        "body": "Orders keep coming. Choose a protocol, then hire (or let go of) a robot while pausing <b>at most 1 conveyor</b>.",
+        "meter": "Conveyors paused in the last rebalance",
+        "success": "Smooth! Only the partition that changed hands paused, and everything else kept flowing."
+      },
+      "default": {
+        "q": "Kafka 4.x consumers use which group protocol by default?",
+        "classic": "classic (opt into KIP-848 with group.protocol=consumer)",
+        "consumer": "consumer (KIP-848)",
+        "eager": "eager only",
+        "why": "The broker side of KIP-848 is on by default since 4.0, but clients must opt in, and 4.3 warns that classic will be deprecated."
+      },
+      "check": {
+        "eager": {
+          "q": "In an eager rebalance, which partitions pause?",
+          "all": "All of them, for every member",
+          "moved": "Only the ones that move",
+          "none": "None",
+          "why": "Eager revokes everything first, then reassigns."
+        },
+        "coop": {
+          "q": "With cooperative rebalancing, which partitions pause?",
+          "moved": "Only the ones changing owner",
+          "all": "All of them",
+          "none": "None",
+          "why": "Incremental: members keep what they own and only moving partitions are revoked."
+        },
+        "kip": {
+          "q": "Which consumer setting opts into the KIP-848 protocol?",
+          "consumer": "group.protocol=consumer",
+          "classic": "group.protocol=classic",
+          "zk": "zookeeper.connect",
+          "why": "<code>group.protocol=consumer</code> enables the new broker-driven protocol."
+        },
+        "static": {
+          "q": "Which setting lets a consumer restart quickly without triggering a rebalance?",
+          "instance": "group.instance.id (static membership)",
+          "session": "A bigger max.poll.records",
+          "partitions": "More partitions",
+          "why": "Static membership keeps the member’s identity, so a quick restart within the session timeout doesn’t reshuffle partitions."
+        }
+      }
+    },
+    "4-4": {
+      "title": "Bookmarks",
+      "summary": "Committed offsets: where a restart resumes, and how commit timing decides duplicates or loss.",
+      "brief": {
+        "title": "Bookmarks",
+        "body": "A consumer’s <b>position</b> (▲) lives in its memory. If it crashes, that memory is gone. So consumers <b>commit</b> their progress to Kafka (the internal <code>__consumer_offsets</code> topic): a bookmark ⚑ with the offset of the next record to read. A replacement resumes from the bookmark."
+      },
+      "map": {
+        "flag": "The ▲ flag",
+        "position": "Position (in memory)",
+        "bookmark": "The ⚑ bookmark",
+        "committed": "Committed offset",
+        "ledger": "The hub’s bookmark ledger",
+        "offsets": "__consumer_offsets"
+      },
+      "crash1": {
+        "title": "Crash test: auto-commit",
+        "body": "Billing auto-commits every 6 seconds. Let it work a little, <b>crash the robot</b>, then <b>hire a new one</b> and watch the counters.",
+        "success": "Duplicates! The new robot resumed from the last bookmark, behind records the old one had already processed."
+      },
+      "before": {
+        "q": "What if Billing committed BEFORE processing each poll instead?",
+        "lost": "Records could be lost (committed but never processed)",
+        "dups": "Even more duplicates",
+        "nothing": "Nothing would change",
+        "why": "Committing first moves the bookmark past records that are still in the robot’s hands. A crash then skips them forever: <b>at-most-once</b>."
+      },
+      "safe": {
+        "title": "Commit after processing",
+        "body": "Pick the commit strategy that never loses a record, then crash and replace the robot again. Keep orders flowing until at least 6 are processed.",
+        "success": "Nothing lost. At worst a record gets processed twice, so make your processing idempotent. That’s <b>at-least-once</b>, the usual default."
+      },
+      "audit": {
+        "q": "A brand-new group “audit” starts with the default auto.offset.reset. Does it see the orders already on the conveyors?",
+        "no": "No: it starts at the end (latest) and only sees new orders",
+        "yes": "Yes, it reads everything from offset 0",
+        "half": "Only half of them",
+        "why": "<code>auto.offset.reset</code> applies only when a group has no committed offset, and its default is <code>latest</code>. Set it to <code>earliest</code> to replay history."
+      },
+      "check": {
+        "meaning": {
+          "q": "A committed offset of 42 means…",
+          "next": "The next record to read after a restart is offset 42",
+          "last": "Offset 42 was the last record processed",
+          "count": "42 records were deleted",
+          "why": "Committed offsets point at the next record to consume."
+        },
+        "before": {
+          "q": "Committing before processing gives you…",
+          "atmost": "At-most-once (possible loss)",
+          "atleast": "At-least-once (possible duplicates)",
+          "exactly": "Exactly-once",
+          "why": "A crash after the commit but before processing skips those records."
+        },
+        "reset": {
+          "q": "What’s the default auto.offset.reset?",
+          "latest": "latest",
+          "earliest": "earliest",
+          "none": "none",
+          "why": "New groups start at the end unless you choose <code>earliest</code>."
+        },
+        "where": {
+          "q": "Where does Kafka store committed offsets?",
+          "offsets": "In the internal __consumer_offsets topic",
+          "zk": "In ZooKeeper",
+          "consumer": "Only in the consumer’s memory",
+          "why": "Commits are records in <code>__consumer_offsets</code>. (ZooKeeper is gone since Kafka 4.0.)"
+        }
+      }
+    },
+    "4-5": {
+      "title": "Boss: Rush hour",
+      "summary": "Lag: watch it, read it and bring it down with the right lever.",
+      "brief": {
+        "title": "Rush hour",
+        "body": "<b>Consumer lag</b> = log-end offset − committed offset: how far behind the group is. It’s the number every Kafka team watches. Orders are about to surge.",
+        "breaks": "lag is a count of records, not time. 100 records of lag can be milliseconds or hours depending on how fast you process."
+      },
+      "map": {
+        "waiting": "Parcels not yet handled",
+        "lag": "Consumer lag"
+      },
+      "rush": {
+        "title": "Survive rush hour",
+        "body": "6 orders per second. Each robot handles about 2 per second. Hire robots and add conveyors until the lag stays at <b>6 or less for 8 seconds</b>. Think about which lever runs out first.",
+        "meter": "Lag",
+        "success": "You beat rush hour! You needed more robots, and to have more robots working you needed more partitions."
+      },
+      "fourth": {
+        "q": "3 partitions, 3 robots, and the lag still grows. Hiring a 4th robot alone…",
+        "idle": "Does nothing: it sits idle without a partition",
+        "faster": "Speeds everything up by a third",
+        "split": "Splits a partition with another robot",
+        "why": "Parallelism is capped by the partition count. You need a 4th partition (keyed topics: mind the key moves!) or faster processing."
+      },
+      "levers": {
+        "title": "The levers",
+        "body": "To bring lag down: <b>more consumers</b> (up to the partition count), <b>more partitions</b> (plan ahead, because keys move), <b>faster processing</b> per record, or <b>bigger polls</b> to cut overhead. In the real world you read lag with this command:"
+      },
+      "check": {
+        "lag": {
+          "q": "A partition’s log ends at offset {end} and the group’s committed offset is {committed}. What’s the lag?",
+          "why": "{end} − {committed} = {lag} records."
+        },
+        "idle": {
+          "q": "There are as many consumers as partitions. Adding one more consumer to the group…",
+          "nothing": "Adds nothing: it’s idle",
+          "doubles": "Doubles throughput",
+          "halves": "Halves the lag",
+          "why": "No partition is left for it."
+        },
+        "means": {
+          "q": "Growing consumer lag means…",
+          "behind": "Consumers are falling behind the producers",
+          "slow": "The broker is slow",
+          "lost": "Records are being lost",
+          "why": "Records arrive faster than the group commits progress. Nothing is lost, it’s just waiting."
+        },
+        "size": {
+          "q": "Producers write {rate} records/s. One consumer handles {per} records/s. Minimum partitions (and consumers) to keep up?",
+          "why": "{rate} ÷ {per} = {k}, so {k} partitions with {k} consumers."
         }
       }
     }

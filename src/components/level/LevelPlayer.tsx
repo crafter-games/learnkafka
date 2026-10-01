@@ -16,7 +16,7 @@ import { AudioDirector } from "../AudioDirector";
 import { FactoryCanvas } from "../FactoryCanvas";
 import { Hud } from "../Hud";
 import { gameButtonClass } from "../ui/GameButton";
-import { AnswerInput, Breaks, CodeBlock, Deliveries, Feedback, KeyMoves, MappingCard, Meter, Receipts, Text } from "./parts";
+import { AnswerInput, Breaks, CodeBlock, Deliveries, Feedback, GroupStats, KeyMoves, MappingCard, Meter, Receipts, Text } from "./parts";
 import { RecallQuiz } from "./RecallQuiz";
 import { ToolDock, type ToolHandlers } from "./ToolDock";
 
@@ -139,6 +139,7 @@ export function LevelPlayer({ level }: { level: Level }) {
       setTick((n) => n + 1);
     },
     setting: (field) => {
+      if (field === "protocol" || field === "commit" || field === "maxPollRecords") return ctx.group?.opts[field];
       if (field === "acks") return ctx.replicas?.acks;
       if (field === "idempotent") return ctx.retrying?.idempotent;
       return ctx.batching?.config[field];
@@ -148,6 +149,12 @@ export function LevelPlayer({ level }: { level: Level }) {
       session.setSetting(field, value);
       setTick((n) => n + 1);
     },
+    member: (action) => {
+      audioBus().play(action === "crash" ? "wrong" : "click", { bus: "ui", rate: action === "join" ? 1.2 : 0.8 });
+      session.member(action);
+      setTick((n) => n + 1);
+    },
+    members: () => ctx.group?.alive.length ?? 0,
     crash: () => {
       audioBus().play("wrong", { bus: "ui", rate: 0.7 });
       ctx.replicas?.crashLeader();
@@ -303,6 +310,9 @@ export function LevelPlayer({ level }: { level: Level }) {
 
                 {step.kind === "task" && step.meters?.(ctx).map((m, i) => <Meter key={i} {...m} />)}
                 {(step.kind === "task" || step.kind === "watch") && step.receipts && ctx.replicas && <Receipts receipts={ctx.replicas.receipts} />}
+                {(step.kind === "task" || step.kind === "watch") && step.groupStats && ctx.group && (
+                  <GroupStats processed={ctx.group.processedCount} duplicates={ctx.group.duplicates} lost={ctx.group.lost()} lag={ctx.group.lag()} />
+                )}
                 {step.kind === "task" && step.keyMoves && <KeyMoves cluster={cluster} topic={step.keyMoves.topic} keys={step.keyMoves.keys} />}
                 {((step.kind === "task" || step.kind === "watch") && step.deliveries) && <Deliveries items={ctx.delivered} />}
 
@@ -338,7 +348,7 @@ export function LevelPlayer({ level }: { level: Level }) {
 
           {/* Factory floor */}
           <section className="relative order-1 min-h-[34vh] min-w-0 flex-1 lg:order-2" data-testid="stage">
-            <FactoryCanvas cluster={cluster} labels={labels} slots={level.slots} consumers={level.consumers} replicas={level.producer?.replicas?.names} onLanded={onLanded} />
+            <FactoryCanvas cluster={cluster} labels={labels} slots={level.slots} consumers={level.consumers} replicas={level.producer?.replicas?.names} memberArms={!!level.group} onLanded={onLanded} />
           </section>
         </div>
       )}

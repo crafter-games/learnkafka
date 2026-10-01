@@ -131,13 +131,27 @@
         "lingerMs": "linger.ms",
         "codec": "compresión",
         "idempotent": "idempotencia",
-        "acks": "acks"
+        "acks": "acks",
+        "protocol": "protocolo",
+        "commit": "commit",
+        "maxPollRecords": "max.poll.records"
+      },
+      "member": {
+        "join": "Contratar robot ({n})",
+        "leave": "Se va un robot",
+        "crash": "Tumbar un robot"
       }
     },
     "delivered": "Entregados (en orden de llegada)",
     "nothingYet": "Aún no se entrega nada…",
     "keyMoves": "A dónde va cada cliente ({n} particiones)",
-    "receipts": "Recibos (lo que le dijeron al producer)"
+    "receipts": "Recibos (lo que le dijeron al producer)",
+    "group": {
+      "processed": "procesados",
+      "duplicates": "dos veces",
+      "lost": "perdidos",
+      "lag": "lag"
+    }
   },
   "map": {
     "home": "Inicio",
@@ -158,7 +172,10 @@
       "title": "Producers",
       "body": "Cómo salen los registros del producer: batching y linger, compresión, los acks que deciden cuándo una escritura cuenta como guardada, y la idempotencia que evita que los reintentos creen duplicados."
     },
-    "w4": "Consumers y grupos",
+    "w4": {
+      "title": "Consumers y grupos",
+      "body": "El lado de lectura: el poll loop, los consumer groups que se reparten particiones, los rebalances (y cómo no detener la línea), los offsets confirmados y el lag que te dice si vas al día."
+    },
     "soon": "Próximamente",
     "sandbox": {
       "title": "Despacho libre",
@@ -171,7 +188,8 @@
       "due": "{n, plural, one {# concepto listo} other {# conceptos listos}} para repasar",
       "clear": "Todo al día. Practica cuando quieras."
     },
-    "w6": "Garantías de entrega"
+    "w6": "Garantías de entrega",
+    "w7": "Retención y compactación"
   },
   "levels": {
     "1-1": {
@@ -970,6 +988,322 @@
           "retries": "La cantidad de retries",
           "linger": "linger.ms",
           "why": "<code>retries</code> vale MAX_INT por defecto. El límite real es <code>delivery.timeout.ms</code> (120 s)."
+        }
+      }
+    },
+    "4-1": {
+      "title": "Jalar, no empujar",
+      "summary": "Los consumers hacen poll: piden registros, en lotes de hasta max.poll.records.",
+      "brief": {
+        "title": "Los robots jalan, el centro no empuja",
+        "body": "Kafka nunca le empuja registros a un consumer. El consumer corre un <b>poll loop</b>: pregunta “¿hay algo después de mi posición?”, el broker le devuelve un lote, el consumer lo procesa y vuelve a preguntar. Cuántos registros vuelven por poll lo limita <code>max.poll.records</code>.",
+        "breaks": "un poll real además espera hasta <code>fetch.max.wait.ms</code> (500 ms) por datos, y <code>max.poll.records</code> vale 500 por defecto. Aquí todo es chico y lento para que se vea."
+      },
+      "map": {
+        "robot": "Un robot de despacho",
+        "consumer": "Un consumer",
+        "ask": "“¿Algo nuevo después del offset N?”",
+        "poll": "poll()",
+        "crate": "Cuántos paquetes por viaje",
+        "max": "max.poll.records"
+      },
+      "keep": {
+        "title": "Sigue el ritmo de los pedidos",
+        "body": "Llegan 3 pedidos por segundo. Cada poll cuesta un viaje de ida y vuelta, así que traer un registro a la vez desperdicia casi todo el día del robot. Ajusta <code>max.poll.records</code> hasta que el backlog se mantenga en <b>4 o menos durante 5 segundos</b>.",
+        "meter": "Lag (registros esperando)",
+        "success": "Polls más grandes, menos sobrecarga por registro: el robot sigue el ritmo."
+      },
+      "next": {
+        "q": "La posición de un consumer es 2, max.poll.records = 3 y el log tiene offsets 0–9. ¿Cuál es el último offset que devuelve el siguiente poll?",
+        "why": "Lee desde su posición: offsets 2, 3 y 4. El último es 4 y la posición pasa a 5."
+      },
+      "slow": {
+        "q": "Procesar los registros de un poll tarda más que max.poll.interval.ms (5 minutos). ¿Qué pasa?",
+        "kicked": "El consumer sale del grupo y sus particiones se rebalancean",
+        "waits": "Kafka espera paciente",
+        "skips": "Los registros se saltan",
+        "why": "Pasarse de <code>max.poll.interval.ms</code> hace que el grupo crea que el consumer está trabado: sale del grupo y sus particiones se mueven. Espera un rebalance y reprocesamiento."
+      },
+      "check": {
+        "who": {
+          "q": "¿Cómo llegan los registros del broker a un consumer?",
+          "pull": "El consumer los jala con poll()",
+          "push": "El broker los empuja",
+          "zk": "Los entrega ZooKeeper",
+          "why": "Kafka funciona por pull, así cada consumer lee a su propio ritmo."
+        },
+        "default": {
+          "q": "¿Cuál es el max.poll.records por defecto?",
+          "500": "500",
+          "1": "1",
+          "50": "50",
+          "all": "Sin límite",
+          "why": "Hasta 500 registros por poll() por defecto."
+        },
+        "last": {
+          "q": "Posición {pos}, max.poll.records = {max}, el log termina en el offset {end}. ¿Cuál es el último offset que devuelve el siguiente poll?",
+          "why": "Offsets de {pos} a {pos} + {max} − 1 = {last}."
+        },
+        "slow": {
+          "q": "Un consumer tarda más que max.poll.interval.ms entre polls. Entonces…",
+          "kicked": "Sale del grupo y ocurre un rebalance",
+          "nothing": "No pasa nada",
+          "faster": "Kafka lo acelera",
+          "why": "El grupo asume que está trabado, así que sus particiones pasan a otros miembros."
+        }
+      }
+    },
+    "4-2": {
+      "title": "Cuadrillas",
+      "summary": "Los consumer groups se reparten las particiones: un dueño por partición, los extra se quedan sin trabajo.",
+      "brief": {
+        "title": "Una cuadrilla, muchos robots",
+        "body": "Los robots que hacen el mismo trabajo forman un <b>consumer group</b>. El grupo reparte las particiones entre sus miembros: <b>cada partición va a exactamente un miembro</b>, así el trabajo corre en paralelo y ningún registro se procesa dos veces dentro del grupo."
+      },
+      "map": {
+        "crew": "Una cuadrilla con un trabajo",
+        "group": "Un consumer group (group.id)",
+        "robot": "Un robot de la cuadrilla",
+        "member": "Un miembro (instancia de consumer)",
+        "assigned": "Las cintas frente a él",
+        "assignment": "Sus particiones asignadas"
+      },
+      "hire": {
+        "title": "Un robot para cada cinta",
+        "body": "Un robot atiende las 4 cintas. Contrata robots hasta que cada cinta tenga el suyo. Mira cómo se reasignan las particiones cada vez que alguien entra.",
+        "success": "Cuatro robots, cuatro cintas: el máximo paralelismo para este topic."
+      },
+      "fifth": {
+        "q": "4 cintas, 4 robots. Contratas un 5.º robot. ¿Cuántas cintas recibe?",
+        "why": "Ninguna. Una partición no se divide dentro de un grupo, así que el 5.º miembro se queda sin trabajo (zzz) hasta que alguien salga."
+      },
+      "cooks": {
+        "title": "Demasiados cocineros",
+        "body": "Los miembros que exceden la cantidad de particiones están ociosos, pero no son inútiles: son suplentes listos para tomar el lugar de un miembro que se caiga. Y un grupo <b>distinto</b> (por ejemplo, Billing) recibe todas las particiones otra vez, por su cuenta.",
+        "breaks": "en un almacén, varios trabajadores pueden compartir una cinta. En Kafka, una partición tiene un solo lector por grupo, y punto."
+      },
+      "range": {
+        "q": "Range assignor, 3 robots, 4 particiones. ¿Cuántas particiones recibe el primer robot (C1)?",
+        "why": "4 ÷ 3 = 1 cada uno, y sobra 1 que va al primer miembro: C1 recibe 2 (P0, P1), C2 recibe P2 y C3 recibe P3."
+      },
+      "check": {
+        "idle": {
+          "q": "Un topic tiene {n} particiones y un grupo tiene {c} consumers. ¿Cuántos consumers quedan sin trabajo?",
+          "why": "{c} − {n} = {idle}. Cada partición tiene exactamente un dueño por grupo."
+        },
+        "rule": {
+          "q": "Dentro de un consumer group, una partición la lee…",
+          "one": "Exactamente un miembro a la vez",
+          "many": "Todos los miembros",
+          "all": "Cada miembro por turnos",
+          "why": "Así un grupo reparte el trabajo sin procesar dos veces."
+        },
+        "twoGroups": {
+          "q": "Los grupos “billing” y “shipping” leen el topic orders. Entonces…",
+          "both": "Cada grupo recibe todos los registros",
+          "split": "Se reparten los registros entre ellos",
+          "first": "Solo los recibe el primer grupo",
+          "why": "Los grupos son independientes: cada uno lee todo el topic con sus propias posiciones."
+        },
+        "range": {
+          "q": "Range assignor, {c} consumers, {n} particiones. ¿Cuántas particiones recibe el primer consumer?",
+          "why": "⌈{n} ÷ {c}⌉ = {first}: los primeros miembros se llevan el resto."
+        }
+      }
+    },
+    "4-3": {
+      "title": "Nuevo ingreso",
+      "summary": "Rebalances: eager detiene la línea; cooperative y KIP-848 la mantienen andando.",
+      "brief": {
+        "title": "¡Rebalance!",
+        "body": "Cuando un miembro entra, sale o se cae, el grupo hace un <b>rebalance</b>: las particiones pasan a nuevos dueños. Mientras una partición se mueve nadie la lee, así que la cinta se pausa (⏸). Cuánto se detiene depende del protocolo."
+      },
+      "map": {
+        "shift": "Un cambio de turno",
+        "rebalance": "Un rebalance",
+        "paused": "Cintas en espera ⏸",
+        "pausedK": "Particiones que nadie consume"
+      },
+      "eager": {
+        "title": "A la antigua",
+        "body": "Dos robots se reparten 4 cintas con el protocolo clásico <b>eager</b>. Un tercer robot está por entrar…"
+      },
+      "paused": {
+        "q": "¿Cuántas cintas se detuvieron en ese rebalance eager?",
+        "all": "Todas",
+        "one": "Solo la que se movió",
+        "none": "Ninguna",
+        "why": "El rebalance eager le quita <b>todas</b> las particiones a <b>todos</b> los miembros y luego las vuelve a repartir: se detiene todo, incluso las particiones que terminan con el mismo dueño."
+      },
+      "protocols": {
+        "title": "Tres formas de cambiar de turno",
+        "body": "<b>Eager</b> (classic): todos se detienen. <b>Cooperative</b> (classic + CooperativeStickyAssignor): solo se pausan las particiones que de verdad se mueven. <b>KIP-848</b> (<code>group.protocol=consumer</code>): el broker calcula la asignación y los miembros se ajustan de forma incremental, sin barrera global. Los brokers soportan KIP-848 por defecto desde 4.0, pero los consumers siguen usando <code>classic</code> por defecto."
+      },
+      "smooth": {
+        "title": "Contrata sin detener la línea",
+        "body": "Los pedidos siguen llegando. Elige un protocolo y contrata (o despide) un robot pausando <b>como máximo 1 cinta</b>.",
+        "meter": "Cintas pausadas en el último rebalance",
+        "success": "¡Suave! Solo se pausó la partición que cambió de dueño y todo lo demás siguió fluyendo."
+      },
+      "default": {
+        "q": "¿Qué protocolo de grupo usan por defecto los consumers de Kafka 4.x?",
+        "classic": "classic (KIP-848 se activa con group.protocol=consumer)",
+        "consumer": "consumer (KIP-848)",
+        "eager": "Solo eager",
+        "why": "El lado broker de KIP-848 está activo por defecto desde 4.0, pero los clientes deben activarlo, y 4.3 avisa que classic será deprecado."
+      },
+      "check": {
+        "eager": {
+          "q": "En un rebalance eager, ¿qué particiones se pausan?",
+          "all": "Todas, en todos los miembros",
+          "moved": "Solo las que se mueven",
+          "none": "Ninguna",
+          "why": "Eager primero revoca todo y luego reasigna."
+        },
+        "coop": {
+          "q": "Con rebalance cooperative, ¿qué particiones se pausan?",
+          "moved": "Solo las que cambian de dueño",
+          "all": "Todas",
+          "none": "Ninguna",
+          "why": "Incremental: los miembros conservan lo suyo y solo se revocan las particiones que se mueven."
+        },
+        "kip": {
+          "q": "¿Qué ajuste del consumer activa el protocolo KIP-848?",
+          "consumer": "group.protocol=consumer",
+          "classic": "group.protocol=classic",
+          "zk": "zookeeper.connect",
+          "why": "<code>group.protocol=consumer</code> activa el nuevo protocolo dirigido por el broker."
+        },
+        "static": {
+          "q": "¿Qué ajuste permite que un consumer reinicie rápido sin provocar un rebalance?",
+          "instance": "group.instance.id (membresía estática)",
+          "session": "Un max.poll.records más grande",
+          "partitions": "Más particiones",
+          "why": "La membresía estática conserva la identidad del miembro, así un reinicio rápido dentro del session timeout no reparte de nuevo las particiones."
+        }
+      }
+    },
+    "4-4": {
+      "title": "Marcapáginas",
+      "summary": "Offsets confirmados: dónde retoma un reinicio, y cómo el momento del commit decide entre duplicados o pérdidas.",
+      "brief": {
+        "title": "Marcapáginas",
+        "body": "La <b>posición</b> de un consumer (▲) vive en su memoria. Si se cae, esa memoria se pierde. Por eso los consumers hacen <b>commit</b> de su avance en Kafka (el topic interno <code>__consumer_offsets</code>): un marcapáginas ⚑ con el offset del siguiente registro a leer. Un reemplazo retoma desde el marcapáginas."
+      },
+      "map": {
+        "flag": "La banderita ▲",
+        "position": "Posición (en memoria)",
+        "bookmark": "El marcapáginas ⚑",
+        "committed": "Offset confirmado (commit)",
+        "ledger": "El libro de marcapáginas del centro",
+        "offsets": "__consumer_offsets"
+      },
+      "crash1": {
+        "title": "Prueba de choque: auto-commit",
+        "body": "Billing hace auto-commit cada 6 segundos. Déjalo trabajar un poco, <b>tumba al robot</b>, luego <b>contrata uno nuevo</b> y mira los contadores.",
+        "success": "¡Duplicados! El robot nuevo retomó desde el último marcapáginas, antes de registros que el anterior ya había procesado."
+      },
+      "before": {
+        "q": "¿Y si Billing hiciera commit ANTES de procesar cada poll?",
+        "lost": "Se podrían perder registros (confirmados pero nunca procesados)",
+        "dups": "Aún más duplicados",
+        "nothing": "No cambiaría nada",
+        "why": "Confirmar primero adelanta el marcapáginas más allá de registros que el robot todavía tiene en las manos. Una caída los salta para siempre: <b>at-most-once</b>."
+      },
+      "safe": {
+        "title": "Commit después de procesar",
+        "body": "Elige la estrategia de commit que nunca pierde un registro, y vuelve a tumbar y reemplazar al robot. Mantén los pedidos fluyendo hasta procesar al menos 6.",
+        "success": "Nada perdido. En el peor caso un registro se procesa dos veces, así que haz tu procesamiento idempotente. Eso es <b>at-least-once</b>, lo habitual."
+      },
+      "audit": {
+        "q": "Un grupo nuevo “audit” arranca con el auto.offset.reset por defecto. ¿Ve los pedidos que ya están en las cintas?",
+        "no": "No: empieza al final (latest) y solo ve pedidos nuevos",
+        "yes": "Sí, lee todo desde el offset 0",
+        "half": "Solo la mitad",
+        "why": "<code>auto.offset.reset</code> solo aplica cuando un grupo no tiene offset confirmado, y su valor por defecto es <code>latest</code>. Usa <code>earliest</code> para releer la historia."
+      },
+      "check": {
+        "meaning": {
+          "q": "Un offset confirmado de 42 significa…",
+          "next": "Tras un reinicio, el siguiente registro a leer es el offset 42",
+          "last": "El offset 42 fue el último procesado",
+          "count": "Se borraron 42 registros",
+          "why": "Los offsets confirmados apuntan al siguiente registro a consumir."
+        },
+        "before": {
+          "q": "Hacer commit antes de procesar te da…",
+          "atmost": "At-most-once (posible pérdida)",
+          "atleast": "At-least-once (posibles duplicados)",
+          "exactly": "Exactly-once",
+          "why": "Una caída después del commit pero antes de procesar salta esos registros."
+        },
+        "reset": {
+          "q": "¿Cuál es el auto.offset.reset por defecto?",
+          "latest": "latest",
+          "earliest": "earliest",
+          "none": "none",
+          "why": "Los grupos nuevos empiezan al final salvo que elijas <code>earliest</code>."
+        },
+        "where": {
+          "q": "¿Dónde guarda Kafka los offsets confirmados?",
+          "offsets": "En el topic interno __consumer_offsets",
+          "zk": "En ZooKeeper",
+          "consumer": "Solo en la memoria del consumer",
+          "why": "Los commits son registros en <code>__consumer_offsets</code>. (ZooKeeper ya no existe desde Kafka 4.0.)"
+        }
+      }
+    },
+    "4-5": {
+      "title": "Jefe: Hora punta",
+      "summary": "Lag: obsérvalo, interprétalo y bájalo con la palanca correcta.",
+      "brief": {
+        "title": "Hora punta",
+        "body": "<b>Consumer lag</b> = log-end offset − offset confirmado: cuánto va atrasado el grupo. Es el número que vigila todo equipo de Kafka. Los pedidos están por dispararse.",
+        "breaks": "el lag es una cantidad de registros, no tiempo. 100 registros de lag pueden ser milisegundos u horas según qué tan rápido proceses."
+      },
+      "map": {
+        "waiting": "Paquetes aún sin atender",
+        "lag": "Consumer lag"
+      },
+      "rush": {
+        "title": "Sobrevive a la hora punta",
+        "body": "6 pedidos por segundo. Cada robot atiende unos 2 por segundo. Contrata robots y agrega cintas hasta que el lag se mantenga en <b>6 o menos durante 8 segundos</b>. Piensa qué palanca se agota primero.",
+        "meter": "Lag",
+        "success": "¡Venciste la hora punta! Necesitabas más robots, y para que más robots trabajen necesitabas más particiones."
+      },
+      "fourth": {
+        "q": "3 particiones, 3 robots, y el lag sigue creciendo. Contratar un 4.º robot por sí solo…",
+        "idle": "No hace nada: queda sin trabajo, sin partición",
+        "faster": "Acelera todo un tercio",
+        "split": "Divide una partición con otro robot",
+        "why": "El paralelismo lo limita la cantidad de particiones. Necesitas una 4.ª partición (en topics con keys, ¡ojo con las keys que se mueven!) o procesar más rápido."
+      },
+      "levers": {
+        "title": "Las palancas",
+        "body": "Para bajar el lag: <b>más consumers</b> (hasta la cantidad de particiones), <b>más particiones</b> (planifica, porque las keys se mueven), <b>procesar más rápido</b> cada registro, o <b>polls más grandes</b> para reducir la sobrecarga. En el mundo real lees el lag con este comando:"
+      },
+      "check": {
+        "lag": {
+          "q": "El log de una partición termina en el offset {end} y el offset confirmado del grupo es {committed}. ¿Cuál es el lag?",
+          "why": "{end} − {committed} = {lag} registros."
+        },
+        "idle": {
+          "q": "Hay tantos consumers como particiones. Agregar un consumer más al grupo…",
+          "nothing": "No suma nada: queda ocioso",
+          "doubles": "Duplica el throughput",
+          "halves": "Reduce el lag a la mitad",
+          "why": "No queda ninguna partición para él."
+        },
+        "means": {
+          "q": "Un consumer lag que crece significa…",
+          "behind": "Los consumers se están quedando atrás de los producers",
+          "slow": "El broker está lento",
+          "lost": "Se están perdiendo registros",
+          "why": "Los registros llegan más rápido de lo que el grupo confirma avance. No se pierde nada, solo espera."
+        },
+        "size": {
+          "q": "Los producers escriben {rate} registros/s. Un consumer procesa {per} registros/s. ¿Mínimo de particiones (y consumers) para seguir el ritmo?",
+          "why": "{rate} ÷ {per} = {k}, así que {k} particiones con {k} consumers."
         }
       }
     }

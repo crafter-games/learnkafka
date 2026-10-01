@@ -1,10 +1,11 @@
 import { Cluster } from "@/sim/cluster";
 import { BatchingProducer, RetryingProducer } from "@/sim/producer";
 import { ReplicaSet } from "@/sim/replication";
+import { DEFAULT_GROUP, GroupSim } from "@/sim/group";
 import type { Headers, SimRecord } from "@/sim/events";
 import { seeded, type Level, type LevelCtx, type SimRecordLike, type TaskStats } from "./types";
 
-const ZERO: TaskStats = { produced: 0, nullKeys: 0, routedOk: 0, routedWrong: 0, calm: 0, partitionsAdded: 0, lostAcked: 0, dups: 0, rejected: 0 };
+const ZERO: TaskStats = { produced: 0, nullKeys: 0, routedOk: 0, routedWrong: 0, calm: 0, partitionsAdded: 0, lostAcked: 0, dups: 0, rejected: 0, processed: 0, groupDups: 0, groupLost: 0, members: 0, crashes: 0 };
 const AUTO_KEYS = ["alice", "bob", "carol", "dave", "erin", "frank", "grace", "heidi", "ivan", "judy", "mallory", "niaj", "olivia", "peggy", "rupert", "sybil", "trent", "victor", "walter"];
 
 export const newSeed = () => Math.floor(Math.random() * 0xffffff);
@@ -29,9 +30,13 @@ export class LevelSession {
     const retrying = pc?.retrying ? new RetryingProducer(this.cluster, pc.retrying.idempotent, pc.retrying.ackLoss, rng) : undefined;
     const replicas = pc?.replicas ? new ReplicaSet(this.cluster, pc.replicas.names, pc.replicas.acks) : undefined;
     replicas?.start();
+    const gc = level.group;
+    const group = gc ? new GroupSim(this.cluster, gc.name, gc.topic, { ...DEFAULT_GROUP, ...gc.options }) : undefined;
+    for (let i = 0; i < (gc?.members ?? 0); i++) group?.join();
     this.cleanup = () => {
       batching?.stop();
       replicas?.stop();
+      group?.stop();
     };
     this.ctx = {
       cluster: this.cluster,
@@ -41,6 +46,7 @@ export class LevelSession {
       batching,
       retrying,
       replicas,
+      group,
       wait: (ms) => new Promise((r) => setTimeout(r, ms)),
       produce: (topic, key, value = `order-${this.stats.produced + 1}`, partition) => {
         const r = this.produce(topic, key, value, {}, false, partition);
@@ -102,6 +108,15 @@ export class LevelSession {
   addPartition(topic: string) {
     this.cluster.addPartitions(topic, 1);
     this.stats.partitionsAdded++;
+    if (this.ctx.group?.topic === topic) this.ctx.group.grow();
+  }
+
+  member(action: "join" | "leave" | "crash") {
+    const g = this.ctx.group;
+    if (!g) return;
+    if (action === "join") g.join();
+    else if (action === "leave") g.leave();
+    else g.crash();
   }
 
   route(ok: boolean, topic: string, key: string, value: string) {
@@ -125,6 +140,11 @@ export class LevelSession {
     this.stats.lostAcked = this.ctx.replicas?.lostAcked ?? 0;
     this.stats.dups = this.ctx.retrying?.duplicates ?? 0;
     this.stats.rejected = this.ctx.retrying?.rejected ?? 0;
+    this.stats.processed = this.ctx.group?.processedCount ?? 0;
+    this.stats.groupDups = this.ctx.group?.duplicates ?? 0;
+    this.stats.groupLost = this.ctx.group?.lost() ?? 0;
+    this.stats.members = this.ctx.group?.alive.length ?? 0;
+    this.stats.crashes = this.ctx.group?.members.filter((m) => !m.alive).length ?? 0;
     this.stepStart = { ...this.stats };
   }
 
@@ -142,8 +162,10 @@ export class LevelSession {
 
   /** Tool settings land on the World 3 machinery (kept out of React so the lint stays happy). */
   setSetting(field: string, value: string | number | boolean) {
-    const { batching, retrying, replicas } = this.ctx;
-    if (field === "acks" && replicas) replicas.acks = value as typeof replicas.acks;
+    const { batching, retrying, replicas, group } = this.ctx;
+    if (group && (field === "protocol" || field === "commit")) (group.opts as Record<string, unknown>)[field] = value;
+    else if (group && field === "maxPollRecords") group.opts.maxPollRecords = Number(value);
+    else if (field === "acks" && replicas) replicas.acks = value as typeof replicas.acks;
     else if (field === "idempotent" && retrying) retrying.idempotent = Boolean(value);
     else if (batching && (field === "lingerMs" || field === "batchSize")) batching.config[field] = Number(value);
     else if (batching && field === "codec") batching.config.codec = value as typeof batching.config.codec;

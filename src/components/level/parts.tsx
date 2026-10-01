@@ -288,6 +288,24 @@ export function Receipts({ receipts }: { receipts: { n: number; key: string; sta
   );
 }
 
+export function GroupStats({ processed, duplicates, lost, lag }: { processed: number; duplicates: number; lost: number; lag: number }) {
+  const t = useTranslations("level.group");
+  const cell = (label: string, value: number, tone: string) => (
+    <div className="rounded-xl bg-paper-2 px-3 py-2 text-center">
+      <div className={`font-mono text-2xl font-extrabold ${tone}`}>{value}</div>
+      <div className="text-xs font-semibold text-ink-2">{label}</div>
+    </div>
+  );
+  return (
+    <div className="mt-4 grid grid-cols-4 gap-2">
+      {cell(t("processed"), processed, "text-ink")}
+      {cell(t("duplicates"), duplicates, duplicates ? "text-danger" : "text-ink")}
+      {cell(t("lost"), lost, lost ? "text-danger" : "text-ink")}
+      {cell(t("lag"), lag, "text-partition")}
+    </div>
+  );
+}
+
 export function Feedback({ correct, explain }: { correct: boolean; explain: Msg }) {
   const t = useTranslations("level");
   return (
