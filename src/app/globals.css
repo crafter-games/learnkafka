@@ -285,19 +285,19 @@ button, a { touch-action: manipulation; }
 .animate-shake { animation: shake 0.42s ease-in-out; }
 @media (prefers-reduced-motion: reduce) { .animate-shake { animation: none; } }
 
-/* Page backdrop: warm light from the top-left, cool glows, and a slowly drifting dot grid
-   (the 3D canvases are transparent, so the factory floats on top of it) */
-.bg-scene {
-  background-color: var(--ground);
-  background-image:
-    radial-gradient(rgba(43, 40, 64, 0.1) 1.3px, transparent 1.6px),
-    radial-gradient(70vmax 45vmax at 8% -12%, rgba(255, 205, 150, 0.6), transparent 62%),
-    radial-gradient(55vmax 40vmax at 104% 4%, rgba(91, 95, 199, 0.22), transparent 60%),
-    radial-gradient(60vmax 45vmax at 96% 112%, rgba(47, 181, 163, 0.26), transparent 62%),
-    radial-gradient(50vmax 35vmax at -6% 100%, rgba(240, 138, 36, 0.14), transparent 60%),
-    linear-gradient(180deg, #e7e3f6 0%, #dad4ee 55%, #cfc8e7 100%);
-  background-size: 26px 26px, auto, auto, auto, auto, auto;
-  animation: scene-drift 60s linear infinite;
+/* Base colour under the themed <Backdrop /> (sky, distant factories, smoke, parcels) */
+.bg-scene { background: linear-gradient(180deg, #f3dccb 0%, #ddd5ef 50%, #cbc3e6 100%); }
+
+.backdrop .cloud { animation: cloud-drift linear infinite; will-change: transform; }
+@keyframes cloud-drift { from { transform: translateX(-40vw); } to { transform: translateX(115vw); } }
+.backdrop .puff { transform-box: fill-box; transform-origin: center; filter: blur(3px); animation: puff 7.2s ease-out infinite; }
+@keyframes puff {
+  0% { transform: translate(0, 0) scale(0.4); opacity: 0; }
+  12% { opacity: 1; }
+  100% { transform: translate(34px, -110px) scale(3.4); opacity: 0; }
 }
-@keyframes scene-drift { to { background-position: 26px 52px, 0 0, 0 0, 0 0, 0 0, 0 0; } }
-@media (prefers-reduced-motion: reduce) { .bg-scene { animation: none; } }
+.backdrop .parcel { left: 0; animation: parcel-ride 42s linear infinite; will-change: transform; }
+@keyframes parcel-ride { from { transform: translateX(-6vw); } to { transform: translateX(106vw); } }
+.backdrop .blink { animation: blink 4s steps(1) infinite; }
+@keyframes blink { 0%, 70% { opacity: 1; } 71%, 100% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) { .backdrop *, .backdrop .puff { animation: none !important; } }

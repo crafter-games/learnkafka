@@ -16,6 +16,7 @@ import { Text } from "./level/parts";
 import { gameButtonClass } from "./ui/GameButton";
 import { Logo } from "./ui/Logo";
 import { UnlockCode } from "./UnlockCode";
+import { Backdrop } from "./ui/Backdrop";
 
 const UPCOMING = [9] as const;
 const noop = () => () => {};
@@ -127,7 +128,7 @@ export function WorldMap() {
 
   return (
     <main
-      className="relative h-dvh overflow-hidden bg-scene"
+      className="relative h-dvh overflow-hidden isolate bg-scene"
       onTouchStart={(e) => (touchX.current = e.touches[0].clientX)}
       onTouchEnd={(e) => {
         if (touchX.current === null) return;
@@ -136,6 +137,7 @@ export function WorldMap() {
         touchX.current = null;
       }}
     >
+      <Backdrop />
       <AudioDirector intensity={1} />
       {/* The map opens from a closed iris (pairs with the landing's wipe) */}
       <div aria-hidden className="iris-open pointer-events-none fixed inset-0 z-50 bg-ink" />

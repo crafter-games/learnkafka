@@ -21,6 +21,7 @@ import { DialogueBox, Rich, usePages, type Page } from "./dialogue";
 import { RecallQuiz } from "./RecallQuiz";
 import { useInsets } from "../useInsets";
 import { ToolDock, type ToolHandlers } from "./ToolDock";
+import { Backdrop } from "../ui/Backdrop";
 
 type Phase = "steps" | "check" | "result";
 
@@ -396,7 +397,8 @@ export function LevelPlayer({ level, onRestart }: { level: Level; onRestart: () 
   const upNext = nextLevel(level.id);
 
   return (
-    <main className="relative h-dvh overflow-hidden bg-scene">
+    <main className="relative h-dvh overflow-hidden isolate bg-scene">
+      <Backdrop />
       <AudioDirector intensity={phase === "steps" && step.kind === "task" ? 2 : phase === "result" ? 1 : 0} />
 
       {/* The factory fills the screen; UI floats on top and the camera frames the free area */}

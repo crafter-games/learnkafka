@@ -13,6 +13,7 @@ import { FactoryCanvas } from "./FactoryCanvas";
 import { Hud } from "./Hud";
 import { gameButtonClass } from "./ui/GameButton";
 import { Keycap } from "./ui/Keycap";
+import { Backdrop } from "./ui/Backdrop";
 
 const ATTRACT_KEYS = ["alice", "bob", "carol", "alice", "dave", "erin", "bob", null, "carol", "alice", "frank", "dave"];
 const ATTRACT_MS = 900;
@@ -76,7 +77,8 @@ export function Landing() {
   );
 
   return (
-    <main className="relative min-h-dvh overflow-hidden bg-scene">
+    <main className="relative min-h-dvh overflow-hidden isolate bg-scene">
+      <Backdrop />
       <AudioDirector intensity={1} />
 
       {/* The live factory is the backdrop; framed in the lower part so the title reads above it */}

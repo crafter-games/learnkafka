@@ -1,0 +1,1 @@
+{"name":"m11-bg","path":"/es","viewport":[1440,900],"steps":[{"wait":4000},{"screenshot":"landing"},{"eval":"location.href='/es/world'"},{"wait":4500},{"screenshot":"map"},{"eval":"location.href='/es/level/3-1'"},{"wait":4500},{"screenshot":"level"},{"eval":"location.href='/es/review'"},{"wait":3000},{"screenshot":"review"}]}

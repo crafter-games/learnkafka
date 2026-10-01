@@ -15,6 +15,7 @@ import { FactoryCanvas } from "./FactoryCanvas";
 import { Hud } from "./Hud";
 import { gameButtonClass } from "./ui/GameButton";
 import { Keycap } from "./ui/Keycap";
+import { Backdrop } from "./ui/Backdrop";
 
 const CUSTOMERS = ["alice", "bob", "carol", "dave", "erin"];
 const PARTITIONS = 3;
@@ -140,7 +141,8 @@ export function DispatchDesk() {
   const maxCount = Math.max(4, ...counts);
 
   return (
-    <main className="relative flex h-dvh flex-col overflow-hidden bg-scene">
+    <main className="relative flex h-dvh flex-col overflow-hidden isolate bg-scene">
+      <Backdrop />
       <AudioDirector intensity={intensity} />
 
       {/* HUD */}
