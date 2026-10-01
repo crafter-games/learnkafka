@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { motion } from "motion/react";
-import { ArrowRight, CaretDown } from "@phosphor-icons/react";
+import { ArrowRight, CaretDown, Check, X } from "@phosphor-icons/react";
 import { audioBus } from "@/audio/audioBus";
 import type { Msg } from "@/levels/types";
 import { gameButtonClass } from "../ui/GameButton";
@@ -101,7 +101,10 @@ export function DialogueBox({
   onAdvance,
   advanceLabel,
   onLastPage,
+  tone,
 }: {
+  /** Colours the box after an answer: good = green, bad = red. */
+  tone?: "good" | "bad";
   speaker: string;
   kicker: string;
   pages: Page[];
@@ -187,9 +190,17 @@ export function DialogueBox({
           if ((e.target as HTMLElement).closest("button, input, a, form")) return;
           step();
         }}
-        className="card relative cursor-pointer select-none px-5 pb-4 pt-9 sm:px-8 sm:pb-5 sm:pt-14"
+        className={`card relative cursor-pointer select-none px-5 pb-4 pt-9 sm:px-8 sm:pb-5 sm:pt-14 ${tone === "bad" ? "outline-4 outline-danger" : tone === "good" ? "outline-4 outline-broker" : ""}`}
       >
-        {heading && <p className="mb-1 font-display text-base font-extrabold text-partition-dark sm:text-lg">{heading}</p>}
+        {heading &&
+          (tone ? (
+            <p className={`mb-2 inline-flex items-center gap-2 rounded-xl px-3 py-1.5 font-display text-base font-extrabold text-white sm:text-lg ${tone === "bad" ? "bg-danger" : "bg-broker"}`}>
+              {tone === "bad" ? <X weight="bold" /> : <Check weight="bold" />}
+              {heading}
+            </p>
+          ) : (
+            <p className="mb-1 font-display text-base font-extrabold text-partition-dark sm:text-lg">{heading}</p>
+          ))}
         <motion.div key={page} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.15 }} className="min-h-[3.2em] text-[1.25rem] leading-snug text-ink sm:text-[1.5rem] xl:text-[1.75rem]">
           {current?.kind === "text" ? <Rich markup={current.markup} visible={typed} /> : current?.node}
         </motion.div>

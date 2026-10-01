@@ -140,7 +140,7 @@ export function DispatchDesk() {
   const maxCount = Math.max(4, ...counts);
 
   return (
-    <main className="relative flex h-dvh flex-col overflow-hidden bg-ground">
+    <main className="relative flex h-dvh flex-col overflow-hidden bg-scene">
       <AudioDirector intensity={intensity} />
 
       {/* HUD */}

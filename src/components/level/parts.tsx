@@ -102,12 +102,12 @@ export function AnswerInput({
 
   const state = (value: string | number) => {
     if (picked === undefined) return "";
-    if (String(value) === String(answer)) return "ring-2 ring-broker bg-broker/10 border-broker disabled:opacity-100";
-    if (String(value) === String(picked)) return "ring-2 ring-danger bg-danger/10 border-danger disabled:opacity-100";
+    if (String(value) === String(answer)) return "!border-broker !bg-broker !text-white !shadow-[0_3px_0_#2b7146] disabled:opacity-100 [&_span]:!text-white/80";
+    if (String(value) === String(picked)) return "!border-danger !bg-danger !text-white !shadow-[0_3px_0_#a8292d] disabled:opacity-100 animate-shake [&_span]:!text-white/80";
     return "opacity-50";
   };
   const mark = (value: string | number) =>
-    picked === undefined ? null : String(value) === String(answer) ? <Check weight="bold" className="ml-auto shrink-0 text-broker" /> : String(value) === String(picked) ? <X weight="bold" className="ml-auto shrink-0 text-danger" /> : null;
+    picked === undefined ? null : String(value) === String(answer) ? <Check weight="bold" className="ml-auto shrink-0" /> : String(value) === String(picked) ? <X weight="bold" className="ml-auto shrink-0" /> : null;
 
   if (input.type === "choice") {
     return (
@@ -143,6 +143,7 @@ export function AnswerInput({
             className={`${gameButtonClass({ variant: picked === undefined ? "accent" : "secondary", size: "md" })} font-display ${big ? "h-16 min-w-24 text-2xl" : "min-w-16 text-lg"} ${state(p)}`}
           >
             P{p}
+            {mark(p)}
           </button>
         ))}
       </div>
@@ -390,13 +391,45 @@ export function Feedback({ correct, explain }: { correct: boolean; explain: Msg 
   return (
     <motion.div
       initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      className={`mt-3 rounded-xl border px-4 py-3 text-base leading-snug ${correct ? "border-broker/40 bg-broker/10" : "border-danger/30 bg-danger/5"}`}
+      animate={correct ? { opacity: 1, y: 0 } : { opacity: 1, y: 0, x: [0, -8, 8, -5, 5, 0] }}
+      transition={{ duration: 0.4 }}
+      className={`mt-4 overflow-hidden rounded-2xl border-2 text-base leading-snug ${correct ? "border-broker bg-broker/10" : "border-danger bg-danger/10"}`}
       role="status"
     >
-      <p className={`font-display font-bold ${correct ? "text-broker" : "text-danger"}`}>{correct ? t("right") : t("notQuite")}</p>
-      <Text m={explain} className="text-ink-2" />
+      <p className={`flex items-center gap-2 px-4 py-2 font-display text-lg font-extrabold text-white ${correct ? "bg-broker" : "bg-danger"}`}>
+        {correct ? <Check weight="bold" /> : <X weight="bold" />}
+        {correct ? t("right") : t("notQuite")}
+      </p>
+      <Text m={explain} className="block px-4 py-3 text-ink" />
     </motion.div>
+  );
+}
+
+/** Full-screen verdict: a coloured edge flash and a big ✓ / ✗ stamp that pops, then fades. */
+export function Verdict({ correct }: { correct: boolean }) {
+  const t = useTranslations("level");
+  const color = correct ? "var(--broker)" : "var(--danger)";
+  return (
+    <div aria-hidden className="pointer-events-none fixed inset-0 z-40 grid place-items-center">
+      <motion.div
+        className="absolute inset-0"
+        style={{ boxShadow: `inset 0 0 0 6px ${color}, inset 0 0 120px 10px color-mix(in oklab, ${color} 45%, transparent)` }}
+        initial={{ opacity: 1 }}
+        animate={{ opacity: 0 }}
+        transition={{ duration: 1.1, ease: "easeOut" }}
+      />
+      <motion.div
+        className="flex flex-col items-center gap-2"
+        initial={{ scale: 0.3, opacity: 0, rotate: correct ? 0 : -12 }}
+        animate={{ scale: [0.3, 1.15, 1, 1], opacity: [0, 1, 1, 0], rotate: 0 }}
+        transition={{ duration: 1.2, times: [0, 0.25, 0.4, 1] }}
+      >
+        <span className={`grid size-28 place-items-center rounded-full text-white shadow-[0_6px_0_rgba(0,0,0,0.18)] ${correct ? "bg-broker" : "bg-danger"}`}>
+          {correct ? <Check size={64} weight="bold" /> : <X size={64} weight="bold" />}
+        </span>
+        <span className={`rounded-xl bg-paper px-4 py-1.5 font-display text-2xl font-extrabold shadow ${correct ? "text-broker" : "text-danger"}`}>{correct ? t("right") : t("notQuite")}</span>
+      </motion.div>
+    </div>
   );
 }
 

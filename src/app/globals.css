@@ -42,7 +42,7 @@
 }
 
 body {
-  background: var(--ground);
+  background: #dad4ee;
   color: var(--ink);
   font-family: var(--font-ui), system-ui, sans-serif;
   -webkit-tap-highlight-color: transparent;
@@ -279,3 +279,25 @@ button, a { touch-action: manipulation; }
 }
 .iris-open { animation: iris-open 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both; }
 @media (prefers-reduced-motion: reduce) { .iris-open { display: none; } }
+
+/* A wrong answer shakes */
+@keyframes shake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-8px); } 40% { transform: translateX(8px); } 60% { transform: translateX(-5px); } 80% { transform: translateX(5px); } }
+.animate-shake { animation: shake 0.42s ease-in-out; }
+@media (prefers-reduced-motion: reduce) { .animate-shake { animation: none; } }
+
+/* Page backdrop: warm light from the top-left, cool glows, and a slowly drifting dot grid
+   (the 3D canvases are transparent, so the factory floats on top of it) */
+.bg-scene {
+  background-color: var(--ground);
+  background-image:
+    radial-gradient(rgba(43, 40, 64, 0.1) 1.3px, transparent 1.6px),
+    radial-gradient(70vmax 45vmax at 8% -12%, rgba(255, 205, 150, 0.6), transparent 62%),
+    radial-gradient(55vmax 40vmax at 104% 4%, rgba(91, 95, 199, 0.22), transparent 60%),
+    radial-gradient(60vmax 45vmax at 96% 112%, rgba(47, 181, 163, 0.26), transparent 62%),
+    radial-gradient(50vmax 35vmax at -6% 100%, rgba(240, 138, 36, 0.14), transparent 60%),
+    linear-gradient(180deg, #e7e3f6 0%, #dad4ee 55%, #cfc8e7 100%);
+  background-size: 26px 26px, auto, auto, auto, auto, auto;
+  animation: scene-drift 60s linear infinite;
+}
+@keyframes scene-drift { to { background-position: 26px 52px, 0 0, 0 0, 0 0, 0 0, 0 0; } }
+@media (prefers-reduced-motion: reduce) { .bg-scene { animation: none; } }

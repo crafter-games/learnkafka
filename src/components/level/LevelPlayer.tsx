@@ -16,7 +16,7 @@ import { AudioDirector } from "../AudioDirector";
 import { FactoryCanvas } from "../FactoryCanvas";
 import { Hud } from "../Hud";
 import { gameButtonClass } from "../ui/GameButton";
-import { AnswerInput, Breaks, CodeBlock, Deliveries, StreamsView, GroupStats, IsrPanel, SeenBy, StateTable, KeyMoves, MappingCard, Meter, Receipts, Text } from "./parts";
+import { AnswerInput, Breaks, CodeBlock, Deliveries, StreamsView, Verdict, GroupStats, IsrPanel, SeenBy, StateTable, KeyMoves, MappingCard, Meter, Receipts, Text } from "./parts";
 import { DialogueBox, Rich, usePages, type Page } from "./dialogue";
 import { RecallQuiz } from "./RecallQuiz";
 import { useInsets } from "../useInsets";
@@ -396,7 +396,7 @@ export function LevelPlayer({ level, onRestart }: { level: Level; onRestart: () 
   const upNext = nextLevel(level.id);
 
   return (
-    <main className="relative h-dvh overflow-hidden bg-ground">
+    <main className="relative h-dvh overflow-hidden bg-scene">
       <AudioDirector intensity={phase === "steps" && step.kind === "task" ? 2 : phase === "result" ? 1 : 0} />
 
       {/* The factory fills the screen; UI floats on top and the camera frames the free area */}
@@ -503,8 +503,9 @@ export function LevelPlayer({ level, onRestart }: { level: Level; onRestart: () 
           </div>
 
           <div ref={dockRef} className="absolute inset-x-3 bottom-3 z-10 flex flex-col items-center gap-3 sm:bottom-4">
+            {step.kind === "predict" && prediction && picked !== undefined && <Verdict key={stepIndex} correct={String(picked) === String(prediction.answer)} />}
             {/* Big centred answers for predictions */}
-            {step.kind === "predict" && prediction && questionRead && picked === undefined && (
+            {step.kind === "predict" && prediction && questionRead && (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`card max-w-[720px] p-4 sm:p-5 ${prediction.input.type === "choice" ? "w-full" : "w-fit"}`}>
                 <AnswerInput
                   key={stepIndex}
@@ -526,6 +527,7 @@ export function LevelPlayer({ level, onRestart }: { level: Level; onRestart: () 
                 key={dialogueKey}
                 speaker="Oopi"
                 kicker={t(`kind.${step.kind}`)}
+                tone={step.kind === "predict" && prediction && picked !== undefined && !revealing ? (String(picked) === String(prediction.answer) ? "good" : "bad") : undefined}
                 pages={dialoguePages}
                 canAdvance={dialogueCanAdvance}
                 onAdvance={dialogueAdvance}

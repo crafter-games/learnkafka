@@ -75,7 +75,7 @@ export function Landing() {
   );
 
   return (
-    <main className="relative min-h-dvh overflow-hidden bg-ground">
+    <main className="relative min-h-dvh overflow-hidden bg-scene">
       <AudioDirector intensity={1} />
 
       {/* The live factory is the backdrop; framed in the lower part so the title reads above it */}

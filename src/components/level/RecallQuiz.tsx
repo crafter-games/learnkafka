@@ -7,7 +7,7 @@ import { ArrowRight } from "@phosphor-icons/react";
 import { audioBus } from "@/audio/audioBus";
 import type { BuiltQuestion } from "@/levels";
 import { gameButtonClass } from "../ui/GameButton";
-import { AnswerInput, CodeBlock, Feedback, Text } from "./parts";
+import { AnswerInput, CodeBlock, Feedback, Text, Verdict } from "./parts";
 
 /** One question at a time, immediate explained feedback, no stage in sight (testing effect). */
 export function RecallQuiz({ questions, title, onFinish }: { questions: BuiltQuestion[]; title: string; onFinish: (answers: boolean[]) => void }) {
@@ -67,6 +67,7 @@ export function RecallQuiz({ questions, title, onFinish }: { questions: BuiltQue
         <div className="mt-4">
           <AnswerInput key={qIndex} input={question.input} disabled={picked !== undefined} picked={picked} answer={question.answer} onAnswer={answer} />
         </div>
+        {picked !== undefined && <Verdict key={qIndex} correct={String(picked) === String(question.answer)} />}
         {picked !== undefined && <Feedback correct={String(picked) === String(question.answer)} explain={question.explain} />}
         <button type="button" onClick={next} disabled={picked === undefined} className={`${gameButtonClass({ variant: "primary", size: "md" })} mt-6 w-full`}>
           {qIndex < questions.length - 1 ? t("next") : t("finish")}

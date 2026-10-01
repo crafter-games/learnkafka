@@ -267,6 +267,8 @@ export class WorldMapStage {
     }
   }
 
+  private view: { s: number; dy: number } | null = null;
+
   setInsets(insets: { top: number; bottom: number }) {
     this.insets = insets;
     this.resize();
@@ -295,14 +297,24 @@ export class WorldMapStage {
     const { clientWidth: w, clientHeight: h } = this.host;
     if (!w || !h) return;
     const narrow = w < 700;
-    const s = (narrow ? VIEW_HEIGHT * 0.75 : VIEW_HEIGHT) / Math.max(200, h - this.insets.top - this.insets.bottom);
+    // Don't shrink the islands just because the bottom card grew: past a point the view moves up
+    const free = h - this.insets.top - this.insets.bottom;
+    const targetS = (narrow ? VIEW_HEIGHT * 0.75 : VIEW_HEIGHT) / Math.max(200, free, (h - this.insets.top) * 0.6);
+    const freeMid = this.insets.top + free / 2;
+    const targetDy = freeMid - h / 2;
+    // Ease toward the target framing so card/inset changes glide instead of snapping
+    if (!this.view) this.view = { s: targetS, dy: targetDy };
+    else {
+      this.view.s += (targetS - this.view.s) * 0.12;
+      this.view.dy += (targetDy - this.view.dy) * 0.12;
+    }
+    const s = this.view.s;
     const viewW = w * s;
     const viewH = h * s;
     this.camera.position.copy(this.focus).addScaledVector(CAMERA_DIR, 40);
     this.camera.lookAt(this.focus);
     // Shift so the focus sits in the middle of the free area
-    const freeMid = this.insets.top + (h - this.insets.top - this.insets.bottom) / 2;
-    const dy = (freeMid - h / 2) * s;
+    const dy = this.view.dy * s;
     Object.assign(this.camera, { left: -viewW / 2, right: viewW / 2, top: viewH / 2 + dy, bottom: -viewH / 2 + dy });
     this.camera.updateProjectionMatrix();
     this.sun.position.copy(this.focus).add(new THREE.Vector3(-6, 14, 9));

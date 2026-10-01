@@ -437,11 +437,28 @@ export class FactoryStage {
 
   setInsets(insets: Partial<typeof this.insets>) {
     this.insets = { ...this.insets, ...insets };
-    this.resize();
+    // Floating UI changed: glide to the new framing instead of snapping
+    this.fit(true);
+  }
+
+  /** Current framing (left/top edge in world units, world units per pixel) and an in-flight glide. */
+  private view: { l: number; t: number; s: number } | null = null;
+  private glide: { from: { l: number; t: number; s: number }; to: { l: number; t: number; s: number }; t0: number } | null = null;
+
+  private applyView(v: { l: number; t: number; s: number }) {
+    const { clientWidth: w, clientHeight: h } = this.host;
+    this.view = v;
+    Object.assign(this.camera, { left: v.l, right: v.l + w * v.s, top: v.t, bottom: v.t - h * v.s, near: 0.1, far: 80 });
+    this.camera.updateProjectionMatrix();
+    // Labels scale with the world so small screens don't drown in tags
+    const zoom = 1 / v.s / 58;
+    this.host.style.setProperty("--stage-zoom", String(Math.min(1.25, Math.max(0.72, zoom))));
+    // Tiny stages (phones) keep only the essential labels
+    this.host.toggleAttribute("data-compact", zoom < 0.62);
   }
 
   /** Orthographic fit: frame the platform in the free screen area (outside the floating UI). */
-  private fit() {
+  private fit(animate = false) {
     const { clientWidth: w, clientHeight: h } = this.host;
     const { minX, maxX, halfZ } = this.floor;
     const bounds = new THREE.Box3(new THREE.Vector3(minX - 0.2, -0.3, -halfZ - 0.2), new THREE.Vector3(maxX + 0.2, 1.6, halfZ + 0.2));
@@ -456,22 +473,22 @@ export class FactoryStage {
       x0 = Math.min(x0, c.x); x1 = Math.max(x1, c.x);
       y0 = Math.min(y0, c.y); y1 = Math.max(y1, c.y);
     }
-    const { top, right, bottom, left } = this.insets;
+    const { top, right, left } = this.insets;
+    // Wide screens: the empty front edge of the floor may slide under bottom panels rather than
+    // shrinking the whole factory (the lanes themselves stay clear)
+    const bottom = w >= 1000 ? this.insets.bottom * 0.72 : this.insets.bottom;
     const aw = Math.max(120, w - left - right);
     const ah = Math.max(120, h - top - bottom);
     // World units per pixel so the content fits the free area
     const pad = 1.04;
     const s = Math.max((x1 - x0) / aw, (y1 - y0) / ah) * pad;
     const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
-    const l = cx - (left + aw / 2) * s;
-    const t = cy + (top + ah / 2) * s;
-    Object.assign(this.camera, { left: l, right: l + w * s, top: t, bottom: t - h * s, near: 0.1, far: 80 });
-    this.camera.updateProjectionMatrix();
-    // Labels scale with the world so small screens don't drown in tags
-    const zoom = 1 / s / 58;
-    this.host.style.setProperty("--stage-zoom", String(Math.min(1.25, Math.max(0.72, zoom))));
-    // Tiny stages (phones) keep only the essential labels
-    this.host.toggleAttribute("data-compact", zoom < 0.62);
+    const target = { l: cx - (left + aw / 2) * s, t: cy + (top + ah / 2) * s, s };
+    if (animate && this.view) this.glide = { from: { ...this.view }, to: target, t0: performance.now() };
+    else {
+      this.glide = null;
+      this.applyView(target);
+    }
   }
 
   private loop = () => {
@@ -479,6 +496,13 @@ export class FactoryStage {
     const now = performance.now();
     this.tweens.update(Math.min(64, now - this.last));
     this.last = now;
+    if (this.glide) {
+      const k = Math.min(1, (now - this.glide.t0) / 480);
+      const e = 1 - Math.pow(1 - k, 3);
+      const { from, to } = this.glide;
+      this.applyView({ l: from.l + (to.l - from.l) * e, t: from.t + (to.t - from.t) * e, s: from.s + (to.s - from.s) * e });
+      if (k >= 1) this.glide = null;
+    }
     this.renderer.render(this.scene, this.camera);
     this.labels2d.render(this.scene, this.camera);
     this.frame = requestAnimationFrame(this.loop);

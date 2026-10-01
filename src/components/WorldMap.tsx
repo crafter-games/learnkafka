@@ -127,7 +127,7 @@ export function WorldMap() {
 
   return (
     <main
-      className="relative h-dvh overflow-hidden bg-ground"
+      className="relative h-dvh overflow-hidden bg-scene"
       onTouchStart={(e) => (touchX.current = e.touches[0].clientX)}
       onTouchEnd={(e) => {
         if (touchX.current === null) return;

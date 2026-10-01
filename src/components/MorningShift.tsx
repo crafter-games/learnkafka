@@ -44,7 +44,7 @@ export function MorningShift() {
   };
 
   return (
-    <main className="relative flex min-h-dvh flex-col bg-ground">
+    <main className="relative flex min-h-dvh flex-col bg-scene">
       <AudioDirector intensity={questions ? 0 : 1} />
       <header className="flex items-center justify-between gap-3 px-3 pt-3 sm:px-5">
         <div className="flex items-center gap-2.5">
