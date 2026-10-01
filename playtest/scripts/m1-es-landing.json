@@ -1,0 +1,11 @@
+{
+  "name": "m1-es-landing",
+  "path": "/es",
+  "canvas": "main",
+  "viewport": [1280, 800],
+  "steps": [
+    { "wait": 2600 },
+    { "screenshot": "landing-es", "full": true },
+    { "expect": "document.documentElement.lang === 'es' && document.body.innerText.includes('Empezar turno')" }
+  ]
+}

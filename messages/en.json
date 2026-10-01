@@ -1,0 +1,40 @@
+{
+  "meta": {
+    "title": "Kafka Express — learn Apache Kafka by playing",
+    "description": "A visual game that teaches Apache Kafka: route parcels, run partitions and keep the city's events flowing."
+  },
+  "landing": {
+    "kicker": "Event logistics hub · Shift 1",
+    "title": "Kafka Express",
+    "tagline": "You're the new dispatcher. Route every event in the city — no losses, no duplicates, no jams.",
+    "start": "Start shift",
+    "facts": {
+      "visual": "See every record move",
+      "predict": "Predict, then watch",
+      "real": "Real Kafka 4.x behavior"
+    }
+  },
+  "hud": {
+    "mute": "Mute sound",
+    "unmute": "Unmute sound",
+    "language": "Español",
+    "back": "Back"
+  },
+  "play": {
+    "title": "Dispatch desk",
+    "subtitle": "Topic “orders” · 3 partitions",
+    "hint": "Send an order. Watch which belt it lands on — then send the same customer again.",
+    "customers": "Customers",
+    "custom": "Other key…",
+    "send": "Send",
+    "noKey": "No key",
+    "stats": "Records per partition",
+    "insight": "Same key → same partition → same order. Always."
+  },
+  "stage": {
+    "producer": "producer",
+    "topic": "topic: {name}",
+    "partition": "partition {n}",
+    "offset": "offset"
+  }
+}

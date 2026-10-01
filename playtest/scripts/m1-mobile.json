@@ -1,0 +1,10 @@
+{
+  "name": "m1-mobile",
+  "path": "/es/play",
+  "viewport": [844, 390],
+  "steps": [
+    { "wait": 1500 },
+    { "press": "1" }, { "press": "4" }, { "wait": 1400 },
+    { "screenshot": "mobile-landscape", "full": true }
+  ]
+}

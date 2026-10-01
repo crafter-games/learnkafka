@@ -1,0 +1,40 @@
+{
+  "meta": {
+    "title": "Kafka Express — aprende Apache Kafka jugando",
+    "description": "Un juego visual que enseña Apache Kafka: enruta paquetes, opera particiones y mantén fluyendo los eventos de la ciudad."
+  },
+  "landing": {
+    "kicker": "Centro logístico de eventos · Turno 1",
+    "title": "Kafka Express",
+    "tagline": "Eres el nuevo despachador. Enruta cada evento de la ciudad: sin pérdidas, sin duplicados, sin atascos.",
+    "start": "Empezar turno",
+    "facts": {
+      "visual": "Mira moverse cada registro",
+      "predict": "Predice y luego observa",
+      "real": "Comportamiento real de Kafka 4.x"
+    }
+  },
+  "hud": {
+    "mute": "Silenciar sonido",
+    "unmute": "Activar sonido",
+    "language": "English",
+    "back": "Volver"
+  },
+  "play": {
+    "title": "Mesa de despacho",
+    "subtitle": "Topic “orders” · 3 particiones",
+    "hint": "Envía un pedido. Mira en qué banda cae — y luego envía al mismo cliente otra vez.",
+    "customers": "Clientes",
+    "custom": "Otra key…",
+    "send": "Enviar",
+    "noKey": "Sin key",
+    "stats": "Registros por partición",
+    "insight": "Misma key → misma partición → mismo orden. Siempre."
+  },
+  "stage": {
+    "producer": "producer",
+    "topic": "topic: {name}",
+    "partition": "partición {n}",
+    "offset": "offset"
+  }
+}

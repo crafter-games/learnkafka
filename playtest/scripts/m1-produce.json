@@ -1,0 +1,18 @@
+{
+  "name": "m1-produce",
+  "path": "/en/play",
+  "viewport": [1280, 800],
+  "steps": [
+    { "wait": 1500 },
+    { "screenshot": "empty-desk", "full": true },
+    { "press": "1" }, { "wait": 250 },
+    { "press": "2" }, { "wait": 250 },
+    { "press": "1" }, { "wait": 250 },
+    { "press": "3" }, { "wait": 250 },
+    { "press": "0" }, { "wait": 1400 },
+    { "screenshot": "after-five", "full": true },
+    { "expect": "window.__TEST__.endOffsets().reduce((a,b)=>a+b,0) === 5" },
+    { "expect": "(() => { const ps = window.__TEST__.partitions(); const a = ps.flat().filter(r => r.key === 'alice'); return a.length === 2 && a[0].partition === a[1].partition && a[1].offset > a[0].offset; })()" },
+    { "eval": "window.__TEST__.endOffsets()" }
+  ]
+}

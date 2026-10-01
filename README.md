@@ -1,36 +1,26 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Kafka Express
 
-## Getting Started
+Learn Apache Kafka by playing. A visual, game-like web app (EN/ES) built on
+learning-science principles: predict-then-watch, retrieval checks, spaced review.
 
-First, run the development server:
+- Design: [`GDD.md`](GDD.md) · Tech plan: [`docs/TECH-PLAN.md`](docs/TECH-PLAN.md)
+- Research: [`docs/research/`](docs/research)
+
+## Develop
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
+pnpm dev          # http://localhost:3000
+pnpm test         # simulation unit tests (murmur2 matches the Java client)
+node scripts/gen-sfx.mjs   # regenerate synthesized SFX
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Playtests (needs a running server):
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+node ~/.claude/skills/game-playtest/scripts/playtest-web.mjs playtest/scripts/*.json --url http://localhost:3000
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Deploy
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Docker (`output: "standalone"`) on Dokploy → https://learnkafka.crafter.run
