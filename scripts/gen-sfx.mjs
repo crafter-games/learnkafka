@@ -59,6 +59,14 @@ const sfx = {
     const local = t - i * 0.08;
     return Math.exp(-local * 9) * osc(notes[i]) * 0.28 * (1 - t / 0.5);
   }),
+  // correct prediction: two-note rising chime (E5 → B5)
+  correct: render(0.32, ({ t, osc }) => {
+    const hz = t < 0.09 ? 659.3 : 987.8;
+    const local = t < 0.09 ? t : t - 0.09;
+    return Math.exp(-local * 10) * osc(hz) * 0.3;
+  }),
+  // wrong prediction: soft low "bwomp", not punishing
+  wrong: render(0.28, ({ p, osc }) => Math.exp(-p * 4) * osc(220 - 70 * p) * 0.3),
   // generic UI click
   click: render(0.05, ({ t, osc }) => Math.exp(-t * 120) * osc(1600) * 0.35),
 };

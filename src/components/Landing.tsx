@@ -7,7 +7,7 @@ import { Play } from "@phosphor-icons/react";
 import { Link, useRouter } from "@/i18n/navigation";
 import { audioBus } from "@/audio/audioBus";
 import { backgroundMusic } from "@/audio/music";
-import { Topic } from "@/sim/topic";
+import { Cluster } from "@/sim/cluster";
 import { AudioDirector } from "./AudioDirector";
 import { FactoryCanvas } from "./FactoryCanvas";
 import { Hud } from "./Hud";
@@ -27,7 +27,8 @@ export function Landing() {
   const t = useTranslations("landing");
   const ts = useTranslations("stage");
   const router = useRouter();
-  const topic = useMemo(() => new Topic("orders", 3), []);
+  const cluster = useMemo(() => new Cluster([{ name: "orders", partitions: 3 }]), []);
+  const topic = cluster.topic("orders");
 
   // Attract mode: the hub keeps working in the background (silently)
   useEffect(() => {
@@ -43,7 +44,7 @@ export function Landing() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Enter") {
         begin();
-        router.push("/play");
+        router.push("/world");
       }
     };
     window.addEventListener("keydown", onKey);
@@ -74,7 +75,7 @@ export function Landing() {
 
       <div className="relative flex flex-1 flex-col lg:block">
         <div className="relative h-[52vh] lg:absolute lg:inset-y-0 lg:left-[36%] lg:right-0 lg:h-auto">
-          <FactoryCanvas topic={topic} labels={labels} />
+          <FactoryCanvas cluster={cluster} labels={labels} />
         </div>
 
         <motion.div
@@ -87,7 +88,7 @@ export function Landing() {
           <h1 className="mt-3 font-display text-5xl font-extrabold leading-[0.95] tracking-tight sm:text-6xl">{t("headline")}</h1>
           <p className="mt-4 text-[17px] leading-relaxed text-ink-2">{t("tagline")}</p>
 
-          <Link href="/play" onClick={begin} className={`${gameButtonClass({ variant: "primary", size: "lg" })} mt-7 w-full sm:w-auto`}>
+          <Link href="/world" onClick={begin} className={`${gameButtonClass({ variant: "primary", size: "lg" })} mt-7 w-full sm:w-auto`}>
             <Play weight="fill" />
             {t("start")}
             <Keycap className="ml-1 border-white/30 bg-white/15 text-white shadow-none">Enter</Keycap>

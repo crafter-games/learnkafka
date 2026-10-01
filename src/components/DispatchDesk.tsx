@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowLeft, CheckCircle, Circle, PaperPlaneTilt, Prohibit, Trophy } from "@phosphor-icons/react";
-import { Topic } from "@/sim/topic";
+import { Cluster } from "@/sim/cluster";
 import type { SimRecord } from "@/sim/events";
 import { audioBus } from "@/audio/audioBus";
 import { backgroundMusic, type Intensity } from "@/audio/music";
@@ -33,7 +33,8 @@ declare global {
 export function DispatchDesk() {
   const t = useTranslations("play");
   const ts = useTranslations("stage");
-  const topic = useMemo(() => new Topic("orders", PARTITIONS), []);
+  const cluster = useMemo(() => new Cluster([{ name: "orders", partitions: PARTITIONS }]), []);
+  const topic = cluster.topic("orders");
   const [counts, setCounts] = useState<number[]>(() => Array(PARTITIONS).fill(0));
   const [customKey, setCustomKey] = useState("");
   const [done, setDone] = useState<Record<ObjectiveId, boolean>>({ send5: false, sameKey: false, noKey: false, allBelts: false });
@@ -145,7 +146,7 @@ export function DispatchDesk() {
       {/* HUD */}
       <header className="relative z-10 flex items-center justify-between gap-3 px-3 pt-3 sm:px-5 [@media(max-height:560px)]:pt-2">
         <div className="flex min-w-0 items-center gap-2.5">
-          <Link href="/" aria-label={t("back")} className={gameButtonClass({ size: "icon" })}>
+          <Link href="/world" aria-label={t("back")} className={gameButtonClass({ size: "icon" })}>
             <ArrowLeft weight="bold" />
           </Link>
           <div className="min-w-0 leading-tight">
@@ -209,7 +210,7 @@ export function DispatchDesk() {
 
         {/* Factory floor */}
         <section className="relative min-w-0 flex-1" data-testid="stage">
-          <FactoryCanvas topic={topic} labels={labels} onLanded={onLanded} />
+          <FactoryCanvas cluster={cluster} labels={labels} onLanded={onLanded} />
 
           <div className="card absolute left-3 top-2 px-3 py-1.5 font-display text-xs font-bold text-ink-2 lg:hidden">
             {t("mission")} · <span className="text-broker">{doneCount}/{OBJECTIVES.length}</span>

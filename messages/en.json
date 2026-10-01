@@ -77,5 +77,343 @@
     "partition": "partition {n}",
     "next": "next {n}",
     "partitioner": "partitioner"
+  },
+  "level": {
+    "map": "World map",
+    "levelLabel": "World {world} · Level {id}",
+    "progress": "Level progress",
+    "kind": {
+      "brief": "Oopi explains",
+      "watch": "Watch",
+      "predict": "Predict",
+      "task": "Your turn"
+    },
+    "mapping": "In the hub → in Kafka",
+    "breaks": "Where the metaphor breaks:",
+    "next": "Next",
+    "toCheck": "Start the recall check",
+    "watch": "Watch the factory…",
+    "yourAnswer": "Your answer",
+    "check": "Check",
+    "right": "Right!",
+    "notQuite": "Not quite.",
+    "checkTitle": "Recall check",
+    "noPeeking": "The factory is hidden on purpose: recalling from memory is what makes it stick.",
+    "review": "Review",
+    "finish": "See results",
+    "stars": "{n} of 3 stars",
+    "passed": "Level complete!",
+    "almost": "Almost there",
+    "score": "{correct} of {total} correct",
+    "remedial": "You need 80% to unlock the next level. Try again: the questions change their numbers.",
+    "retryCheck": "Try again with new numbers",
+    "nextLevel": "Next",
+    "tools": {
+      "preview": "Record preview",
+      "noKey": "no key",
+      "addHeader": "Add header",
+      "anyKey": "Any key…",
+      "send": "Send",
+      "read": "{group} reads next",
+      "order": "New order",
+      "payment": "New payment"
+    }
+  },
+  "map": {
+    "home": "Home",
+    "world": "World {n}",
+    "stars": "{n} of 3 stars",
+    "play": "Play",
+    "replay": "Replay",
+    "locked": "Pass the previous level to unlock",
+    "w1": {
+      "title": "Events & the Log",
+      "body": "Every story in Kafka starts with a record on a log. Learn what a record is, why reading never deletes, what offsets are and how topics organize it all."
+    },
+    "w2": "Partitions & Keys",
+    "w3": "Producers",
+    "w4": "Consumers & Groups",
+    "soon": "Coming soon",
+    "sandbox": {
+      "title": "Free dispatch",
+      "body": "No goals, no quiz: just you, three conveyors and your customers."
+    }
+  },
+  "levels": {
+    "1-1": {
+      "title": "First parcel",
+      "summary": "What's inside a Kafka record: key, value, headers and timestamp.",
+      "brief": {
+        "title": "Every event is a parcel",
+        "body": "Something happened (alice placed an order) and the shop wants the world to know. In Kafka that fact travels as a <b>record</b>. Here, each record is a parcel on its way through the hub.",
+        "breaks": "a real parcel can be opened and repacked. A Kafka record can’t: once it’s written, it is <b>immutable</b>."
+      },
+      "map": {
+        "box": "Parcel",
+        "record": "Record",
+        "sticker": "Coloured sticker",
+        "key": "Key",
+        "contents": "What’s inside",
+        "value": "Value (just bytes)",
+        "labels": "Shipping labels",
+        "headers": "Headers",
+        "postmark": "Postmark",
+        "timestamp": "Timestamp"
+      },
+      "pack": {
+        "title": "Pack your first order",
+        "body": "Pick a customer: their name becomes the record’s <b>key</b>. Toggle a header if you like, then watch the parcel leave the producer.",
+        "success": "Your first record is on the log!"
+      },
+      "which": {
+        "q": "Which part of the record decides which conveyor (partition) it goes to?",
+        "key": "The key",
+        "value": "The value",
+        "headers": "The headers",
+        "timestamp": "The timestamp",
+        "why": "The partitioner hashes the <b>key</b>: <code>murmur2(key) % partitions</code>. Value, headers and timestamp don’t affect where it goes."
+      },
+      "again": {
+        "q": "dave just landed on P{p}. Send dave again: which conveyor?",
+        "why": "Same key, same hash, same partition: P{p}. That’s how all of one customer’s records stay in order."
+      },
+      "more": {
+        "title": "Three more, one without a key",
+        "body": "Send 3 more orders, and make at least one of them <b>without a key</b>. Watch where the keyless ones go.",
+        "success": "Records without a key use <b>sticky partitioning</b>: they fill one conveyor for a while, then switch."
+      },
+      "check": {
+        "notPart": {
+          "q": "Which of these is NOT part of a Kafka record?",
+          "consumer": "The consumer that will read it",
+          "key": "Key",
+          "value": "Value",
+          "headers": "Headers",
+          "timestamp": "Timestamp",
+          "why": "A record has a key, a value, headers and a timestamp. It doesn’t know who will read it: any number of consumers can."
+        },
+        "bytes": {
+          "q": "To the broker, a record’s value is…",
+          "bytes": "Just bytes",
+          "json": "A JSON object",
+          "object": "A Java object",
+          "row": "A table row",
+          "why": "Brokers store and serve <b>bytes</b>. Turning them into JSON, Avro or objects is the clients’ job (serializers)."
+        },
+        "timestamp": {
+          "q": "With the default setting (CreateTime), who sets a record’s timestamp?",
+          "producer": "The producer",
+          "broker": "The broker",
+          "consumer": "The consumer",
+          "why": "<code>message.timestamp.type=CreateTime</code> is the default: the <b>producer</b> stamps it. With LogAppendTime the broker does."
+        },
+        "nullKey": {
+          "q": "Can a record be sent with a null key?",
+          "yes": "Yes, it’s spread with sticky partitioning",
+          "no": "No, the key is required",
+          "headers": "Only if it has headers",
+          "why": "Keys are optional. Keyless records stick to one partition until a batch fills, then move on, so there’s no per-key ordering."
+        }
+      }
+    },
+    "1-2": {
+      "title": "The belt never forgets",
+      "summary": "Reading doesn’t delete: consumers keep a position, and records are immutable.",
+      "brief": {
+        "title": "Reading isn’t taking",
+        "body": "Two teams need the orders: <b>Billing</b> charges customers and <b>Shipping</b> sends boxes. Each one is a <b>consumer group</b>, a robot arm that scans parcels and remembers how far it has read.",
+        "breaks": "in a warehouse, picking up a parcel removes it. In Kafka, reading only <b>copies</b> the data: the parcel stays on the belt for everyone else."
+      },
+      "map": {
+        "arm": "Robot arm",
+        "group": "Consumer group",
+        "scan": "Scanning a parcel",
+        "fetch": "Fetching a record",
+        "flag": "Little flag ▲",
+        "position": "Position (next offset to read)"
+      },
+      "arrive": {
+        "title": "Orders arrive",
+        "body": "The shop sends four orders to the <code>orders</code> topic. Both arms are waiting at offset 0."
+      },
+      "read": {
+        "q": "Billing reads the record at offset 0. What happens to that parcel?",
+        "stays": "It stays on the belt",
+        "removed": "It’s removed from the belt",
+        "moves": "It moves to the end of the belt",
+        "why": "It stays exactly where it is. Billing’s flag moves to offset 1: that’s its <b>position</b>, the next record it will read."
+      },
+      "catch": {
+        "title": "Let Shipping catch up",
+        "body": "Use the buttons to make <b>Shipping</b> read the first 3 orders. Billing’s position doesn’t change: each group keeps its own.",
+        "success": "Two groups, same records, independent positions."
+      },
+      "count": {
+        "q": "Billing is at position {billing} and Shipping at {shipping}. How many parcels are still on the belt?",
+        "why": "All {n} of them. Reading never deletes. Records leave the log only when retention removes old ones, which is a story for later."
+      },
+      "change": {
+        "title": "Changing your mind",
+        "body": "alice wants to change her order. You might want to edit the parcel at offset 0, but the log is <b>append-only</b>: records can’t be edited or moved.",
+        "note": "to “update”, you append a new record with the same key. Consumers see both, in order, and the newest one wins."
+      },
+      "update": {
+        "q": "alice changes her order. What do you do?",
+        "append": "Append a new record with key alice",
+        "edit": "Edit the record at offset 0",
+        "delete": "Delete offset 0 and resend it",
+        "why": "<b>Append</b> a new record. The old one stays, and both keep their offsets. Kafka is a history of facts, not a table you overwrite."
+      },
+      "check": {
+        "remain": {
+          "q": "A partition holds {n} records. Group Billing has read all of them. How many records are still in the partition?",
+          "why": "Still {n}. Reading moves the group’s position. It never removes records."
+        },
+        "left": {
+          "q": "A partition has offsets 0 to {last}. Shipping’s position is {p}. How many records does Shipping still have to read?",
+          "why": "The log holds {n} records (0…{last}). Position {p} means offsets 0…{p}−1 are done, so {left} remain."
+        },
+        "groups": {
+          "q": "Two consumer groups read the same topic. Their positions are…",
+          "independent": "Independent: each group has its own",
+          "shared": "Shared: one position for the topic",
+          "reset": "Reset every time someone reads",
+          "why": "Each group tracks its own position, so many teams can read the same data at their own pace."
+        },
+        "update": {
+          "q": "How do you “update” a record in Kafka?",
+          "append": "Append a new record with the same key",
+          "edit": "Edit it in place",
+          "replace": "Delete it and insert at the same offset",
+          "why": "The log is append-only and records are immutable. A new record with the same key carries the update."
+        }
+      }
+    },
+    "1-3": {
+      "title": "Stamps",
+      "summary": "Offsets: every partition numbers its records 0, 1, 2… on its own.",
+      "brief": {
+        "title": "The stamp is the offset",
+        "body": "When a parcel lands, its conveyor stamps it with the next number. That number is the <b>offset</b>: its permanent position in that partition’s log.",
+        "breaks": "a counter can be reset. Offsets never are. Even after old records are deleted, their numbers are never reused."
+      },
+      "map": {
+        "stamp": "Number stamp",
+        "offset": "Offset",
+        "counter": "Each conveyor’s own counter",
+        "perPartition": "Offsets are per partition",
+        "next": "Dashed “next” slot",
+        "leo": "Log-end offset"
+      },
+      "warm": {
+        "title": "Warming up",
+        "body": "Five orders roll in. Watch the stamps: each conveyor counts on its own."
+      },
+      "nextOffset": {
+        "q": "{key} goes to P{p}, which already holds {c} parcels. What offset will it get?",
+        "why": "Offsets start at 0, so a partition with {c} records has used 0…{c}−1. The next one is <b>{c}</b>, the log-end offset."
+      },
+      "where": {
+        "q": "bob already has parcels on the line. Where will bob’s next parcel land?",
+        "why": "Same key, same partition: P{p}. You don’t need to compute murmur2, you just need to remember where the key went before."
+      },
+      "own": {
+        "q": "What offset will the next parcel on P{q} get? (It’s {key}’s conveyor.)",
+        "why": "P{q} has its own counter: its next offset is {n}, whatever the other conveyors are at."
+      },
+      "fill": {
+        "title": "Fill P1 to offset 4",
+        "body": "Get P1 to 5 parcels (offsets 0–4). Which customers land on P1? Experiment. You can also type any key you like.",
+        "success": "You found P1’s keys. Notice: P1’s offsets don’t care what P0 or P2 are doing."
+      },
+      "check": {
+        "last": {
+          "q": "P0’s next offset is {n}. You send {k} records to P0. What offset does the last one get?",
+          "why": "They get {n}, {n}+1, … so the last is {n} + {k} − 1 = {last}."
+        },
+        "unique": {
+          "q": "An offset is unique within…",
+          "partition": "A partition",
+          "topic": "A topic",
+          "cluster": "The whole cluster",
+          "why": "Every partition counts from 0, so <code>P0 offset 3</code> and <code>P1 offset 3</code> are different records. Offset + partition (+ topic) identify a record."
+        },
+        "count": {
+          "q": "A partition holds offsets 0 to {m}. How many records is that?",
+          "why": "From 0 to {m} inclusive: {m} + 1 = {n} records."
+        },
+        "position": {
+          "q": "A consumer’s position is…",
+          "next": "The offset of the next record it will read",
+          "last": "The offset of the last record it read",
+          "deleted": "How many records it has deleted",
+          "why": "Position = next offset to read. A consumer at position 5 has processed offsets 0–4."
+        }
+      }
+    },
+    "1-4": {
+      "title": "Sorting docks",
+      "summary": "Topics: named logs that keep different kinds of events apart.",
+      "brief": {
+        "title": "Each line is a topic",
+        "body": "The hub now handles two kinds of events: orders and payments. Each kind gets its own production line, a <b>topic</b>, with its own name and its own conveyors (partitions).",
+        "breaks": "a topic isn’t a queue. Reading doesn’t empty it, and many groups can read it at once."
+      },
+      "map": {
+        "line": "A production line",
+        "topic": "Topic",
+        "sign": "The line’s sign",
+        "name": "Topic name",
+        "belts": "Its conveyors",
+        "partitions": "The topic’s partitions"
+      },
+      "route": {
+        "title": "Route the events",
+        "body": "Events arrive one by one. Send each one to the right topic: orders to <code>orders</code>, payments to <code>payments</code>. Get 6 right.",
+        "success": "Sorted! Producers always say which topic a record goes to."
+      },
+      "cross": {
+        "q": "alice has an order (in orders) and a payment (in payments). Is the order between those two records guaranteed?",
+        "no": "No: ordering is only per partition, and these are different topics",
+        "yes": "Yes: they have the same key",
+        "timestamp": "Only if their timestamps match",
+        "why": "Kafka guarantees order <b>within a partition</b>. Different topics are different logs, so there’s no ordering between them, even for the same key."
+      },
+      "cli": {
+        "title": "Creating a topic, for real",
+        "body": "Everything you’ve seen maps to real commands. This creates the <code>payments</code> topic with 2 partitions on a local broker. Replication comes in World 5."
+      },
+      "count": {
+        "q": "How many conveyors (partitions) will this topic have?",
+        "why": "<code>--partitions {n}</code> creates {n} partitions, numbered P0…P{n} − 1."
+      },
+      "check": {
+        "what": {
+          "q": "A Kafka topic is…",
+          "log": "A named log, split into partitions",
+          "queue": "A single queue that empties as you read",
+          "table": "A database table you update",
+          "why": "A topic is a named, append-only log split into partitions. It keeps records after they’re read."
+        },
+        "cli": {
+          "q": "How many partitions will this topic have?",
+          "why": "The <code>--partitions {n}</code> flag sets it: {n} partitions."
+        },
+        "after": {
+          "q": "After a consumer group reads a record from a topic, the record…",
+          "stays": "Stays until retention removes it",
+          "deleted": "Is deleted",
+          "dlq": "Moves to a dead-letter topic",
+          "why": "Reading never deletes. Records stay until retention (default 7 days) or compaction removes them."
+        },
+        "order": {
+          "q": "Kafka guarantees the order of records…",
+          "partition": "Within a partition",
+          "topic": "Across a whole topic",
+          "cluster": "Across all topics",
+          "why": "Only within a partition. That’s why keys matter: the same key always goes to the same partition."
+        }
+      }
+    }
   }
 }

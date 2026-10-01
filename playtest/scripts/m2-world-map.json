@@ -1,0 +1,18 @@
+{
+ "name": "m2-world-map",
+ "path": "/es/world",
+ "canvas": "main",
+ "viewport": [
+  1440,
+  900
+ ],
+ "steps": [
+  {
+   "wait": 1200
+  },
+  {
+   "screenshot": "map-es",
+   "full": true
+  }
+ ]
+}

@@ -77,5 +77,343 @@
     "partition": "partición {n}",
     "next": "sig. {n}",
     "partitioner": "particionador"
+  },
+  "level": {
+    "map": "Mapa del mundo",
+    "levelLabel": "Mundo {world} · Nivel {id}",
+    "progress": "Progreso del nivel",
+    "kind": {
+      "brief": "Oopi explica",
+      "watch": "Observa",
+      "predict": "Predice",
+      "task": "Tu turno"
+    },
+    "mapping": "En el centro → en Kafka",
+    "breaks": "Dónde falla la metáfora:",
+    "next": "Siguiente",
+    "toCheck": "Empezar el repaso",
+    "watch": "Mira la fábrica…",
+    "yourAnswer": "Tu respuesta",
+    "check": "Comprobar",
+    "right": "¡Correcto!",
+    "notQuite": "No del todo.",
+    "checkTitle": "Repaso de memoria",
+    "noPeeking": "La fábrica se oculta a propósito: recordar de memoria es lo que hace que se quede.",
+    "review": "Repaso",
+    "finish": "Ver resultados",
+    "stars": "{n} de 3 estrellas",
+    "passed": "¡Nivel completado!",
+    "almost": "Casi lo logras",
+    "score": "{correct} de {total} correctas",
+    "remedial": "Necesitas 80% para desbloquear el siguiente nivel. Inténtalo otra vez: las preguntas cambian sus números.",
+    "retryCheck": "Reintentar con números nuevos",
+    "nextLevel": "Siguiente",
+    "tools": {
+      "preview": "Vista previa del registro",
+      "noKey": "sin key",
+      "addHeader": "Agregar header",
+      "anyKey": "Cualquier key…",
+      "send": "Enviar",
+      "read": "{group} lee el siguiente",
+      "order": "Nuevo pedido",
+      "payment": "Nuevo pago"
+    }
+  },
+  "map": {
+    "home": "Inicio",
+    "world": "Mundo {n}",
+    "stars": "{n} de 3 estrellas",
+    "play": "Jugar",
+    "replay": "Repetir",
+    "locked": "Supera el nivel anterior para desbloquear",
+    "w1": {
+      "title": "Eventos y el log",
+      "body": "Toda historia en Kafka empieza con un registro en un log. Aprende qué es un registro, por qué leer nunca borra, qué son los offsets y cómo los topics organizan todo."
+    },
+    "w2": "Particiones y keys",
+    "w3": "Producers",
+    "w4": "Consumers y grupos",
+    "soon": "Próximamente",
+    "sandbox": {
+      "title": "Despacho libre",
+      "body": "Sin objetivos ni quiz: solo tú, tres cintas y tus clientes."
+    }
+  },
+  "levels": {
+    "1-1": {
+      "title": "Primer paquete",
+      "summary": "Qué lleva un registro de Kafka: key, value, headers y timestamp.",
+      "brief": {
+        "title": "Cada evento es un paquete",
+        "body": "Algo pasó (alice hizo un pedido) y la tienda quiere que todos se enteren. En Kafka ese hecho viaja como un <b>registro</b> (record). Aquí, cada registro es un paquete que recorre el centro.",
+        "breaks": "un paquete real se puede abrir y volver a empacar. Un registro de Kafka no: una vez escrito es <b>inmutable</b>."
+      },
+      "map": {
+        "box": "Paquete",
+        "record": "Registro (record)",
+        "sticker": "Sticker de color",
+        "key": "Key",
+        "contents": "Lo que lleva dentro",
+        "value": "Value (solo bytes)",
+        "labels": "Etiquetas de envío",
+        "headers": "Headers",
+        "postmark": "Matasellos",
+        "timestamp": "Timestamp"
+      },
+      "pack": {
+        "title": "Empaca tu primer pedido",
+        "body": "Elige un cliente: su nombre será la <b>key</b> del registro. Activa un header si quieres y mira cómo sale el paquete del producer.",
+        "success": "¡Tu primer registro está en el log!"
+      },
+      "which": {
+        "q": "¿Qué parte del registro decide a qué cinta (partición) va?",
+        "key": "La key",
+        "value": "El value",
+        "headers": "Los headers",
+        "timestamp": "El timestamp",
+        "why": "El particionador aplica un hash a la <b>key</b>: <code>murmur2(key) % particiones</code>. El value, los headers y el timestamp no cambian su destino."
+      },
+      "again": {
+        "q": "dave acaba de caer en P{p}. Envía a dave otra vez: ¿a qué cinta va?",
+        "why": "Misma key, mismo hash, misma partición: P{p}. Así todos los registros de un cliente se mantienen en orden."
+      },
+      "more": {
+        "title": "Tres más, uno sin key",
+        "body": "Envía 3 pedidos más y que al menos uno vaya <b>sin key</b>. Fíjate a dónde van los que no tienen key.",
+        "success": "Los registros sin key usan <b>particionado sticky</b>: llenan una cinta un rato y luego cambian."
+      },
+      "check": {
+        "notPart": {
+          "q": "¿Cuál de estos NO es parte de un registro de Kafka?",
+          "consumer": "El consumer que lo va a leer",
+          "key": "Key",
+          "value": "Value",
+          "headers": "Headers",
+          "timestamp": "Timestamp",
+          "why": "Un registro tiene key, value, headers y timestamp. No sabe quién lo va a leer: puede leerlo cualquier cantidad de consumers."
+        },
+        "bytes": {
+          "q": "Para el broker, el value de un registro es…",
+          "bytes": "Solo bytes",
+          "json": "Un objeto JSON",
+          "object": "Un objeto Java",
+          "row": "Una fila de tabla",
+          "why": "Los brokers guardan y sirven <b>bytes</b>. Convertirlos a JSON, Avro u objetos es trabajo de los clientes (serializers)."
+        },
+        "timestamp": {
+          "q": "Con la configuración por defecto (CreateTime), ¿quién pone el timestamp?",
+          "producer": "El producer",
+          "broker": "El broker",
+          "consumer": "El consumer",
+          "why": "<code>message.timestamp.type=CreateTime</code> es el valor por defecto: lo sella el <b>producer</b>. Con LogAppendTime lo pone el broker."
+        },
+        "nullKey": {
+          "q": "¿Se puede enviar un registro con key nula?",
+          "yes": "Sí, se reparte con particionado sticky",
+          "no": "No, la key es obligatoria",
+          "headers": "Solo si tiene headers",
+          "why": "La key es opcional. Los registros sin key se quedan en una partición hasta llenar un batch y luego cambian, así que no hay orden por key."
+        }
+      }
+    },
+    "1-2": {
+      "title": "La cinta nunca olvida",
+      "summary": "Leer no borra: los consumers guardan una posición y los registros son inmutables.",
+      "brief": {
+        "title": "Leer no es llevarse",
+        "body": "Dos equipos necesitan los pedidos: <b>Billing</b> cobra a los clientes y <b>Shipping</b> envía las cajas. Cada uno es un <b>consumer group</b>, un brazo robótico que escanea paquetes y recuerda hasta dónde leyó.",
+        "breaks": "en un almacén, tomar un paquete lo saca del lugar. En Kafka, leer solo <b>copia</b> los datos: el paquete sigue en la cinta para los demás."
+      },
+      "map": {
+        "arm": "Brazo robótico",
+        "group": "Consumer group",
+        "scan": "Escanear un paquete",
+        "fetch": "Hacer fetch de un registro",
+        "flag": "Banderita ▲",
+        "position": "Posición (siguiente offset a leer)"
+      },
+      "arrive": {
+        "title": "Llegan pedidos",
+        "body": "La tienda envía cuatro pedidos al topic <code>orders</code>. Los dos brazos esperan en el offset 0."
+      },
+      "read": {
+        "q": "Billing lee el registro del offset 0. ¿Qué le pasa a ese paquete?",
+        "stays": "Se queda en la cinta",
+        "removed": "Se retira de la cinta",
+        "moves": "Se mueve al final de la cinta",
+        "why": "Se queda exactamente donde está. La banderita de Billing avanza al offset 1: esa es su <b>posición</b>, el siguiente registro que leerá."
+      },
+      "catch": {
+        "title": "Que Shipping se ponga al día",
+        "body": "Usa los botones para que <b>Shipping</b> lea los primeros 3 pedidos. La posición de Billing no cambia: cada grupo lleva la suya.",
+        "success": "Dos grupos, los mismos registros, posiciones independientes."
+      },
+      "count": {
+        "q": "Billing está en la posición {billing} y Shipping en la {shipping}. ¿Cuántos paquetes siguen en la cinta?",
+        "why": "Los {n}. Leer nunca borra. Los registros salen del log solo cuando la retención elimina los viejos, pero eso viene más adelante."
+      },
+      "change": {
+        "title": "Cambiar de opinión",
+        "body": "alice quiere cambiar su pedido. Podrías querer editar el paquete del offset 0, pero el log es <b>append-only</b>: los registros no se editan ni se mueven.",
+        "note": "para “actualizar”, agregas un registro nuevo con la misma key. Los consumers ven los dos, en orden, y el más nuevo manda."
+      },
+      "update": {
+        "q": "alice cambia su pedido. ¿Qué haces?",
+        "append": "Agregar un registro nuevo con key alice",
+        "edit": "Editar el registro del offset 0",
+        "delete": "Borrar el offset 0 y reenviarlo",
+        "why": "<b>Agregas</b> un registro nuevo. El viejo se queda, y ambos conservan sus offsets. Kafka es un historial de hechos, no una tabla que sobrescribes."
+      },
+      "check": {
+        "remain": {
+          "q": "Una partición tiene {n} registros. El grupo Billing los leyó todos. ¿Cuántos registros quedan en la partición?",
+          "why": "Siguen siendo {n}. Leer mueve la posición del grupo, nunca elimina registros."
+        },
+        "left": {
+          "q": "Una partición tiene offsets del 0 al {last}. La posición de Shipping es {p}. ¿Cuántos registros le faltan por leer?",
+          "why": "El log tiene {n} registros (0…{last}). Posición {p} significa que leyó del 0 al {p}−1, así que faltan {left}."
+        },
+        "groups": {
+          "q": "Dos consumer groups leen el mismo topic. Sus posiciones son…",
+          "independent": "Independientes: cada grupo tiene la suya",
+          "shared": "Compartidas: una posición por topic",
+          "reset": "Se reinician cada vez que alguien lee",
+          "why": "Cada grupo lleva su propia posición, así varios equipos leen los mismos datos a su propio ritmo."
+        },
+        "update": {
+          "q": "¿Cómo se “actualiza” un registro en Kafka?",
+          "append": "Agregando un registro nuevo con la misma key",
+          "edit": "Editándolo en su lugar",
+          "replace": "Borrándolo e insertando en el mismo offset",
+          "why": "El log es append-only y los registros son inmutables. Un registro nuevo con la misma key lleva la actualización."
+        }
+      }
+    },
+    "1-3": {
+      "title": "Sellos",
+      "summary": "Offsets: cada partición numera sus registros 0, 1, 2… por su cuenta.",
+      "brief": {
+        "title": "El sello es el offset",
+        "body": "Cuando un paquete aterriza, su cinta le pone el siguiente número. Ese número es el <b>offset</b>: su posición permanente en el log de esa partición.",
+        "breaks": "un contador se puede reiniciar. Los offsets nunca. Aunque se borren registros viejos, sus números no se reutilizan."
+      },
+      "map": {
+        "stamp": "Sello con número",
+        "offset": "Offset",
+        "counter": "El contador de cada cinta",
+        "perPartition": "Los offsets son por partición",
+        "next": "Casilla punteada “sig.”",
+        "leo": "Log-end offset"
+      },
+      "warm": {
+        "title": "Calentando",
+        "body": "Llegan cinco pedidos. Mira los sellos: cada cinta cuenta por su lado."
+      },
+      "nextOffset": {
+        "q": "{key} va a P{p}, que ya tiene {c} paquetes. ¿Qué offset recibirá?",
+        "why": "Los offsets empiezan en 0, así que una partición con {c} registros usó del 0 al {c}−1. El siguiente es <b>{c}</b>, el log-end offset."
+      },
+      "where": {
+        "q": "bob ya tiene paquetes en la línea. ¿Dónde caerá el siguiente paquete de bob?",
+        "why": "Misma key, misma partición: P{p}. No necesitas calcular murmur2, solo recordar dónde fue la key antes."
+      },
+      "own": {
+        "q": "¿Qué offset recibirá el siguiente paquete en P{q}? (Es la cinta de {key}.)",
+        "why": "P{q} tiene su propio contador: su siguiente offset es {n}, sin importar cómo vayan las otras cintas."
+      },
+      "fill": {
+        "title": "Llena P1 hasta el offset 4",
+        "body": "Lleva P1 a 5 paquetes (offsets 0–4). ¿Qué clientes caen en P1? Experimenta. También puedes escribir la key que quieras.",
+        "success": "Encontraste las keys de P1. Fíjate: los offsets de P1 no dependen de lo que hagan P0 o P2."
+      },
+      "check": {
+        "last": {
+          "q": "El siguiente offset de P0 es {n}. Envías {k} registros a P0. ¿Qué offset recibe el último?",
+          "why": "Reciben {n}, {n}+1, …, así que el último es {n} + {k} − 1 = {last}."
+        },
+        "unique": {
+          "q": "Un offset es único dentro de…",
+          "partition": "Una partición",
+          "topic": "Un topic",
+          "cluster": "Todo el clúster",
+          "why": "Cada partición cuenta desde 0, así que <code>P0 offset 3</code> y <code>P1 offset 3</code> son registros distintos. Offset + partición (+ topic) identifican un registro."
+        },
+        "count": {
+          "q": "Una partición tiene offsets del 0 al {m}. ¿Cuántos registros son?",
+          "why": "Del 0 al {m} inclusive: {m} + 1 = {n} registros."
+        },
+        "position": {
+          "q": "La posición de un consumer es…",
+          "next": "El offset del siguiente registro que leerá",
+          "last": "El offset del último registro que leyó",
+          "deleted": "Cuántos registros borró",
+          "why": "Posición = siguiente offset a leer. Un consumer en la posición 5 ya procesó los offsets 0–4."
+        }
+      }
+    },
+    "1-4": {
+      "title": "Muelles de clasificación",
+      "summary": "Topics: logs con nombre que separan distintos tipos de eventos.",
+      "brief": {
+        "title": "Cada línea es un topic",
+        "body": "El centro ahora maneja dos tipos de eventos: pedidos y pagos. Cada tipo tiene su propia línea de producción, un <b>topic</b>, con su nombre y sus propias cintas (particiones).",
+        "breaks": "un topic no es una cola. Leer no lo vacía, y muchos grupos pueden leerlo a la vez."
+      },
+      "map": {
+        "line": "Una línea de producción",
+        "topic": "Topic",
+        "sign": "El letrero de la línea",
+        "name": "Nombre del topic",
+        "belts": "Sus cintas",
+        "partitions": "Las particiones del topic"
+      },
+      "route": {
+        "title": "Clasifica los eventos",
+        "body": "Los eventos llegan uno por uno. Manda cada uno al topic correcto: pedidos a <code>orders</code>, pagos a <code>payments</code>. Acierta 6.",
+        "success": "¡Clasificados! Los producers siempre indican a qué topic va cada registro."
+      },
+      "cross": {
+        "q": "alice tiene un pedido (en orders) y un pago (en payments). ¿Está garantizado el orden entre esos dos registros?",
+        "no": "No: el orden solo es por partición, y son topics distintos",
+        "yes": "Sí: tienen la misma key",
+        "timestamp": "Solo si sus timestamps coinciden",
+        "why": "Kafka garantiza el orden <b>dentro de una partición</b>. Topics distintos son logs distintos: no hay orden entre ellos, aunque tengan la misma key."
+      },
+      "cli": {
+        "title": "Crear un topic de verdad",
+        "body": "Todo lo que viste corresponde a comandos reales. Este crea el topic <code>payments</code> con 2 particiones en un broker local. La replicación llega en el Mundo 5."
+      },
+      "count": {
+        "q": "¿Cuántas cintas (particiones) tendrá este topic?",
+        "why": "<code>--partitions {n}</code> crea {n} particiones, numeradas P0…P{n} − 1."
+      },
+      "check": {
+        "what": {
+          "q": "Un topic de Kafka es…",
+          "log": "Un log con nombre, dividido en particiones",
+          "queue": "Una cola que se vacía al leer",
+          "table": "Una tabla de base de datos que actualizas",
+          "why": "Un topic es un log append-only con nombre, dividido en particiones. Conserva los registros después de leerlos."
+        },
+        "cli": {
+          "q": "¿Cuántas particiones tendrá este topic?",
+          "why": "El flag <code>--partitions {n}</code> lo define: {n} particiones."
+        },
+        "after": {
+          "q": "Después de que un consumer group lee un registro de un topic, el registro…",
+          "stays": "Se queda hasta que la retención lo elimine",
+          "deleted": "Se borra",
+          "dlq": "Pasa a un topic de dead letters",
+          "why": "Leer nunca borra. Los registros se quedan hasta que la retención (7 días por defecto) o la compactación los eliminan."
+        },
+        "order": {
+          "q": "Kafka garantiza el orden de los registros…",
+          "partition": "Dentro de una partición",
+          "topic": "En todo un topic",
+          "cluster": "Entre todos los topics",
+          "why": "Solo dentro de una partición. Por eso importan las keys: la misma key siempre va a la misma partición."
+        }
+      }
+    }
   }
 }

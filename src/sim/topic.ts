@@ -1,4 +1,4 @@
-import { SimEmitter, type SimRecord } from "./events";
+import { SimEmitter, type Headers, type SimRecord } from "./events";
 import { partitionForKey } from "./murmur2";
 
 /** Records a null-key producer sends to one partition before switching (sticky partitioning, KIP-794). */
@@ -32,10 +32,15 @@ export class Topic {
     return this.stickyPartition;
   }
 
-  produce(key: string | null, value: string): SimRecord {
+  /** Which partition a key would go to, without producing (for predictions). */
+  partitionFor(key: string): number {
+    return partitionForKey(key, this.numPartitions);
+  }
+
+  produce(key: string | null, value: string, headers: Headers = {}): SimRecord {
     const partition = this.choosePartition(key);
     const log = this.partitions[partition];
-    const record: SimRecord = { key, value, partition, offset: log.length, timestamp: this.now() };
+    const record: SimRecord = { topic: this.name, key, value, headers, partition, offset: log.length, timestamp: this.now() };
     this.events.emit({ type: "produced", topic: this.name, record, hashed: key !== null });
     log.push(record);
     this.events.emit({ type: "appended", topic: this.name, record });

@@ -1,0 +1,164 @@
+{
+ "name": "m2-level-1-1",
+ "path": "/en/level/1-1",
+ "viewport": [
+  1440,
+  900
+ ],
+ "steps": [
+  {
+   "wait": 3500
+  },
+  {
+   "screenshot": "brief",
+   "full": true
+  },
+  {
+   "eval": "(()=>{const b=[...document.querySelectorAll(\"button\")].find(b=>/^(Next|Start the recall check|See results)/.test(b.textContent.trim())&&!b.disabled);b&&b.click();return !!b})()"
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "(()=>{const b=[...document.querySelectorAll(\"button\")].find(b=>b.textContent.includes(\"alice\"));b&&b.click();return !!b})()"
+  },
+  {
+   "wait": 2200
+  },
+  {
+   "screenshot": "task-pack",
+   "full": true
+  },
+  {
+   "eval": "(()=>{const b=[...document.querySelectorAll(\"button\")].find(b=>/^(Next|Start the recall check|See results)/.test(b.textContent.trim())&&!b.disabled);b&&b.click();return !!b})()"
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "(()=>{const T=window.__TEST__;const q=(T.phase()===\"check\"?T.question():T.prediction());if(!q)return \"none\";if(q.input===\"number\"){const i=document.querySelector(\"#answer-number\");const set=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,\"value\").set;set.call(i,String(q.answer));i.dispatchEvent(new Event(\"input\",{bubbles:true}));setTimeout(()=>i.form.requestSubmit(),50);return \"num\"}document.querySelector(`[data-value=\"${q.answer}\"]`).click();return \"btn\"})()"
+  },
+  {
+   "wait": 2600
+  },
+  {
+   "screenshot": "predict-feedback",
+   "full": true
+  },
+  {
+   "eval": "(()=>{const b=[...document.querySelectorAll(\"button\")].find(b=>/^(Next|Start the recall check|See results)/.test(b.textContent.trim())&&!b.disabled);b&&b.click();return !!b})()"
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "(()=>{const T=window.__TEST__;const q=(T.phase()===\"check\"?T.question():T.prediction());if(!q)return \"none\";if(q.input===\"number\"){const i=document.querySelector(\"#answer-number\");const set=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,\"value\").set;set.call(i,String(q.answer));i.dispatchEvent(new Event(\"input\",{bubbles:true}));setTimeout(()=>i.form.requestSubmit(),50);return \"num\"}document.querySelector(`[data-value=\"${q.answer}\"]`).click();return \"btn\"})()"
+  },
+  {
+   "wait": 2600
+  },
+  {
+   "eval": "(()=>{const b=[...document.querySelectorAll(\"button\")].find(b=>/^(Next|Start the recall check|See results)/.test(b.textContent.trim())&&!b.disabled);b&&b.click();return !!b})()"
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "(()=>{const b=[...document.querySelectorAll(\"button\")].find(b=>b.textContent.includes(\"alice\"));b&&b.click();return !!b})()"
+  },
+  {
+   "wait": 400
+  },
+  {
+   "eval": "(()=>{const b=[...document.querySelectorAll(\"button\")].find(b=>b.textContent.includes(\"bob\"));b&&b.click();return !!b})()"
+  },
+  {
+   "wait": 400
+  },
+  {
+   "eval": "(()=>{const b=[...document.querySelectorAll(\"button\")].find(b=>b.textContent.includes(\"no key\"));b&&b.click();return !!b})()"
+  },
+  {
+   "wait": 2600
+  },
+  {
+   "screenshot": "task-more",
+   "full": true
+  },
+  {
+   "eval": "(()=>{const b=[...document.querySelectorAll(\"button\")].find(b=>/^(Next|Start the recall check|See results)/.test(b.textContent.trim())&&!b.disabled);b&&b.click();return !!b})()"
+  },
+  {
+   "wait": 800
+  },
+  {
+   "screenshot": "check-q1",
+   "full": true
+  },
+  {
+   "eval": "(()=>{const T=window.__TEST__;const q=(T.phase()===\"check\"?T.question():T.prediction());if(!q)return \"none\";if(q.input===\"number\"){const i=document.querySelector(\"#answer-number\");const set=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,\"value\").set;set.call(i,String(q.answer));i.dispatchEvent(new Event(\"input\",{bubbles:true}));setTimeout(()=>i.form.requestSubmit(),50);return \"num\"}document.querySelector(`[data-value=\"${q.answer}\"]`).click();return \"btn\"})()"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "screenshot": "check-feedback",
+   "full": true
+  },
+  {
+   "eval": "(()=>{const b=[...document.querySelectorAll(\"button\")].find(b=>/^(Next|Start the recall check|See results)/.test(b.textContent.trim())&&!b.disabled);b&&b.click();return !!b})()"
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "(()=>{const T=window.__TEST__;const q=(T.phase()===\"check\"?T.question():T.prediction());if(!q)return \"none\";if(q.input===\"number\"){const i=document.querySelector(\"#answer-number\");const set=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,\"value\").set;set.call(i,String(q.answer));i.dispatchEvent(new Event(\"input\",{bubbles:true}));setTimeout(()=>i.form.requestSubmit(),50);return \"num\"}document.querySelector(`[data-value=\"${q.answer}\"]`).click();return \"btn\"})()"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "eval": "(()=>{const b=[...document.querySelectorAll(\"button\")].find(b=>/^(Next|Start the recall check|See results)/.test(b.textContent.trim())&&!b.disabled);b&&b.click();return !!b})()"
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "(()=>{const T=window.__TEST__;const q=(T.phase()===\"check\"?T.question():T.prediction());if(!q)return \"none\";if(q.input===\"number\"){const i=document.querySelector(\"#answer-number\");const set=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,\"value\").set;set.call(i,String(q.answer));i.dispatchEvent(new Event(\"input\",{bubbles:true}));setTimeout(()=>i.form.requestSubmit(),50);return \"num\"}document.querySelector(`[data-value=\"${q.answer}\"]`).click();return \"btn\"})()"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "eval": "(()=>{const b=[...document.querySelectorAll(\"button\")].find(b=>/^(Next|Start the recall check|See results)/.test(b.textContent.trim())&&!b.disabled);b&&b.click();return !!b})()"
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "(()=>{const T=window.__TEST__;const q=(T.phase()===\"check\"?T.question():T.prediction());if(!q)return \"none\";if(q.input===\"number\"){const i=document.querySelector(\"#answer-number\");const set=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,\"value\").set;set.call(i,String(q.answer));i.dispatchEvent(new Event(\"input\",{bubbles:true}));setTimeout(()=>i.form.requestSubmit(),50);return \"num\"}document.querySelector(`[data-value=\"${q.answer}\"]`).click();return \"btn\"})()"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "eval": "(()=>{const b=[...document.querySelectorAll(\"button\")].find(b=>/^(Next|Start the recall check|See results)/.test(b.textContent.trim())&&!b.disabled);b&&b.click();return !!b})()"
+  },
+  {
+   "wait": 600
+  },
+  {
+   "wait": 800
+  },
+  {
+   "screenshot": "result",
+   "full": true
+  },
+  {
+   "expect": "window.__TEST__.phase()==='result'"
+  },
+  {
+   "expect": "JSON.parse(localStorage.getItem('kafka-express:progress')).state.levels['1-1'].stars===3"
+  }
+ ]
+}

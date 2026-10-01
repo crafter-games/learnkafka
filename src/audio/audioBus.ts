@@ -8,6 +8,8 @@ export const SFX = {
   hash: "/audio/sfx/hash.wav",
   click: "/audio/sfx/click.wav",
   unlock: "/audio/sfx/unlock.wav",
+  correct: "/audio/sfx/correct.wav",
+  wrong: "/audio/sfx/wrong.wav",
 } as const;
 
 export type SfxKey = keyof typeof SFX;

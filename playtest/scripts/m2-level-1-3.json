@@ -1,0 +1,29 @@
+{
+ "name": "m2-level-1-3",
+ "path": "/en/level/1-3",
+ "viewport": [
+  1440,
+  900
+ ],
+ "steps": [
+  {
+   "wait": 3500
+  },
+  {
+   "eval": "(async()=>{const T={phase:()=>window.__TEST__.phase(),step:()=>window.__TEST__.step(),question:()=>window.__TEST__.question(),prediction:()=>window.__TEST__.prediction()};const sleep=ms=>new Promise(r=>setTimeout(r,ms));const stop=window.__STOP;const btn=re=>[...document.querySelectorAll(\"button\")].find(b=>re.test(b.textContent.trim())&&!b.disabled);const answer=async q=>{if(q.input===\"number\"){const i=document.querySelector(\"#answer-number\");const set=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,\"value\").set;set.call(i,String(q.answer));i.dispatchEvent(new Event(\"input\",{bubbles:true}));await sleep(80);i.form.requestSubmit()}else document.querySelector(`[data-value=\"${q.answer}\"]`).click()};const log=[];for(let g=0;g<300&&T.phase()!==\"result\";g++){if(stop&&T.phase()===\"steps\"&&T.step().index===stop)return {stopped:stop,log};if(T.phase()===\"check\"){if(!document.querySelector(\"[role=status]\")){await answer(T.question());await sleep(300)}const n=btn(/^(Next|See results)/);if(n){n.click();await sleep(400)}continue}const s=T.step();const next=btn(/^(Next|Start the recall check)/);if(next){log.push(s.kind);next.click();await sleep(600);continue}if(s.kind===\"predict\"&&!document.querySelector(\"[role=status]\")){await answer(T.prediction());await sleep(2700);continue}if(s.kind===\"task\"){const sh=btn(/Shipping reads next/);if(sh){sh.click();await sleep(550);continue}if(btn(/\u2192 orders/)){btn(/New order/.test(document.body.innerText)?/\u2192 orders/:/\u2192 payments/).click();await sleep(450);continue}const d=[...document.querySelectorAll(\"button\")].find(b=>b.textContent.includes(\"dave\"));if(d){d.click();await sleep(900);continue}}await sleep(500)}return {phase:T.phase(),log}})()"
+  },
+  {
+   "wait": 800
+  },
+  {
+   "screenshot": "result",
+   "full": true
+  },
+  {
+   "expect": "window.__TEST__.phase()==='result'"
+  },
+  {
+   "expect": "JSON.parse(localStorage.getItem('kafka-express:progress')).state.levels['1-3'].stars===3"
+  }
+ ]
+}
