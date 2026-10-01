@@ -57,7 +57,7 @@ const level21: Level = {
         ctx.bg.workers("fulfil", "orders", 1000);
         ctx.bg.watchCalm("fulfil", "orders", 3);
       },
-      meter: (ctx) => ({ label: msg("2-1.rush.meter"), value: ctx.cluster.totalLag("fulfil", "orders"), max: 15, danger: 8 }),
+      meters: (ctx) => [{ label: msg("2-1.rush.meter"), value: ctx.cluster.totalLag("fulfil", "orders"), max: 15, danger: 8 }],
       progress: (ctx, start) => ({ done: ctx.stats.partitionsAdded > start.partitionsAdded ? Math.min(5, ctx.stats.calm) : 0, total: 5 }),
       success: msg("2-1.rush.success"),
     },

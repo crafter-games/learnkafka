@@ -1,0 +1,26 @@
+{
+ "name": "m3-mid-3-4-duplicate",
+ "path": "/es/level/3-4",
+ "viewport": [
+  1440,
+  900
+ ],
+ "steps": [
+  {
+   "wait": 3500
+  },
+  {
+   "eval": "window.__STOP=2"
+  },
+  {
+   "eval": "// Autoplays a level: answers predictions/checks with the known answers and solves tasks via the dock.\n(async () => {\n  const T = () => window.__TEST__;\n  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));\n  const stop = window.__STOP;\n  const btn = (re) => [...document.querySelectorAll(\"button\")].find((b) => re.test(b.textContent.trim()) && !b.disabled);\n  const NEXT = /^(Next|Start the recall check|Siguiente|Empezar el repaso)/;\n  const answer = async (q) => {\n    if (q.input === \"number\") {\n      const i = document.querySelector(\"#answer-number\");\n      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, \"value\").set.call(i, String(q.answer));\n      i.dispatchEvent(new Event(\"input\", { bubbles: true }));\n      await sleep(80);\n      i.form.requestSubmit();\n    } else document.querySelector(`[data-value=\"${q.answer}\"]`).click();\n  };\n  const log = [];\n  for (let g = 0; g < 400 && T().phase() !== \"result\"; g++) {\n    if (stop !== undefined && T().phase() === \"steps\" && T().step().index === stop) return { stopped: stop, log };\n    if (T().phase() === \"check\") {\n      if (!document.querySelector(\"[role=status]\")) {\n        await answer(T().question());\n        await sleep(300);\n      }\n      const n = btn(/^(Next|See results|Siguiente|Ver resultados)/);\n      if (n) n.click();\n      await sleep(400);\n      continue;\n    }\n    const s = T().step();\n    const next = btn(NEXT);\n    if (next) {\n      log.push(s.kind);\n      next.click();\n      await sleep(600);\n      continue;\n    }\n    if (s.kind === \"predict\" && !document.querySelector(\"[role=status]\")) {\n      await answer(T().prediction());\n      await sleep(2700);\n      continue;\n    }\n    if (s.kind === \"task\") {\n      // Settings first: pick the \"right\" option for each dial if it isn't selected yet\n      const want = [\"acks=all\", \"idempotent=true\", \"codec=zstd\", \"batchSize=4\", \"lingerMs=1000\"];\n      const setting = want.map((w) => document.querySelector(`[data-setting=\"${w}\"]`)).find((b) => b && b.getAttribute(\"aria-checked\") !== \"true\");\n      if (setting) {\n        setting.click();\n        await sleep(400);\n        continue;\n      }\n      // Only crash once a few receipts are acknowledged\n      const crash = btn(/Tumbar al l\u00edder/);\n      const acked = (document.body.innerText.match(/#\\d+ \u2713/g) || []).length;\n      if (crash && acked >= 5) {\n        crash.click();\n        await sleep(2500);\n        continue;\n      }\n      if (btn(/\u2192 orders/)) {\n        btn(/New order|Nuevo pedido/.test(document.body.innerText) ? /\u2192 orders/ : /\u2192 payments/).click();\n        await sleep(450);\n        continue;\n      }\n      const dock = [...document.querySelectorAll(\"footer button\")].filter((b) => !b.disabled && b.type !== \"submit\" && !b.dataset.setting && !/Crash|Tumbar/.test(b.textContent));\n      if (dock.length) dock[g % dock.length].click();\n      await sleep(700);\n      continue;\n    }\n    await sleep(500);\n  }\n  return { phase: T().phase(), log };\n})()\n"
+  },
+  {
+   "wait": 300
+  },
+  {
+   "screenshot": "duplicate",
+   "full": true
+  }
+ ]
+}

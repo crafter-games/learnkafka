@@ -41,12 +41,28 @@
       continue;
     }
     if (s.kind === "task") {
+      // Settings first: pick the "right" option for each dial if it isn't selected yet
+      const want = ["acks=all", "idempotent=true", "codec=zstd", "batchSize=4", "lingerMs=1000"];
+      const setting = want.map((w) => document.querySelector(`[data-setting="${w}"]`)).find((b) => b && b.getAttribute("aria-checked") !== "true");
+      if (setting) {
+        setting.click();
+        await sleep(400);
+        continue;
+      }
+      // Only crash once a few receipts are acknowledged
+      const crash = btn(/Crash the leader|Tumbar al líder/);
+      const acked = (document.body.innerText.match(/#\d+ ✓/g) || []).length;
+      if (crash && acked >= 5) {
+        crash.click();
+        await sleep(2500);
+        continue;
+      }
       if (btn(/→ orders/)) {
         btn(/New order|Nuevo pedido/.test(document.body.innerText) ? /→ orders/ : /→ payments/).click();
         await sleep(450);
         continue;
       }
-      const dock = [...document.querySelectorAll("footer button")].filter((b) => !b.disabled && b.type !== "submit");
+      const dock = [...document.querySelectorAll("footer button")].filter((b) => !b.disabled && b.type !== "submit" && !b.dataset.setting && !/Crash|Tumbar/.test(b.textContent));
       if (dock.length) dock[g % dock.length].click();
       await sleep(700);
       continue;

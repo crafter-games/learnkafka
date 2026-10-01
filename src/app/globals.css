@@ -151,6 +151,31 @@ button, a { touch-action: manipulation; }
   12%, 80% { opacity: 1; transform: translateY(0) scale(1); }
   100% { opacity: 0; transform: translateY(-6px); }
 }
+.stage-batch, .stage-alert { white-space: nowrap; line-height: 1; }
+.stage-batch {
+  font: 800 calc(13px * var(--stage-zoom, 1)) var(--font-code);
+  color: var(--producer-dark);
+  background: var(--paper);
+  border: 1.5px solid var(--producer);
+  border-radius: 0.6em;
+  padding: 0.35em 0.6em;
+}
+.stage-batch.is-empty, .stage-batch:empty { display: none; }
+.stage-alert {
+  font: 800 calc(13px * var(--stage-zoom, 1)) var(--font-display);
+  color: #fff;
+  background: var(--danger);
+  border-radius: 0.6em;
+  padding: 0.45em 0.7em;
+  opacity: 0;
+}
+.stage-alert.is-on { animation: hash 1500ms ease-out forwards; }
+.stage-hash.is-good { background: var(--broker); }
+.stage-key--dup { background: var(--danger); color: #fff; }
+.stage-tag--topic.is-down { background: #6b6584; border-color: #4a4560; text-decoration: line-through; }
+.stage-tag--topic.is-leader { background: var(--broker); border-color: #2c7a4a; }
+.stage-lane.is-down { background: #6b6584; box-shadow: 0 0.2em 0 #4a4560; }
+
 [data-compact] .stage-next,
 [data-compact] .stage-key,
 [data-compact] .stage-tag--partitioner,

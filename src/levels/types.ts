@@ -1,4 +1,6 @@
 import type { Cluster, TopicSpec } from "@/sim/cluster";
+import type { BatchConfig, BatchingProducer, RetryingProducer } from "@/sim/producer";
+import type { Acks, ReplicaSet } from "@/sim/replication";
 import type { ConsumerSpec } from "@/stage/factoryStage";
 
 /** A translatable message: a key under the `levels` namespace plus ICU values. */
@@ -7,7 +9,8 @@ export const msg = (key: string, values?: Msg["values"]): Msg => ({ key, values 
 
 export type Concept =
   | "record" | "reading" | "immutability" | "offset" | "position" | "topic" | "ordering"
-  | "parallelism" | "key-ordering" | "sticky" | "repartition";
+  | "parallelism" | "key-ordering" | "sticky" | "repartition"
+  | "batching" | "compression" | "acks" | "idempotence";
 
 export type Choice = { id: string; label: Msg };
 
@@ -32,7 +35,14 @@ export type LevelCtx = {
     autoProduce: (topic: string, perSecond: number, keys?: string[]) => void;
     /** Count consecutive seconds where the group's total lag stays at or below `max`. */
     watchCalm: (group: string, topic: string, max: number) => void;
+    /** Count consecutive seconds where `ok()` holds (into stats.calm). */
+    watch: (ok: () => boolean) => void;
+    /** Send `perSecond` records through the batching producer. */
+    autoSend: (topic: string, perSecond: number) => void;
   };
+  batching?: BatchingProducer;
+  retrying?: RetryingProducer;
+  replicas?: ReplicaSet;
   /** Records in the order workers finished them. */
   delivered: SimRecordLike[];
 };
@@ -47,6 +57,10 @@ export type TaskStats = {
   /** Consecutive calm seconds (see ctx.bg.watchCalm). */
   calm: number;
   partitionsAdded: number;
+  /** World 3 counters, synced at every step start (live values come from ctx.retrying / ctx.replicas). */
+  lostAcked: number;
+  dups: number;
+  rejected: number;
 };
 
 export type Prediction = {
@@ -73,12 +87,17 @@ export type Tool =
       roundRobin?: boolean;
     }
   | { type: "addPartition"; topic: string; max: number }
+  /** Send through the level's special producer (retrying or replicated). */
+  | { type: "send"; via: "retrying" | "replicas"; topic?: string; keys: string[] }
+  /** A segmented control bound to a producer/replica setting. */
+  | { type: "setting"; field: "lingerMs" | "batchSize" | "codec" | "idempotent" | "acks"; options: (string | number | boolean)[] }
+  | { type: "crash" }
   | { type: "fetch"; topic: string; partition: number; groups: string[] }
   | { type: "route"; topics: string[]; count: number };
 
 export type Step =
   | { kind: "brief"; title: Msg; body: Msg; mapping?: { icon: string; thing: Msg; kafka: Msg }[]; breaks?: Msg; code?: string }
-  | { kind: "watch"; title: Msg; body: Msg; script: (ctx: LevelCtx) => Promise<void>; deliveries?: boolean }
+  | { kind: "watch"; title: Msg; body: Msg; script: (ctx: LevelCtx) => Promise<void>; deliveries?: boolean; receipts?: boolean }
   | { kind: "predict"; build: (ctx: LevelCtx) => Prediction }
   | {
       kind: "task";
@@ -90,7 +109,9 @@ export type Step =
       success: Msg;
       onEnter?: (ctx: LevelCtx) => void;
       /** A live gauge shown on the step card (e.g. backlog). */
-      meter?: (ctx: LevelCtx) => { label: Msg; value: number; max: number; danger: number };
+      meters?: (ctx: LevelCtx) => { label: Msg; value: number; max: number; danger: number; unit?: string }[];
+      /** Show the producer's receipts (acked / waiting / lost). */
+      receipts?: boolean;
       /** Show the delivery log (completion order) on the step card. */
       deliveries?: boolean;
       /** Show where each key went before vs. now (after adding partitions). */
@@ -106,6 +127,8 @@ export type Question = {
 export type Level = {
   id: string;
   world: number;
+  /** World 3 machinery, created fresh for every run. */
+  producer?: { batching?: BatchConfig; retrying?: { idempotent: boolean; ackLoss: number }; replicas?: { names: string[]; acks: Acks } };
   title: Msg;
   summary: Msg;
   topics: TopicSpec[];

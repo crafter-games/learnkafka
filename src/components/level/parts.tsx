@@ -177,13 +177,16 @@ export function AnswerInput({
   );
 }
 
-export function Meter({ label, value, max, danger }: { label: Msg; value: number; max: number; danger: number }) {
+export function Meter({ label, value, max, danger, unit }: { label: Msg; value: number; max: number; danger: number; unit?: string }) {
   const hot = value >= danger;
   return (
     <div className="mt-4">
       <div className="mb-1.5 flex items-baseline justify-between">
         <Text m={label} className="font-display text-sm font-bold text-ink-2" />
-        <span className={`font-mono text-lg font-extrabold ${hot ? "text-danger" : "text-ink"}`}>{value}</span>
+        <span className={`font-mono text-lg font-extrabold ${hot ? "text-danger" : "text-ink"}`}>
+          {value}
+          {unit && <span className="ml-0.5 text-sm font-bold text-ink-2">{unit}</span>}
+        </span>
       </div>
       <div className="h-3 overflow-hidden rounded-full bg-paper-2">
         <motion.div
@@ -257,6 +260,30 @@ export function KeyMoves({ cluster, topic, keys }: { cluster: Cluster; topic: st
           );
         })}
       </ul>
+    </div>
+  );
+}
+
+/** The producer's view: which orders it was told are saved, which are waiting, which were lost. */
+export function Receipts({ receipts }: { receipts: { n: number; key: string; status: "pending" | "acked" | "lost" }[] }) {
+  const t = useTranslations("level");
+  return (
+    <div className="mt-4">
+      <p className="mb-2 font-display text-xs font-bold uppercase tracking-[0.14em] text-ink-2">{t("receipts")}</p>
+      {receipts.length === 0 ? (
+        <p className="text-sm text-ink-2">{t("nothingYet")}</p>
+      ) : (
+        <ol className="flex flex-wrap gap-1.5">
+          {receipts.slice(-12).map((r) => (
+            <li
+              key={r.n}
+              className={`rounded-lg px-2 py-1 font-mono text-sm font-bold ${r.status === "acked" ? "bg-broker/15 text-broker" : r.status === "lost" ? "bg-danger/15 text-danger line-through" : "bg-paper-2 text-ink-2"}`}
+            >
+              #{r.n} {r.status === "acked" ? "✓" : r.status === "lost" ? "✗" : "…"}
+            </li>
+          ))}
+        </ol>
+      )}
     </div>
   );
 }

@@ -10,17 +10,18 @@ type Props = {
   labels: StageLabels;
   slots?: number;
   consumers?: ConsumerSpec[];
+  replicas?: string[];
   onLanded?: (record: SimRecord) => void;
   onReady?: (stage: FactoryStage) => void;
   className?: string;
 };
 
 /** Mounts the Three.js factory diorama for a cluster; the sim drives it through events. */
-export function FactoryCanvas({ cluster, labels, slots, consumers, onLanded, onReady, className = "absolute inset-0" }: Props) {
+export function FactoryCanvas({ cluster, labels, slots, consumers, replicas, onLanded, onReady, className = "absolute inset-0" }: Props) {
   const host = useRef<HTMLDivElement>(null);
-  const latest = useRef({ labels, onLanded, onReady, slots, consumers });
+  const latest = useRef({ labels, onLanded, onReady, slots, consumers, replicas });
   useEffect(() => {
-    latest.current = { labels, onLanded, onReady, slots, consumers };
+    latest.current = { labels, onLanded, onReady, slots, consumers, replicas };
   });
 
   useEffect(() => {
@@ -33,8 +34,8 @@ export function FactoryCanvas({ cluster, labels, slots, consumers, onLanded, onR
     // three.js is client-only and heavy: load it after first paint
     void import("@/stage/factoryStage").then(({ FactoryStage }) => {
       if (cancelled) return;
-      const { labels, slots, consumers } = latest.current;
-      const s = new FactoryStage(el, cluster, labels, { slots, consumers, onLanded: (r) => latest.current.onLanded?.(r) });
+      const { labels, slots, consumers, replicas } = latest.current;
+      const s = new FactoryStage(el, cluster, labels, { slots, consumers, replicas, onLanded: (r) => latest.current.onLanded?.(r) });
       stage = s;
       unsubscribe = cluster.events.on((e) => void s.handle(e));
       void s.ready.then(() => {

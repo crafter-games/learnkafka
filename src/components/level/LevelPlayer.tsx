@@ -16,7 +16,7 @@ import { AudioDirector } from "../AudioDirector";
 import { FactoryCanvas } from "../FactoryCanvas";
 import { Hud } from "../Hud";
 import { gameButtonClass } from "../ui/GameButton";
-import { AnswerInput, Breaks, CodeBlock, Deliveries, Feedback, KeyMoves, MappingCard, Meter, Text } from "./parts";
+import { AnswerInput, Breaks, CodeBlock, Deliveries, Feedback, KeyMoves, MappingCard, Meter, Receipts, Text } from "./parts";
 import { RecallQuiz } from "./RecallQuiz";
 import { ToolDock, type ToolHandlers } from "./ToolDock";
 
@@ -77,7 +77,7 @@ export function LevelPlayer({ level }: { level: Level }) {
     if (next.kind === "task") next.onEnter?.(ctx);
   };
 
-  useEffect(() => () => session.stopBackground(), [session]);
+  useEffect(() => () => session.dispose(), [session]);
 
   // Explanations duck the music; hands-on steps let it breathe
   useEffect(() => {
@@ -134,6 +134,25 @@ export function LevelPlayer({ level }: { level: Level }) {
   };
 
   const handlers: ToolHandlers = {
+    send: (via, key, topic = "orders") => {
+      session.send(via, key, topic);
+      setTick((n) => n + 1);
+    },
+    setting: (field) => {
+      if (field === "acks") return ctx.replicas?.acks;
+      if (field === "idempotent") return ctx.retrying?.idempotent;
+      return ctx.batching?.config[field];
+    },
+    setSetting: (field, value) => {
+      audioBus().play("click", { bus: "ui", rate: 1.2 });
+      session.setSetting(field, value);
+      setTick((n) => n + 1);
+    },
+    crash: () => {
+      audioBus().play("wrong", { bus: "ui", rate: 0.7 });
+      ctx.replicas?.crashLeader();
+      setTick((n) => n + 1);
+    },
     produce: (topic, key, value, headers: Headers, roundRobin) => {
       session.produce(topic, key, value, headers, roundRobin);
     },
@@ -181,6 +200,10 @@ export function LevelPlayer({ level }: { level: Level }) {
       topic: (name: string) => ts("topic", { name }),
       partition: (n: number) => ts("partition", { n }),
       next: (n: number) => ts("next", { n }),
+      batch: (p: number, count: number, size: number) => ts("batch", { p, bar: "▮".repeat(count) + "▯".repeat(Math.max(0, size - count)) }),
+      ackLost: ts("ackLost"),
+      dupDropped: (seq: number) => ts("dupDropped", { seq }),
+      replica: (name: string, role: "leader" | "follower" | "down") => ts("replica", { n: name.replace(/\D/g, ""), role }),
     }),
     [ts],
   );
@@ -278,7 +301,8 @@ export function LevelPlayer({ level }: { level: Level }) {
                   </div>
                 )}
 
-                {step.kind === "task" && step.meter && <Meter {...step.meter(ctx)} />}
+                {step.kind === "task" && step.meters?.(ctx).map((m, i) => <Meter key={i} {...m} />)}
+                {(step.kind === "task" || step.kind === "watch") && step.receipts && ctx.replicas && <Receipts receipts={ctx.replicas.receipts} />}
                 {step.kind === "task" && step.keyMoves && <KeyMoves cluster={cluster} topic={step.keyMoves.topic} keys={step.keyMoves.keys} />}
                 {((step.kind === "task" || step.kind === "watch") && step.deliveries) && <Deliveries items={ctx.delivered} />}
 
@@ -314,7 +338,7 @@ export function LevelPlayer({ level }: { level: Level }) {
 
           {/* Factory floor */}
           <section className="relative order-1 min-h-[34vh] min-w-0 flex-1 lg:order-2" data-testid="stage">
-            <FactoryCanvas cluster={cluster} labels={labels} slots={level.slots} consumers={level.consumers} onLanded={onLanded} />
+            <FactoryCanvas cluster={cluster} labels={labels} slots={level.slots} consumers={level.consumers} replicas={level.producer?.replicas?.names} onLanded={onLanded} />
           </section>
         </div>
       )}

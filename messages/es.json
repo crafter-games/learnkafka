@@ -76,7 +76,11 @@
     "topic": "topic: {name}",
     "partition": "partición {n}",
     "next": "sig. {n}",
-    "partitioner": "particionador"
+    "partitioner": "particionador",
+    "batch": "P{p} {bar}",
+    "ackLost": "ack perdido → reintento",
+    "dupDropped": "seq {seq} ya escrito → descartado",
+    "replica": "broker {n} · {role, select, leader {líder ★} follower {réplica} other {caído}}"
   },
   "level": {
     "map": "Mapa del mundo",
@@ -118,11 +122,22 @@
       "order": "Nuevo pedido",
       "payment": "Nuevo pago",
       "addPartition": "Agregar cinta P{n}",
-      "maxPartitions": "{n} cintas (máximo)"
+      "maxPartitions": "{n} cintas (máximo)",
+      "crash": "Tumbar al líder",
+      "on": "sí",
+      "off": "no",
+      "fields": {
+        "batchSize": "batch.size",
+        "lingerMs": "linger.ms",
+        "codec": "compresión",
+        "idempotent": "idempotencia",
+        "acks": "acks"
+      }
     },
     "delivered": "Entregados (en orden de llegada)",
     "nothingYet": "Aún no se entrega nada…",
-    "keyMoves": "A dónde va cada cliente ({n} particiones)"
+    "keyMoves": "A dónde va cada cliente ({n} particiones)",
+    "receipts": "Recibos (lo que le dijeron al producer)"
   },
   "map": {
     "home": "Inicio",
@@ -139,7 +154,10 @@
       "title": "Particiones y keys",
       "body": "Las particiones son cómo Kafka escala y las keys son cómo mantiene el orden. Aprende a elegir cuántas particiones usar, por qué importan las keys y qué pasa cuando agregas particiones después."
     },
-    "w3": "Producers",
+    "w3": {
+      "title": "Producers",
+      "body": "Cómo salen los registros del producer: batching y linger, compresión, los acks que deciden cuándo una escritura cuenta como guardada, y la idempotencia que evita que los reintentos creen duplicados."
+    },
     "w4": "Consumers y grupos",
     "soon": "Próximamente",
     "sandbox": {
@@ -152,7 +170,8 @@
       "empty": "Termina un nivel para tener tu primer repaso.",
       "due": "{n, plural, one {# concepto listo} other {# conceptos listos}} para repasar",
       "clear": "Todo al día. Practica cuando quieras."
-    }
+    },
+    "w6": "Garantías de entrega"
   },
   "levels": {
     "1-1": {
@@ -680,6 +699,277 @@
           "moved": "Se mueven a las particiones nuevas",
           "rehashed": "Se rehashean y redistribuyen",
           "why": "Los registros son inmutables y nunca se mueven. Solo los nuevos usan la nueva cantidad de particiones."
+        }
+      }
+    },
+    "3-1": {
+      "title": "El camión espera o sale",
+      "summary": "Batching: batch.size y linger.ms cambian latencia por throughput.",
+      "brief": {
+        "title": "Cada envío es un viaje",
+        "body": "Ahora mismo el producer manda cada paquete en su propio viaje: <b>una petición de red por registro</b>. Los producers reales agrupan registros por partición en <b>batches</b>. Un batch sale cuando se llena (<code>batch.size</code>) o cuando lleva <code>linger.ms</code> esperando, lo que pase primero.",
+        "breaks": "el tiempo va unas 100× más lento para que veas a los camiones esperar. El <code>linger.ms</code> real es de 5 ms por defecto (desde Kafka 4.0), y <code>batch.size</code> se mide en bytes (16 KB), no en paquetes."
+      },
+      "map": {
+        "truck": "Un camión de reparto",
+        "batch": "Un batch (por partición)",
+        "capacity": "Capacidad del camión",
+        "size": "batch.size",
+        "wait": "Cuánto espera el camión",
+        "linger": "linger.ms",
+        "trip": "Un viaje",
+        "request": "Una petición produce"
+      },
+      "tune": {
+        "title": "Menos viajes, igual de rápido",
+        "body": "Llegan 6 pedidos por segundo. Ajusta los dos controles hasta enviar <b>≤ 2,2 peticiones por segundo</b> con una espera promedio de <b>≤ 700 ms</b>, y mantenlo 5 segundos.",
+        "requests": "Peticiones por segundo",
+        "wait": "Espera promedio en el batch",
+        "success": "Batches menos frecuentes y más llenos: menos tráfico de red y solo un poco más de latencia. Ese es el trade-off del batching."
+      },
+      "when": {
+        "q": "batch.size = 4 paquetes, linger.ms = 1000 ms, y llega un paquete por segundo a P0. ¿Después de cuántos segundos sale el primer batch?",
+        "why": "linger.ms vence al segundo 1, antes de que llegue el 4.º paquete, así que sale un batch parcial. Gana el límite que se cumpla primero."
+      },
+      "raise": {
+        "q": "Subir linger.ms normalmente…",
+        "tradeoff": "Aumenta el throughput pero agrega latencia",
+        "faster": "Hace todo más rápido",
+        "none": "No tiene efecto",
+        "why": "Esperar un poco más llena los batches (mejor throughput y compresión) a cambio de un pequeño retraso por registro."
+      },
+      "check": {
+        "first": {
+          "q": "batch.size = {b} registros, llegan registros cada {ms} ms a una partición, linger.ms = {L} ms. ¿Cuántos registros lleva el primer batch?",
+          "why": "El batch se cierra cuando se llena ({b}) o cuando vence linger.ms ({L} ms, tiempo en que pudieron llegar 1 + {L}/{ms} registros). Aquí son {count}."
+        },
+        "linger": {
+          "q": "¿Qué controla linger.ms?",
+          "wait": "Cuánto esperar más registros antes de enviar un batch",
+          "retry": "Cuánto esperar entre reintentos",
+          "keep": "Cuánto tiempo se quedan los registros en el broker",
+          "why": "Es un pequeño retraso deliberado para que más registros se sumen al batch."
+        },
+        "default": {
+          "q": "¿Cuál es el linger.ms por defecto en Kafka 4.x?",
+          "five": "5 ms",
+          "zero": "0 ms",
+          "hundred": "100 ms",
+          "second": "1000 ms",
+          "why": "El KIP-1030 lo cambió de 0 a 5 ms en Kafka 4.0: una espera mínima que mejora el batching."
+        },
+        "bigger": {
+          "q": "Batches más grandes significan…",
+          "tradeoff": "Menos peticiones y más throughput, pero más latencia",
+          "both": "Menos latencia y más throughput",
+          "nothing": "Ninguna diferencia",
+          "why": "El batching cambia un poco de latencia por mucha eficiencia."
+        }
+      }
+    },
+    "3-2": {
+      "title": "Empacado al vacío",
+      "summary": "Compresión: batches completos comprimidos con gzip, snappy, lz4 o zstd.",
+      "brief": {
+        "title": "Aprieta el batch",
+        "body": "La red entre el centro y los brokers es un tubo angosto. Los producers pueden <b>comprimir</b> cada batch antes de enviarlo. El broker lo guarda comprimido y el consumer lo desempaca al final.",
+        "breaks": "las proporciones aquí son ilustrativas. La compresión real depende de tus datos: un JSON repetitivo se comprime mucho, imágenes ya comprimidas casi nada."
+      },
+      "map": {
+        "vacuum": "Empacar al vacío",
+        "compression": "Compresión",
+        "truck": "Se empaca el camión entero",
+        "batch": "Se comprimen batches enteros",
+        "stored": "Sigue empacado en bodega",
+        "broker": "Se guarda comprimido en el broker",
+        "unpack": "Se desempaca al entregar",
+        "consumer": "El consumer descomprime"
+      },
+      "pipe": {
+        "title": "Que quepa por el tubo",
+        "body": "6 pedidos por segundo de 1 KB cada uno, pero el tubo solo admite <b>{cap} KB/s</b>. Elige un codec que quepa y mira el costo de CPU.",
+        "network": "Uso de red",
+        "cpu": "Costo de CPU",
+        "success": "¡Cabe! Cada codec cambia CPU por tamaño: zstd y gzip comprimen más, lz4 y snappy son los más rápidos."
+      },
+      "where": {
+        "q": "¿Dónde se descomprimen finalmente los registros?",
+        "consumer": "En el consumer",
+        "broker": "En el broker",
+        "producer": "En el producer",
+        "why": "El batch viaja comprimido de punta a punta. El broker lo guarda tal como lo empacó el producer (<code>compression.type=producer</code> en el topic) y el consumer lo descomprime."
+      },
+      "best": {
+        "q": "La compresión funciona mejor con…",
+        "big": "Batches más grandes",
+        "small": "Batches de un solo registro",
+        "keys": "Registros sin key",
+        "why": "Más registros parecidos en un batch significan más repetición para comprimir. Batching y compresión trabajan juntos."
+      },
+      "check": {
+        "default": {
+          "q": "¿Cuál es el compression.type por defecto del producer?",
+          "none": "none",
+          "gzip": "gzip",
+          "zstd": "zstd",
+          "lz4": "lz4",
+          "why": "La compresión viene apagada. Se activa con <code>compression.type</code>."
+        },
+        "unit": {
+          "q": "Kafka comprime…",
+          "batch": "Batches completos de registros",
+          "field": "Cada campo por separado",
+          "key": "Solo las keys",
+          "why": "La compresión se aplica al batch completo, por eso los batches grandes comprimen mejor."
+        },
+        "broker": {
+          "q": "Con compression.type=producer en el topic, el broker…",
+          "keeps": "Guarda el batch tal como lo comprimió el producer",
+          "decompresses": "Lo descomprime antes de guardarlo",
+          "recompresses": "Siempre lo recomprime con gzip",
+          "why": "<code>producer</code> (el valor por defecto) conserva el codec del producer. No recomprime."
+        },
+        "wire": {
+          "q": "{rate} registros/s de {kb} KB cada uno, comprimidos al {pct}% de su tamaño. ¿Cuántos KB/s pasan por la red?",
+          "why": "{rate} × {kb} KB × {pct}% = {ans} KB/s."
+        }
+      }
+    },
+    "3-3": {
+      "title": "Recibos firmados",
+      "summary": "acks: ¿cuándo una escritura cuenta como guardada? Tumba al líder y descúbrelo.",
+      "brief": {
+        "title": "¿Quién firma el recibo?",
+        "body": "Cada partición se copia en varios brokers: un <b>líder</b> que recibe las escrituras y <b>réplicas</b> (followers) que copian de él. El ajuste <code>acks</code> del producer decide cuándo recibe su recibo: <code>0</code> (no espera), <code>1</code> (el líder lo escribió), <code>all</code> (todas las réplicas en sync lo tienen).",
+        "breaks": "las réplicas copian por la red. Aquí una copia tarda cerca de un segundo para que veas la brecha que los clústeres reales cierran en milisegundos."
+      },
+      "map": {
+        "belts": "Tres cintas",
+        "replicas": "Réplicas de P0 en 3 brokers",
+        "star": "La cinta ★",
+        "leader": "El líder de la partición",
+        "receipt": "Un recibo firmado",
+        "ack": "Una confirmación (ack)"
+      },
+      "crash1": {
+        "title": "Prueba de choque con acks=1",
+        "body": "El producer envía tres pedidos con <code>acks=1</code> y luego muere el broker líder. Mira los recibos.",
+        "receipts": ""
+      },
+      "fix": {
+        "q": "Los recibos decían ✓ pero se perdieron pedidos. ¿Qué ajuste lo habría evitado?",
+        "all": "acks=all",
+        "zero": "acks=0",
+        "partitions": "Más particiones",
+        "why": "Con <code>acks=all</code> el producer recibe su recibo solo cuando todas las réplicas en sync tienen el registro, así que la caída del líder no se lleva un registro confirmado."
+      },
+      "crash2": {
+        "title": "Prueba de choque con acks=all",
+        "body": "Ahora el líder es el broker 2. <b>Primero</b> pon <code>acks=all</code>, envía algunos pedidos, espera sus ✓ y vuelve a tumbar al líder. No debería perderse ningún pedido confirmado.",
+        "success": "Cada ✓ sobrevivió a la caída. Por eso <code>acks=all</code> es el valor por defecto desde Kafka 3.0."
+      },
+      "alone": {
+        "q": "Queda una sola réplica. Con acks=all y el min.insync.replicas=1 por defecto, una escritura…",
+        "succeeds": "Funciona: el líder solo cuenta como “todas las réplicas en sync”",
+        "fails": "Falla con NotEnoughReplicas",
+        "waits": "Espera para siempre",
+        "why": "“All” significa todas las réplicas <b>en sync</b>, y con <code>min.insync.replicas=1</code> basta con una. En producción se usa RF=3 con <code>min.insync.replicas=2</code>. Más en el Mundo 5."
+      },
+      "check": {
+        "one": {
+          "q": "acks=1 significa que el producer recibe su ack cuando…",
+          "leader": "El líder escribió el registro",
+          "all": "Todas las réplicas lo tienen",
+          "never": "Nunca espera",
+          "why": "Solo se confirma la escritura del líder. Las réplicas quizá aún no lo tienen."
+        },
+        "default": {
+          "q": "¿Cuál es el acks por defecto desde Kafka 3.0?",
+          "all": "all",
+          "one": "1",
+          "zero": "0",
+          "why": "<code>acks=all</code>, junto con la idempotencia, pasó a ser el valor por defecto en Kafka 3.0."
+        },
+        "lose": {
+          "q": "¿Qué ajuste puede perder un registro confirmado si el líder muere justo después de confirmar?",
+          "one": "acks=1",
+          "all": "acks=all",
+          "neither": "Ninguno",
+          "why": "Con acks=1 el registro puede existir solo en el líder caído. (acks=0 también puede perder registros, pero al producer nunca le prometieron nada.)"
+        },
+        "zero": {
+          "q": "acks=0 significa…",
+          "nowait": "El producer no espera ninguna confirmación",
+          "leader": "El líder confirma",
+          "all": "Todas las réplicas confirman",
+          "why": "Disparar y olvidar: lo más rápido, sin garantía de que el registro se guardó."
+        }
+      }
+    },
+    "3-4": {
+      "title": "Recibo perdido",
+      "summary": "Los reintentos crean duplicados, y la idempotencia los evita.",
+      "brief": {
+        "title": "El recibo se perdió",
+        "body": "Hoy la red está inestable. El broker escribe el paquete, pero la respuesta “¡recibido!” a veces se pierde en el camino. El producer no distingue un caso del otro, así que <b>reintenta</b>.",
+        "breaks": "Kafka no reintenta un número fijo de veces: sigue reintentando hasta que se agota <code>delivery.timeout.ms</code> (2 minutos por defecto)."
+      },
+      "map": {
+        "receipt": "El recibo “¡recibido!”",
+        "ack": "Confirmación (ack)",
+        "resend": "Volver a enviarlo",
+        "retry": "Un reintento",
+        "seal": "Sello de lacre numerado",
+        "seq": "Producer id + número de secuencia"
+      },
+      "flaky": {
+        "title": "Red inestable",
+        "body": "Envía pedidos hasta que aparezca algo raro en la cinta.",
+        "success": "¡Un duplicado! El mismo pedido está dos veces en el log: la primera escritura funcionó, solo se perdió su recibo."
+      },
+      "seals": {
+        "title": "Sellos numerados",
+        "body": "Con <b>idempotencia</b>, cada producer recibe un id y numera sus registros por partición (<code>seq</code>). Si llega un reintento con un número que el broker ya escribió, lo descarta. También se mantiene el orden, con hasta 5 peticiones en vuelo. Viene activada por defecto desde Kafka 3.0."
+      },
+      "fix": {
+        "title": "Activa la idempotencia",
+        "body": "Activa la idempotencia y sigue enviando. Mira cómo el particionador rechaza las copias reintentadas.",
+        "success": "Los reintentos siguen ocurriendo, pero el log queda limpio: cada pedido una sola vez."
+      },
+      "protects": {
+        "q": "La idempotencia protege contra…",
+        "retries": "Duplicados causados por reintentos del producer",
+        "consumers": "Consumers que procesan un registro dos veces",
+        "producers": "Dos producers distintos enviando el mismo pedido",
+        "why": "Elimina duplicados de reintentos de una misma sesión de producer. Los duplicados del lado consumer o entre producers necesitan otras herramientas (Mundo 6)."
+      },
+      "check": {
+        "default": {
+          "q": "¿Cuál es el valor por defecto de enable.idempotence desde Kafka 3.0?",
+          "true": "true",
+          "false": "false",
+          "why": "Activada por defecto, junto con acks=all."
+        },
+        "detect": {
+          "q": "¿Cómo detecta el broker un reintento duplicado?",
+          "seq": "Producer id + número de secuencia por partición",
+          "value": "Comparando los values",
+          "time": "Comparando timestamps",
+          "why": "Cada producer numera sus registros por partición. Un número repetido es un reintento."
+        },
+        "eos": {
+          "q": "La idempotencia por sí sola da exactly-once…",
+          "session": "Solo para escrituras de una sesión de producer en Kafka",
+          "e2e": "De punta a punta, incluyendo bases de datos",
+          "consumers": "Para los consumers",
+          "why": "Quita los duplicados de reintentos del producer. El exactly-once de punta a punta necesita transacciones y consumers read_committed."
+        },
+        "bound": {
+          "q": "¿Qué limita cuánto tiempo sigue reintentando el producer?",
+          "delivery": "delivery.timeout.ms",
+          "retries": "La cantidad de retries",
+          "linger": "linger.ms",
+          "why": "<code>retries</code> vale MAX_INT por defecto. El límite real es <code>delivery.timeout.ms</code> (120 s)."
         }
       }
     }

@@ -3,6 +3,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { CSS2DObject, CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import type { Cluster } from "@/sim/cluster";
 import type { SimEvent, SimRecord } from "@/sim/events";
+import { CODECS, type Codec } from "@/sim/producer";
 import { keyColor } from "./keyColors";
 import { COLORS } from "./theme";
 import { Tweens, easeInOutCubic, easeOutBack, easeOutCubic, wait } from "./tweens";
@@ -24,6 +25,10 @@ export type StageLabels = {
   topic: (name: string) => string;
   partition: (n: number) => string;
   next: (n: number) => string;
+  batch?: (partition: number, count: number, size: number) => string;
+  ackLost?: string;
+  dupDropped?: (seq: number) => string;
+  replica?: (name: string, role: "leader" | "follower" | "down") => string;
 };
 
 export type ConsumerSpec = { group: string; label: string; color: string };
@@ -33,6 +38,8 @@ export type StageOptions = {
   slots?: number;
   /** Consumer groups shown as robot arms at the end of the line. */
   consumers?: ConsumerSpec[];
+  /** Topic names that are replicas of one partition (first = initial leader). */
+  replicas?: string[];
   onLanded?: (record: SimRecord) => void;
 };
 
@@ -99,6 +106,13 @@ export class FactoryStage {
   private scanner = new THREE.Group();
   private hashLabel!: HTMLElement;
   private hashObj!: CSS2DObject;
+  private batchLabel!: HTMLElement;
+  private batchCounts = new Map<number, { count: number; size: number }>();
+  private alertLabel!: HTMLElement;
+  private alertObj!: CSS2DObject;
+  private topicTags = new Map<string, HTMLElement>();
+  private leader: string | undefined;
+  private down = new Set<string>();
   private frame = 0;
   private last = performance.now();
   private resizeObs: ResizeObserver;
@@ -210,6 +224,17 @@ export class FactoryStage {
     const prodLabel = css2d(label("stage-tag stage-tag--producer", this.text.producer));
     prodLabel.position.set(0, 1.75, 0);
     this.producer.add(prodLabel);
+    const batch = label("stage-batch");
+    this.batchLabel = batch.inner;
+    const batchObj = css2d(batch);
+    batchObj.position.set(0, 2.35, 0);
+    this.producer.add(batchObj);
+    const alert = label("stage-alert");
+    this.alertLabel = alert.inner;
+    this.alertObj = css2d(alert);
+    this.alertObj.position.set(0.4, 0.2, 1.1);
+    this.alertObj.visible = false;
+    this.producer.add(this.alertObj);
 
     for (let x = PRODUCER_X + 0.9; x < SCANNER_X + 0.6; x += 1) {
       const belt = await model("conveyor-stripe-sides");
@@ -231,9 +256,12 @@ export class FactoryStage {
     this.scanner.add(this.hashObj);
 
     // One conveyor per partition, grouped by topic
+    this.leader = this.options.replicas?.[0];
     for (const t of this.cluster.topicList) {
       const first = layout.find((l) => l.topic === t.name)!;
-      const tag = css2d(label("stage-tag stage-tag--topic", this.text.topic(t.name)));
+      const tl = label("stage-tag stage-tag--topic", this.tagText(t.name));
+      this.topicTags.set(t.name, tl.inner);
+      const tag = css2d(tl);
       tag.position.set(this.slots + 0.4, 0.2, first.z - 0.95);
       this.scene.add(tag);
     }
@@ -313,6 +341,28 @@ export class FactoryStage {
     }
   }
 
+  private tagText(name: string) {
+    if (!this.options.replicas?.includes(name) || !this.text.replica) return this.text.topic(name);
+    return this.text.replica(name, this.down.has(name) ? "down" : name === this.leader ? "leader" : "follower");
+  }
+
+  private refreshTags() {
+    for (const [name, el] of this.topicTags) {
+      el.textContent = this.tagText(name);
+      el.classList.toggle("is-down", this.down.has(name));
+      el.classList.toggle("is-leader", name === this.leader);
+    }
+  }
+
+  private flashAlert(text: string) {
+    this.alertLabel.textContent = text;
+    this.alertObj.visible = true;
+    this.alertLabel.classList.remove("is-on");
+    void this.alertLabel.offsetWidth;
+    this.alertLabel.classList.add("is-on");
+    setTimeout(() => (this.alertObj.visible = false), 1500);
+  }
+
   /** A small flag under the conveyor showing a group's position (next offset to read). */
   private ensureCursor(lane: Lane, spec: ConsumerSpec) {
     if (lane.cursors.has(spec.group)) return lane.cursors.get(spec.group)!;
@@ -381,14 +431,20 @@ export class FactoryStage {
   private async makeBox(record: SimRecord) {
     const box = new THREE.Group();
     const body = await model("box-small");
+    const dup = record.headers["x-dup"] === "1";
+    const codec = record.headers["x-codec"];
+    // Compressed batches travel vacuum-packed: smaller boxes
+    const squeeze = codec ? 0.55 + 0.45 * (CODECS[codec as Codec]?.ratio ?? 1) : 1;
+    body.scale.set(squeeze, squeeze, squeeze);
     box.add(body);
     const sticker = new THREE.Mesh(
-      new THREE.BoxGeometry(0.34, 0.012, 0.3),
-      new THREE.MeshStandardMaterial({ color: keyColor(record.key), roughness: 0.6 }),
+      new THREE.BoxGeometry(0.34 * squeeze, 0.012, 0.3 * squeeze),
+      new THREE.MeshStandardMaterial({ color: dup ? COLORS.danger : keyColor(record.key), roughness: 0.6 }),
     );
-    sticker.position.set(0, 0.556, 0);
+    sticker.position.set(0, 0.556 * squeeze, 0);
     box.add(sticker);
-    const tag = css2d(label("stage-key", `${record.key ?? "∅"}${record.value.startsWith("#") ? ` ${record.value}` : ""}`));
+    const text = `${record.key ?? "∅"}${record.value.startsWith("#") ? ` ${record.value}` : ""}${dup ? " · DUP" : ""}`;
+    const tag = css2d(label(dup ? "stage-key stage-key--dup" : "stage-key", text));
     tag.position.set(0, 0.75, 0);
     box.add(tag);
     return box;
@@ -397,13 +453,7 @@ export class FactoryStage {
   private async showHash(record: SimRecord) {
     const n = this.cluster.topic(record.topic).numPartitions;
     const where = this.cluster.topics.size > 1 ? `${record.topic}/P${record.partition}` : `P${record.partition}`;
-    this.hashLabel.textContent = record.key === null ? `null → sticky → ${where}` : `murmur2("${record.key}") % ${n} = ${record.partition}`;
-    this.hashObj.visible = true;
-    this.hashLabel.classList.remove("is-on");
-    void this.hashLabel.offsetWidth; // restart CSS animation
-    this.hashLabel.classList.add("is-on");
-    await wait(1500);
-    this.hashObj.visible = false;
+    await this.showPill(record.key === null ? `null → sticky → ${where}` : `murmur2("${record.key}") % ${n} = ${record.partition}`);
   }
 
   private puff(at: THREE.Vector3, color = 0xffffff) {
@@ -440,6 +490,47 @@ export class FactoryStage {
     if (event.type === "appended") await this.onAppended(event.record);
     if (event.type === "fetched") this.onFetched(event.group, event.record, event.position);
     if (event.type === "partitionsAdded") this.revealLanes(event.topic, event.total);
+    if (event.type === "buffered") this.onBuffered(event.partition, event.count, event.batchSize);
+    if (event.type === "ackLost" && this.text.ackLost) this.flashAlert(this.text.ackLost);
+    if (event.type === "duplicateRejected" && this.text.dupDropped) this.showPill(this.text.dupDropped(event.seq), "is-good");
+    if (event.type === "brokerDown") this.onBrokerDown(event.topic);
+    if (event.type === "leaderElected") {
+      this.leader = event.topic;
+      this.refreshTags();
+      this.pulse(event.topic, 0, COLORS.broker);
+    }
+  }
+
+  private onBuffered(partition: number, count: number, size: number) {
+    if (count === 0) this.batchCounts.delete(partition);
+    else this.batchCounts.set(partition, { count, size });
+    const fmt = this.text.batch;
+    this.batchLabel.textContent = fmt ? [...this.batchCounts.entries()].map(([p, b]) => fmt(p, b.count, b.size)).join("  ") : "";
+    this.batchLabel.classList.toggle("is-empty", this.batchCounts.size === 0);
+  }
+
+  private onBrokerDown(topic: string) {
+    this.down.add(topic);
+    this.refreshTags();
+    for (const lane of this.lanes) {
+      if (lane.topic !== topic) continue;
+      lane.material.color.setHex(0x55506e);
+      lane.material.emissive.setHex(COLORS.danger);
+      lane.material.emissiveIntensity = 0.25;
+      lane.title.classList.add("is-down");
+    }
+    this.puff(new THREE.Vector3(this.slots / 2, 0.6, this.lane(topic, 0).z), COLORS.danger);
+  }
+
+  /** The dark pill under the partitioner, with an optional tone. */
+  private async showPill(text: string, tone = "") {
+    this.hashLabel.textContent = text;
+    this.hashLabel.className = `stage-hash ${tone}`;
+    this.hashObj.visible = true;
+    void this.hashLabel.offsetWidth;
+    this.hashLabel.classList.add("is-on");
+    await wait(1500);
+    this.hashObj.visible = false;
   }
 
   /** New partitions: the reserved conveyors drop into place. */
@@ -483,6 +574,30 @@ export class FactoryStage {
 
     this.producer.scale.set(1.08, 0.9, 1.08);
     void this.tweens.to(this.producer.scale, { x: 1, y: 1, z: 1 }, 260, easeOutBack);
+
+    const copyFrom = record.headers["x-copy-from"];
+    if (copyFrom) {
+      // Replication: a follower fetches the record from the leader's conveyor
+      const src = this.lane(copyFrom, 0);
+      const box = await this.makeBox(record);
+      const start = new THREE.Vector3(this.slotX(src, record.offset), 0.4, src.z);
+      const end = new THREE.Vector3(this.slotX(lane, record.offset), 0.4, lane.z);
+      box.position.copy(start);
+      this.scene.add(box);
+      await this.tweens.progress(520, (t) => {
+        box.position.lerpVectors(start, end, t);
+        box.position.y += Math.sin(Math.PI * t) * 0.9;
+      });
+      lane.boxes.set(record.offset, box);
+      box.scale.set(1.15, 0.85, 1.15);
+      void this.tweens.to(box.scale, { x: 1, y: 1, z: 1 }, 220, easeOutBack);
+      const stamp = css2d(label("stage-offset", String(record.offset)));
+      stamp.position.set(0, -0.05, 0.42);
+      box.add(stamp);
+      this.pulse(record.topic, record.partition);
+      this.options.onLanded?.(record);
+      return;
+    }
 
     // Out of the depot, along the feeder, through the partitioner…
     const box = await this.makeBox(record);

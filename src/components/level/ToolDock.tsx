@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "motion/react";
-import { CreditCard, PaperPlaneTilt, Plus, Prohibit, Receipt, Scan } from "@phosphor-icons/react";
+import { CreditCard, Lightning, PaperPlaneTilt, Plus, Prohibit, Receipt, Scan } from "@phosphor-icons/react";
 import type { Headers } from "@/sim/events";
 import type { Tool } from "@/levels/types";
 import { randInt, seeded } from "@/levels/types";
@@ -13,7 +13,13 @@ import { keyColor } from "@/stage/keyColors";
 import { gameButtonClass } from "../ui/GameButton";
 import { Keycap } from "../ui/Keycap";
 
+export type SettingValue = string | number | boolean;
+
 export type ToolHandlers = {
+  send: (via: "retrying" | "replicas", key: string, topic?: string) => void;
+  setting: (field: Extract<Tool, { type: "setting" }>["field"]) => SettingValue | undefined;
+  setSetting: (field: Extract<Tool, { type: "setting" }>["field"], value: SettingValue) => void;
+  crash: () => void;
   produce: (topic: string, key: string | null, value: string, headers: Headers, roundRobin?: boolean) => void;
   addPartition: (topic: string) => void;
   fetch: (group: string, topic: string, partition: number) => void;
@@ -141,6 +147,58 @@ function AddPartitionTool({ tool, partitions, on }: { tool: Extract<Tool, { type
   );
 }
 
+function SendTool({ tool, on }: { tool: Extract<Tool, { type: "send" }>; on: ToolHandlers }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {tool.keys.map((k) => (
+        <button key={k} type="button" onClick={() => on.send(tool.via, k, tool.topic)} className={`${gameButtonClass({ size: "sm" })} shrink-0 gap-2 pl-2.5`}>
+          <span className="size-3.5 rounded-[4px] ring-2 ring-producer ring-offset-1 ring-offset-paper" style={{ background: keyColor(k) }} aria-hidden />
+          <span className="font-mono">{k}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Segmented control for a producer setting (linger.ms, batch.size, acks…). */
+function SettingTool({ tool, on }: { tool: Extract<Tool, { type: "setting" }>; on: ToolHandlers }) {
+  const t = useTranslations("level.tools");
+  const current = on.setting(tool.field);
+  return (
+    <div className="flex items-center gap-2" role="radiogroup" aria-label={t(`fields.${tool.field}`)}>
+      <span className="font-mono text-sm font-bold text-ink-2">{t(`fields.${tool.field}`)}</span>
+      <div className="flex overflow-hidden rounded-xl border border-line bg-paper-2 p-0.5">
+        {tool.options.map((o) => {
+          const active = String(o) === String(current);
+          return (
+            <button
+              key={String(o)}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              data-setting={`${tool.field}=${o}`}
+              onClick={() => on.setSetting(tool.field, o)}
+              className={`h-9 min-w-11 rounded-[10px] px-2.5 font-mono text-sm font-bold transition ${active ? "bg-partition text-white shadow-[0_2px_0_var(--partition-dark)]" : "text-ink-2 hover:bg-white"}`}
+            >
+              {typeof o === "boolean" ? t(o ? "on" : "off") : String(o)}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function CrashTool({ on }: { on: ToolHandlers }) {
+  const t = useTranslations("level.tools");
+  return (
+    <button type="button" onClick={on.crash} className={`${gameButtonClass({ size: "md" })} border-danger/40 text-danger`}>
+      <Lightning weight="fill" />
+      {t("crash")}
+    </button>
+  );
+}
+
 type RouteEvent = { kind: "order" | "payment"; key: string; text: string };
 
 function makeQueue(): RouteEvent[] {
@@ -210,6 +268,12 @@ export function ToolDock({ tools, consumers, partitions, on }: { tools: Tool[]; 
           <FetchTool key={i} tool={tool} groups={consumers} on={on} />
         ) : tool.type === "addPartition" ? (
           <AddPartitionTool key={i} tool={tool} partitions={partitions(tool.topic)} on={on} />
+        ) : tool.type === "send" ? (
+          <SendTool key={i} tool={tool} on={on} />
+        ) : tool.type === "setting" ? (
+          <SettingTool key={i} tool={tool} on={on} />
+        ) : tool.type === "crash" ? (
+          <CrashTool key={i} on={on} />
         ) : (
           <RouteTool key={i} tool={tool} on={on} />
         ),
