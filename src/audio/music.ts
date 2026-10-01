@@ -1,5 +1,5 @@
 // Generative, adaptive background music (Tone.js) — an ORIGINAL composition in the style of
-// courtroom/investigation game soundtracks: heroic minor key, galloping 16th-note synth bass,
+// courtroom/investigation game soundtracks: bright heroic major key, galloping 16th-note synth bass,
 // staccato brass stabs, punchy snare and a "pursuit" lead. No existing melody is reproduced.
 //
 // Intensity layers:  0 = investigation (pads + bass)  ·  1 = + drums & brass  ·  2 = pursuit
@@ -17,33 +17,33 @@ const INTENSITY_LIFT: Record<Intensity, number> = { 0: 0, 1: 0, 2: 2 };
 /** Key lifts every 8 bars (semitones), then back to the start. */
 const MODULATIONS = [0, 1, 2, 3];
 
-// D minor, 8 bars: i – VI – VII – V7 | i – iv – ii°7 – V7   (MIDI numbers)
-const ROOTS = [38, 34, 36, 33, 38, 31, 40, 33];
+// D major, 8 bars: I – V – vi – IV | I – IV – ii – V7   (MIDI numbers). Bright and driving.
+const ROOTS = [38, 33, 35, 31, 38, 31, 40, 33];
 const CHORDS = [
-  [62, 65, 69],
-  [58, 62, 65],
-  [60, 64, 67],
-  [57, 61, 64, 67],
-  [62, 65, 69],
-  [55, 58, 62],
-  [52, 55, 58, 62],
+  [62, 66, 69],
+  [57, 61, 64],
+  [59, 62, 66],
+  [55, 59, 62],
+  [62, 66, 69],
+  [55, 59, 62],
+  [52, 55, 59],
   [57, 61, 64, 67],
 ];
 // Galloping bass, per 16th step: semitones above the root (null = rest)
-const BASS: (number | null)[] = [0, null, 12, 0, 0, null, 12, 0, 0, null, 12, 0, 7, null, 12, 10];
+const BASS: (number | null)[] = [0, null, 12, 0, 0, null, 12, 0, 0, null, 12, 0, 7, null, 12, 7];
 // Brass stabs (16th steps) — syncopated hits on the chord
 const STABS = [0, 3, 6, 10, 12];
-// Original lead, 8 bars × 16 steps (MIDI, 0 = rest)
+// Original lead, 8 bars × 16 steps (MIDI, 0 = rest), in D major
 const _ = 0;
 const LEAD: number[][] = [
-  [74, _, _, 69, _, 74, _, 76, 77, _, _, _, 76, _, 74, _],
-  [77, _, _, 74, _, 77, _, 79, 81, _, _, _, 79, _, 77, _],
-  [79, _, _, 76, _, 79, _, 81, 82, _, _, _, 81, _, 79, _],
-  [81, _, _, _, 76, _, _, 73, _, 76, _, _, 81, _, _, _],
-  [86, _, _, 81, _, 77, _, 74, 76, _, 77, _, 79, _, 81, _],
-  [82, _, _, 79, _, 74, _, 79, 81, _, 82, _, 84, _, 86, _],
-  [79, _, _, 82, _, 79, _, 76, 77, _, 79, _, 81, _, 82, _],
-  [81, _, _, _, _, _, 79, _, 77, _, 76, _, 73, _, 76, _],
+  [74, _, _, 78, _, 81, _, 78, 76, _, _, _, 74, _, 76, _],
+  [76, _, _, 73, _, 76, _, 81, 81, _, _, _, 79, _, 76, _],
+  [78, _, _, 74, _, 78, _, 83, 81, _, _, _, 78, _, 74, _],
+  [79, _, _, _, 74, _, _, 71, _, 74, _, _, 79, _, 81, _],
+  [86, _, _, 81, _, 78, _, 81, 86, _, 88, _, 86, _, 85, _],
+  [83, _, _, 79, _, 74, _, 79, 83, _, 86, _, 83, _, 81, _],
+  [79, _, _, 83, _, 79, _, 76, 79, _, 81, _, 83, _, 85, _],
+  [86, _, _, _, _, _, 85, _, 81, _, 79, _, 76, _, 73, _],
 ];
 const LAYER_DB = { bass: -13, pad: -25, drums: -15, brass: -19 } as const;
 const LEAD_DB: Record<Intensity, number> = { 0: OFF_DB, 1: -26, 2: -16 };
@@ -95,7 +95,7 @@ class Music {
       filterEnvelope: { attack: 0.004, decay: 0.1, sustain: 0.2, baseFrequency: 160, octaves: 3.2 },
     }).connect(bassVol);
     const padVol = new Tone.Volume(LAYER_DB.pad).connect(room);
-    const padFilter = new Tone.Filter(1700, "lowpass").connect(padVol);
+    const padFilter = new Tone.Filter(2400, "lowpass").connect(padVol);
     const pad = new Tone.PolySynth(Tone.Synth, {
       oscillator: { type: "fatsawtooth", count: 3, spread: 22 },
       envelope: { attack: 0.35, decay: 0.3, sustain: 0.6, release: 1 },

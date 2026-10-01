@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { motion } from "motion/react";
-import { Play } from "@phosphor-icons/react";
+import { GithubLogo, Play } from "@phosphor-icons/react";
 import { useRouter } from "@/i18n/navigation";
 import { audioBus } from "@/audio/audioBus";
 import { backgroundMusic } from "@/audio/music";
@@ -17,6 +17,7 @@ import { Keycap } from "./ui/Keycap";
 const ATTRACT_KEYS = ["alice", "bob", "carol", "alice", "dave", "erin", "bob", null, "carol", "alice", "frank", "dave"];
 const ATTRACT_MS = 900;
 const IRIS_MS = 650;
+const REPO = "https://github.com/crafter-games/learnkafka";
 
 export function Landing() {
   const t = useTranslations("landing");
@@ -92,7 +93,17 @@ export function Landing() {
         }}
       />
 
-      <header className="relative z-10 flex items-center justify-end px-4 pt-4 sm:px-6">
+      <header className="relative z-10 flex items-center justify-end gap-2 px-4 pt-4 sm:px-6">
+        <a
+          href={REPO}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={t("github")}
+          title={t("github")}
+          className="grid size-11 place-items-center rounded-xl bg-ink text-paper shadow-[0_2px_0_rgba(0,0,0,0.25)] transition hover:-translate-y-0.5 hover:bg-partition-dark"
+        >
+          <GithubLogo size={22} weight="fill" aria-hidden />
+        </a>
         <Hud />
       </header>
 
@@ -132,12 +143,26 @@ export function Landing() {
         </motion.button>
       </section>
 
-      <p className="absolute bottom-3 left-1/2 z-10 w-[calc(100%-32px)] -translate-x-1/2 text-center text-xs text-ink-2 sm:left-auto sm:right-4 sm:w-auto sm:translate-x-0 sm:text-right">
-        {t("credits")}{" "}
-        <a href="https://github.com/crafter-games/learnkafka/blob/main/CREDITS.md" target="_blank" rel="noreferrer" className="font-semibold underline underline-offset-2 hover:text-ink">
-          CREDITS.md
-        </a>
-      </p>
+      <footer className="absolute inset-x-0 bottom-0 z-10 flex flex-col items-center gap-2 px-4 pb-4 sm:flex-row sm:justify-between sm:px-6">
+        <div className="flex items-center gap-2">
+          <a
+            href="https://github.com/Jibaru"
+            target="_blank"
+            rel="noreferrer"
+            className="group inline-flex items-center gap-2 rounded-full bg-paper/85 py-1 pl-1 pr-3.5 font-display text-sm font-bold text-ink shadow-[0_2px_0_rgba(43,40,64,0.12)] backdrop-blur transition hover:bg-paper"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="https://github.com/Jibaru.png?size=64" alt="" width={28} height={28} className="size-7 rounded-full" />
+            {t("madeBy")} <span className="text-producer-dark group-hover:underline">Jibaru</span>
+          </a>
+        </div>
+        <p className="rounded-full bg-paper/75 px-3 py-1 text-center text-xs text-ink-2 backdrop-blur sm:text-right">
+          {t("credits")}{" "}
+          <a href={`${REPO}/blob/main/CREDITS.md`} target="_blank" rel="noreferrer" className="font-semibold underline underline-offset-2 hover:text-ink">
+            CREDITS.md
+          </a>
+        </p>
+      </footer>
 
       {/* Iris wipe into the world map */}
       {iris && (

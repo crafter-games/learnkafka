@@ -14,7 +14,9 @@
       "real": "Real Kafka 4.x behaviour, down to the hash function"
     },
     "headline": "Learn Kafka by running the hub.",
-    "credits": "3D art: Kenney Factory Kit (CC0). Music and sounds made in code. Full credits in"
+    "credits": "3D art: Kenney Factory Kit (CC0). Music and sounds made in code. Full credits in",
+    "madeBy": "Made by",
+    "github": "Source code on GitHub"
   },
   "hud": {
     "musicOn": "Turn music on",

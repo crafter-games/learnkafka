@@ -14,7 +14,9 @@
       "real": "Comportamiento real de Kafka 4.x, hasta la función hash"
     },
     "headline": "Aprende Kafka operando el centro.",
-    "credits": "Arte 3D: Kenney Factory Kit (CC0). Música y sonidos generados en código. Créditos completos en"
+    "credits": "Arte 3D: Kenney Factory Kit (CC0). Música y sonidos generados en código. Créditos completos en",
+    "madeBy": "Hecho por",
+    "github": "Código fuente en GitHub"
   },
   "hud": {
     "musicOn": "Activar música",
