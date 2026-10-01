@@ -150,7 +150,7 @@ export function DispatchDesk() {
             <ArrowLeft weight="bold" />
           </Link>
           <div className="min-w-0 leading-tight">
-            <p className="font-display text-[11px] font-bold uppercase tracking-[0.14em] text-ink-2">{t("level")}</p>
+            <p className="font-display text-xs font-bold uppercase tracking-[0.14em] text-ink-2">{t("level")}</p>
             <h1 className="truncate font-display text-xl font-extrabold tracking-tight sm:text-2xl">{t("title")}</h1>
           </div>
         </div>
@@ -159,12 +159,12 @@ export function DispatchDesk() {
 
       <div className="relative flex min-h-0 flex-1">
         {/* Mission card */}
-        <aside className="card z-10 m-3 mr-0 hidden w-72 shrink-0 flex-col self-start p-5 sm:ml-5 lg:flex" aria-label={t("mission")}>
-          <p className="font-display text-[11px] font-bold uppercase tracking-[0.14em] text-producer-dark">{t("mission")}</p>
-          <p className="mt-1.5 text-[15px] leading-relaxed text-ink-2">{t("missionText")}</p>
+        <aside className="card z-10 m-3 mr-0 hidden w-80 shrink-0 flex-col self-start p-5 sm:ml-5 lg:flex" aria-label={t("mission")}>
+          <p className="font-display text-xs font-bold uppercase tracking-[0.14em] text-producer-dark">{t("mission")}</p>
+          <p className="mt-1.5 text-base leading-relaxed text-ink-2">{t("missionText")}</p>
           <ol className="mt-4 space-y-2.5">
             {OBJECTIVES.map((id) => (
-              <li key={id} className={`flex items-start gap-2.5 text-[15px] font-semibold ${done[id] ? "text-broker" : "text-ink"}`}>
+              <li key={id} className={`flex items-start gap-2.5 text-base font-semibold ${done[id] ? "text-broker" : "text-ink"}`}>
                 <motion.span
                   key={String(done[id])}
                   initial={done[id] ? { scale: 0.3 } : false}
@@ -188,7 +188,7 @@ export function DispatchDesk() {
               transition={{ type: "spring", stiffness: 120, damping: 18 }}
             />
           </div>
-          <dl className="mt-5 grid grid-cols-[auto_1fr] items-center gap-x-2.5 gap-y-2 border-t border-line pt-4 text-[13px] text-ink-2">
+          <dl className="mt-5 grid grid-cols-[auto_1fr] items-center gap-x-2.5 gap-y-2 border-t border-line pt-4 text-sm text-ink-2">
             <dt className="flex gap-1">
               <Keycap>1</Keycap>
               <Keycap>5</Keycap>
@@ -234,7 +234,7 @@ export function DispatchDesk() {
                   {insight ? (
                     <>
                       <p className="font-display text-base font-extrabold text-partition">{t(`insights.${insight}.title`)}</p>
-                      <p className="mt-0.5 text-sm leading-snug text-ink-2">{t(`insights.${insight}.body`)}</p>
+                      <p className="mt-0.5 text-base leading-snug text-ink-2">{t(`insights.${insight}.body`)}</p>
                     </>
                   ) : (
                     <p className="flex items-center gap-2">
@@ -301,7 +301,7 @@ export function DispatchDesk() {
                 <div className="flex h-9 w-6 items-end overflow-hidden rounded-md bg-paper-2">
                   <motion.div className="w-full rounded-md bg-partition" animate={{ height: `${(n / maxCount) * 100}%` }} transition={{ type: "spring", stiffness: 200, damping: 20 }} />
                 </div>
-                <span className="font-mono text-[11px] font-bold text-partition">
+                <span className="font-mono text-xs font-bold text-partition">
                   P{p}
                   <span className="text-ink-2">·{n}</span>
                 </span>

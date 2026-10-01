@@ -27,7 +27,7 @@ export function WorldMap() {
 
   return (
     <main className="relative min-h-dvh bg-ground">
-      <AudioDirector intensity={0} />
+      <AudioDirector intensity={1} />
       <header className="mx-auto flex max-w-6xl items-center justify-between px-4 pt-4 sm:px-6">
         <Link href="/" aria-label={t("home")}>
           <Logo />
@@ -38,7 +38,7 @@ export function WorldMap() {
       <div className="mx-auto max-w-6xl px-4 pb-16 pt-10 sm:px-6">
         <p className="font-display text-xs font-bold uppercase tracking-[0.14em] text-producer-dark">{t("world", { n: world.id })}</p>
         <h1 className="mt-2 font-display text-4xl font-extrabold tracking-tight sm:text-5xl">{t("w1.title")}</h1>
-        <p className="mt-3 max-w-2xl text-[17px] leading-relaxed text-ink-2">{t("w1.body")}</p>
+        <p className="mt-3 max-w-2xl text-lg leading-relaxed text-ink-2">{t("w1.body")}</p>
 
         <ol className="relative mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {world.levels.map((l, i) => {
@@ -60,10 +60,10 @@ export function WorldMap() {
                       ))}
                     </span>
                   </div>
-                  <h2 className="mt-4 font-display text-lg font-extrabold leading-tight">
+                  <h2 className="mt-4 font-display text-xl font-extrabold leading-tight">
                     <Text m={l.title} />
                   </h2>
-                  <p className="mt-1.5 flex-1 text-sm leading-relaxed text-ink-2">
+                  <p className="mt-1.5 flex-1 text-base leading-relaxed text-ink-2">
                     <Text m={l.summary} />
                   </p>
                   {unlocked ? (
@@ -94,7 +94,7 @@ export function WorldMap() {
           <div className="grid gap-3 sm:grid-cols-3">
             {UPCOMING.map((n) => (
               <div key={n} className="rounded-[20px] border border-dashed border-ink/20 p-4">
-                <p className="font-display text-[11px] font-bold uppercase tracking-[0.14em] text-ink-2">{t("world", { n })}</p>
+                <p className="font-display text-xs font-bold uppercase tracking-[0.14em] text-ink-2">{t("world", { n })}</p>
                 <p className="mt-1 font-display font-bold text-ink/70">{t(`w${n}`)}</p>
                 <p className="mt-1 text-xs text-ink-2">{t("soon")}</p>
               </div>

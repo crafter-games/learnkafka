@@ -349,7 +349,10 @@ export class FactoryStage {
     this.camera.updateProjectionMatrix();
     // Labels scale with the world so small screens don't drown in tags
     const pxPerUnit = this.host.clientHeight / (halfH * 2);
-    this.host.style.setProperty("--stage-zoom", String(Math.min(1.15, Math.max(0.55, pxPerUnit / 62))));
+    const zoom = pxPerUnit / 58;
+    this.host.style.setProperty("--stage-zoom", String(Math.min(1.2, Math.max(0.72, zoom))));
+    // Tiny stages (phones) keep only the essential labels
+    this.host.toggleAttribute("data-compact", zoom < 0.62);
   }
 
   private loop = () => {

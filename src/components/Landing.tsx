@@ -66,7 +66,7 @@ export function Landing() {
 
   return (
     <main className="relative flex min-h-dvh flex-col overflow-hidden bg-ground">
-      <AudioDirector intensity={0} />
+      <AudioDirector intensity={1} />
 
       <header className="relative z-10 flex items-center justify-between px-4 pt-4 sm:px-6">
         <Logo />
@@ -86,7 +86,7 @@ export function Landing() {
         >
           <p className="font-display text-xs font-bold uppercase tracking-[0.14em] text-producer-dark">{t("kicker")}</p>
           <h1 className="mt-3 font-display text-5xl font-extrabold leading-[0.95] tracking-tight sm:text-6xl">{t("headline")}</h1>
-          <p className="mt-4 text-[17px] leading-relaxed text-ink-2">{t("tagline")}</p>
+          <p className="mt-4 text-lg leading-relaxed text-ink-2">{t("tagline")}</p>
 
           <Link href="/world" onClick={begin} className={`${gameButtonClass({ variant: "primary", size: "lg" })} mt-7 w-full sm:w-auto`}>
             <Play weight="fill" />
@@ -94,7 +94,7 @@ export function Landing() {
             <Keycap className="ml-1 border-white/30 bg-white/15 text-white shadow-none">Enter</Keycap>
           </Link>
 
-          <ol className="mt-8 space-y-2.5 border-t border-line pt-5 text-[15px] text-ink-2">
+          <ol className="mt-8 space-y-2.5 border-t border-line pt-5 text-base text-ink-2">
             {steps.map((k, i) => (
               <li key={k} className="flex items-baseline gap-3">
                 <span className="font-mono text-xs font-bold text-partition">0{i + 1}</span>

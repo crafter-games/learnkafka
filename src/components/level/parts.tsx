@@ -31,7 +31,7 @@ export function Text({ m, className }: { m: Msg; className?: string }) {
 
 export function CodeBlock({ code }: { code: string }) {
   return (
-    <pre className="overflow-x-auto rounded-xl bg-ink px-4 py-3 font-mono text-[12.5px] leading-relaxed text-paper">
+    <pre className="overflow-x-auto rounded-xl bg-ink px-4 py-3 font-mono text-base leading-relaxed text-paper">
       <code>{code}</code>
     </pre>
   );
@@ -41,7 +41,7 @@ export function MappingCard({ items, breaks }: { items: { icon: string; thing: M
   const t = useTranslations("level");
   return (
     <div className="mt-4">
-      <p className="mb-2 font-display text-[11px] font-bold uppercase tracking-[0.14em] text-ink-2">{t("mapping")}</p>
+      <p className="mb-2 font-display text-xs font-bold uppercase tracking-[0.14em] text-ink-2">{t("mapping")}</p>
       <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-paper-2/60">
         {items.map((it, i) => {
           const I = ICONS[it.icon] ?? Package;
@@ -51,7 +51,7 @@ export function MappingCard({ items, breaks }: { items: { icon: string; thing: M
               initial={{ opacity: 0, x: -6 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.05 * i }}
-              className="grid grid-cols-[20px_1fr_auto_1fr] items-center gap-2 px-3 py-2 text-sm"
+              className="grid grid-cols-[22px_1fr_auto_1fr] items-center gap-2 px-3 py-2.5 text-base"
             >
               <I size={18} weight="duotone" className="text-producer-dark" />
               <Text m={it.thing} className="text-ink-2" />
@@ -69,7 +69,7 @@ export function MappingCard({ items, breaks }: { items: { icon: string; thing: M
 export function Breaks({ m }: { m: Msg }) {
   const t = useTranslations("level");
   return (
-    <p className="mt-3 rounded-xl border border-dashed border-producer/50 bg-producer/5 px-3 py-2 text-[13px] leading-snug text-ink-2">
+    <p className="mt-3 rounded-xl border border-dashed border-producer/50 bg-producer/5 px-3 py-2 text-sm leading-snug text-ink-2">
       <span className="font-display font-bold text-producer-dark">{t("breaks")} </span>
       <Text m={m} />
     </p>
@@ -114,9 +114,9 @@ export function AnswerInput({
             data-value={o.id}
             disabled={disabled}
             onClick={() => onAnswer(o.id)}
-            className={`${gameButtonClass({ size: "md" })} h-auto min-h-12 justify-start px-4 py-2.5 text-left font-sans text-[15px] font-semibold ${state(o.id)}`}
+            className={`${gameButtonClass({ size: "md" })} h-auto min-h-13 justify-start px-4 py-3 text-left font-sans text-lg font-semibold ${state(o.id)}`}
           >
-            <span className="font-mono text-xs text-ink-2">{String.fromCharCode(65 + i)}</span>
+            <span className="font-mono text-sm text-ink-2">{String.fromCharCode(65 + i)}</span>
             <Text m={o.label} />
             {mark(o.id)}
           </button>
@@ -182,7 +182,7 @@ export function Feedback({ correct, explain }: { correct: boolean; explain: Msg 
     <motion.div
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`mt-3 rounded-xl border px-3.5 py-2.5 text-sm leading-snug ${correct ? "border-broker/40 bg-broker/10" : "border-danger/30 bg-danger/5"}`}
+      className={`mt-3 rounded-xl border px-4 py-3 text-base leading-snug ${correct ? "border-broker/40 bg-broker/10" : "border-danger/30 bg-danger/5"}`}
       role="status"
     >
       <p className={`font-display font-bold ${correct ? "text-broker" : "text-danger"}`}>{correct ? t("right") : t("notQuite")}</p>

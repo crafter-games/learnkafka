@@ -209,7 +209,7 @@ export function LevelPlayer({ level }: { level: Level }) {
             <ArrowLeft weight="bold" />
           </Link>
           <div className="min-w-0 leading-tight">
-            <p className="font-display text-[11px] font-bold uppercase tracking-[0.14em] text-ink-2">{t("levelLabel", { world: level.world, id: level.id })}</p>
+            <p className="font-display text-xs font-bold uppercase tracking-[0.14em] text-ink-2">{t("levelLabel", { world: level.world, id: level.id })}</p>
             <h1 className="truncate font-display text-xl font-extrabold tracking-tight sm:text-2xl">
               <Text m={level.title} />
             </h1>
@@ -232,7 +232,7 @@ export function LevelPlayer({ level }: { level: Level }) {
       {phase === "steps" && (
         <div className="relative flex min-h-0 flex-1 flex-col lg:flex-row">
           {/* Step card */}
-          <aside className="z-10 order-2 max-h-[46vh] overflow-y-auto px-3 pb-2 lg:order-1 lg:max-h-none lg:w-[380px] lg:shrink-0 lg:py-3 lg:pl-5 lg:pr-0">
+          <aside className="z-10 order-2 max-h-[46vh] overflow-y-auto px-3 pb-2 lg:order-1 lg:max-h-none lg:w-[440px] lg:shrink-0 lg:py-3 lg:pl-5 lg:pr-0">
             <AnimatePresence mode="wait">
               <motion.div
                 key={stepIndex}
@@ -245,15 +245,15 @@ export function LevelPlayer({ level }: { level: Level }) {
                 <div className="flex items-center gap-2.5">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src="/assets/sprites/oopi.png" alt="" width={40} height={40} className="size-10 shrink-0" />
-                  <p className="font-display text-[11px] font-bold uppercase tracking-[0.14em] text-producer-dark">{t(`kind.${step.kind}`)}</p>
+                  <p className="font-display text-xs font-bold uppercase tracking-[0.14em] text-producer-dark">{t(`kind.${step.kind}`)}</p>
                 </div>
 
                 {step.kind === "brief" && (
                   <>
-                    <h2 className="mt-3 font-display text-xl font-extrabold leading-tight">
+                    <h2 className="mt-3 font-display text-2xl font-extrabold leading-tight">
                       <Text m={step.title} />
                     </h2>
-                    <p className="mt-2 text-[15px] leading-relaxed text-ink-2">
+                    <p className="mt-2 text-lg leading-relaxed text-ink-2">
                       <Text m={step.body} />
                     </p>
                     {step.code && <div className="mt-3"><CodeBlock code={step.code} /></div>}
@@ -263,10 +263,10 @@ export function LevelPlayer({ level }: { level: Level }) {
 
                 {(step.kind === "watch" || step.kind === "task") && (
                   <>
-                    <h2 className="mt-3 font-display text-xl font-extrabold leading-tight">
+                    <h2 className="mt-3 font-display text-2xl font-extrabold leading-tight">
                       <Text m={step.title} />
                     </h2>
-                    <p className="mt-2 text-[15px] leading-relaxed text-ink-2">
+                    <p className="mt-2 text-lg leading-relaxed text-ink-2">
                       <Text m={step.body} />
                     </p>
                   </>
@@ -290,7 +290,7 @@ export function LevelPlayer({ level }: { level: Level }) {
 
                 {step.kind === "predict" && prediction && (
                   <>
-                    <h2 className="mt-3 font-display text-lg font-extrabold leading-snug">
+                    <h2 className="mt-3 font-display text-xl font-extrabold leading-snug">
                       <Text m={prediction.prompt} />
                     </h2>
                     {prediction.code && <div className="mt-3"><CodeBlock code={prediction.code} /></div>}
@@ -334,15 +334,15 @@ export function LevelPlayer({ level }: { level: Level }) {
       {/* Recall check: the stage is hidden on purpose (testing effect) */}
       {phase === "check" && question && (
         <div className="flex flex-1 items-start justify-center overflow-y-auto px-4 py-6 sm:items-center">
-          <motion.div key={qIndex} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="card w-full max-w-xl p-6 sm:p-8">
+          <motion.div key={qIndex} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="card w-full max-w-2xl p-6 sm:p-9">
             <div className="flex items-center justify-between">
-              <p className="font-display text-[11px] font-bold uppercase tracking-[0.14em] text-producer-dark">
+              <p className="font-display text-xs font-bold uppercase tracking-[0.14em] text-producer-dark">
                 {t("checkTitle")} · {qIndex + 1}/{questions.length}
               </p>
-              {question.review && <span className="rounded-full bg-partition/10 px-2.5 py-1 font-display text-[11px] font-bold text-partition">{t("review")}</span>}
+              {question.review && <span className="rounded-full bg-partition/10 px-2.5 py-1 font-display text-xs font-bold text-partition">{t("review")}</span>}
             </div>
-            <p className="mt-1 text-sm text-ink-2">{t("noPeeking")}</p>
-            <h2 className="mt-4 font-display text-xl font-extrabold leading-snug">
+            <p className="mt-1 text-base text-ink-2">{t("noPeeking")}</p>
+            <h2 className="mt-4 font-display text-2xl font-extrabold leading-snug">
               <Text m={question.prompt} />
             </h2>
             {question.code && <div className="mt-3"><CodeBlock code={question.code} /></div>}

@@ -41,6 +41,10 @@
   --font-mono: var(--font-code);
 }
 
+/* Game-sized type: everything rem-based scales up from here */
+html { font-size: 106.25%; }
+@media (min-width: 1024px) { html { font-size: 112.5%; } }
+
 body {
   background: var(--ground);
   color: var(--ink);
@@ -62,7 +66,7 @@ button, a { touch-action: manipulation; }
    Sizes are em-based off --stage-zoom so tags shrink with the camera fit. */
 .stage-tag, .stage-lane, .stage-next, .stage-key, .stage-offset, .stage-hash { white-space: nowrap; line-height: 1; }
 .stage-tag {
-  font: 700 calc(12px * var(--stage-zoom, 1)) var(--font-display);
+  font: 700 calc(15px * var(--stage-zoom, 1)) var(--font-display);
   letter-spacing: 0.02em;
   padding: 0.5em 0.85em;
   border-radius: 999px;
@@ -76,14 +80,14 @@ button, a { touch-action: manipulation; }
 .stage-tag--consumer { color: #fff; border-color: rgba(0, 0, 0, 0.15); }
 .stage-cursor, .stage-read { white-space: nowrap; line-height: 1; }
 .stage-cursor {
-  font: 800 calc(10px * var(--stage-zoom, 1)) var(--font-display);
+  font: 800 calc(13px * var(--stage-zoom, 1)) var(--font-display);
   color: #fff;
   border-radius: 0.5em;
   padding: 0.3em 0.5em;
   box-shadow: 0 0.18em 0 rgba(43, 40, 64, 0.25);
 }
 .stage-read {
-  font: 900 calc(9px * var(--stage-zoom, 1)) var(--font-display);
+  font: 900 calc(12px * var(--stage-zoom, 1)) var(--font-display);
   color: #fff;
   width: 1.7em;
   height: 1.7em;
@@ -96,7 +100,7 @@ button, a { touch-action: manipulation; }
 .stage-tag--topic { font-family: var(--font-code); background: var(--partition); color: #fff; border-color: var(--partition-dark); }
 
 .stage-lane {
-  font: 800 calc(15px * var(--stage-zoom, 1)) var(--font-display);
+  font: 800 calc(19px * var(--stage-zoom, 1)) var(--font-display);
   color: #fff;
   background: var(--partition);
   border-radius: 0.65em;
@@ -107,7 +111,7 @@ button, a { touch-action: manipulation; }
 @keyframes lane-hit { 0% { transform: scale(1.35); } 100% { transform: scale(1); } }
 
 .stage-next {
-  font: 700 calc(10px * var(--stage-zoom, 1)) var(--font-code);
+  font: 700 calc(13px * var(--stage-zoom, 1)) var(--font-code);
   color: var(--partition-dark);
   background: rgba(251, 248, 243, 0.85);
   border: 1.5px dashed var(--partition);
@@ -115,14 +119,14 @@ button, a { touch-action: manipulation; }
   padding: 0.3em 0.5em;
 }
 .stage-key {
-  font: 700 calc(10px * var(--stage-zoom, 1)) var(--font-code);
+  font: 700 calc(13px * var(--stage-zoom, 1)) var(--font-code);
   color: var(--ink);
   background: rgba(251, 248, 243, 0.92);
   border-radius: 0.5em;
   padding: 0.2em 0.4em;
 }
 .stage-offset {
-  font: 800 calc(11px * var(--stage-zoom, 1)) var(--font-code);
+  font: 800 calc(14px * var(--stage-zoom, 1)) var(--font-code);
   min-width: 1.8em;
   text-align: center;
   color: #fff;
@@ -133,7 +137,7 @@ button, a { touch-action: manipulation; }
   animation: pop 280ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .stage-hash {
-  font: 700 calc(13px * var(--stage-zoom, 1)) var(--font-code);
+  font: 700 calc(16px * var(--stage-zoom, 1)) var(--font-code);
   color: var(--paper);
   background: var(--ink);
   padding: 0.6em 0.9em;
@@ -147,6 +151,13 @@ button, a { touch-action: manipulation; }
   12%, 80% { opacity: 1; transform: translateY(0) scale(1); }
   100% { opacity: 0; transform: translateY(-6px); }
 }
+[data-compact] .stage-next,
+[data-compact] .stage-key,
+[data-compact] .stage-tag--partitioner,
+[data-compact] .stage-tag--topic,
+[data-compact] .stage-cursor { display: none; }
+[data-compact] .stage-hash { font-size: 12px; }
+
 @keyframes pop { 0% { transform: scale(0); } 100% { transform: scale(1); } }
 
 @media (prefers-reduced-motion: reduce) {

@@ -36,7 +36,7 @@ function ProduceTool({ tool, on }: { tool: Extract<Tool, { type: "produce" }>; o
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-2">
       {tool.headers && (
-        <div className="hidden rounded-xl border border-line bg-paper-2 px-3 py-2 font-mono text-[11px] leading-snug text-ink-2 md:block" aria-label={t("preview")}>
+        <div className="hidden rounded-xl border border-line bg-paper-2 px-3 py-2 font-mono text-xs leading-snug text-ink-2 md:block" aria-label={t("preview")}>
           <span className="text-ink/40">{"{"}</span> key: <b className="text-partition-dark">{last === undefined ? "…" : JSON.stringify(last)}</b>, value:{" "}
           <b className="text-ink">{value}</b>, headers: <b className="text-ink">{JSON.stringify(headers)}</b>, timestamp: <b className="text-ink">now</b>{" "}
           <span className="text-ink/40">{"}"}</span>
