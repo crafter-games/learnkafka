@@ -16,7 +16,8 @@ import { AudioDirector } from "../AudioDirector";
 import { FactoryCanvas } from "../FactoryCanvas";
 import { Hud } from "../Hud";
 import { gameButtonClass } from "../ui/GameButton";
-import { AnswerInput, Breaks, CodeBlock, Feedback, MappingCard, Text } from "./parts";
+import { AnswerInput, Breaks, CodeBlock, Deliveries, Feedback, KeyMoves, MappingCard, Meter, Text } from "./parts";
+import { RecallQuiz } from "./RecallQuiz";
 import { ToolDock, type ToolHandlers } from "./ToolDock";
 
 type Phase = "steps" | "check" | "result";
@@ -48,8 +49,6 @@ export function LevelPlayer({ level }: { level: Level }) {
   // Check state
   const [seed, setSeed] = useState(newSeed);
   const [questions, setQuestions] = useState<BuiltQuestion[]>([]);
-  const [qIndex, setQIndex] = useState(0);
-  const [qPicked, setQPicked] = useState<string | number | undefined>(undefined);
   const [answers, setAnswers] = useState<boolean[]>([]);
 
   const step = level.steps[stepIndex];
@@ -75,7 +74,10 @@ export function LevelPlayer({ level }: { level: Level }) {
     setWatchDone(false);
     setPrediction(next.kind === "predict" ? next.build(ctx) : null);
     if (next.kind === "watch") void next.script(ctx).then(() => setWatchDone(true));
+    if (next.kind === "task") next.onEnter?.(ctx);
   };
+
+  useEffect(() => () => session.stopBackground(), [session]);
 
   // Explanations duck the music; hands-on steps let it breathe
   useEffect(() => {
@@ -99,8 +101,6 @@ export function LevelPlayer({ level }: { level: Level }) {
   const startCheck = useCallback(
     (s: number) => {
       setQuestions(buildCheck(level, s));
-      setQIndex(0);
-      setQPicked(undefined);
       setAnswers([]);
       setPhase("check");
     },
@@ -125,30 +125,21 @@ export function LevelPlayer({ level }: { level: Level }) {
     }
   };
 
-  const question = questions[qIndex];
-  const answerQuestion = (value: string | number) => {
-    if (!question || qPicked !== undefined) return;
-    const ok = String(value) === String(question.answer);
-    setQPicked(value);
-    setAnswers((a) => [...a, ok]);
-    audioBus().play(ok ? "correct" : "wrong", { bus: "ui", rate: 1 });
-  };
-  const nextQuestion = () => {
-    if (qIndex < questions.length - 1) {
-      setQIndex((i) => i + 1);
-      setQPicked(undefined);
-      return;
-    }
-    const correct = answers.filter(Boolean).length;
-    const stars = starsFor(correct, questions.length);
-    recordCheck(level.id, stars, questions.map((q, i) => ({ concept: q.concept, correct: answers[i] })));
+  const finishCheck = (results: boolean[]) => {
+    const stars = starsFor(results.filter(Boolean).length, questions.length);
+    recordCheck(level.id, stars, questions.map((q, i) => ({ concept: q.concept, correct: results[i] })));
     audioBus().play(stars > 0 ? "unlock" : "wrong", { bus: "ui", rate: 1 });
+    setAnswers(results);
     setPhase("result");
   };
 
   const handlers: ToolHandlers = {
-    produce: (topic, key, value, headers: Headers) => {
-      session.produce(topic, key, value, headers);
+    produce: (topic, key, value, headers: Headers, roundRobin) => {
+      session.produce(topic, key, value, headers, roundRobin);
+    },
+    addPartition: (topic) => {
+      session.addPartition(topic);
+      audioBus().play("unlock", { bus: "ui", rate: 1.3 });
     },
     fetch: (group, topic, partition) => {
       if (!cluster.fetch(group, topic, partition)) audioBus().play("wrong", { bus: "ui", rate: 1.2 });
@@ -167,7 +158,6 @@ export function LevelPlayer({ level }: { level: Level }) {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Enter" || (e.target as HTMLElement)?.tagName === "INPUT") return;
       if (phase === "steps") advance();
-      else if (phase === "check" && qPicked !== undefined) nextQuestion();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -175,10 +165,10 @@ export function LevelPlayer({ level }: { level: Level }) {
 
   useEffect(() => {
     window.__TEST__ = {
+      ...window.__TEST__,
       phase: () => phase,
       step: () => ({ index: stepIndex, kind: step.kind }),
       prediction: () => prediction && { answer: prediction.answer, input: prediction.input.type },
-      question: () => question && { answer: question.answer, input: question.input.type },
       cluster: () => ({ endOffsets: cluster.topicList.map((tp) => tp.endOffsets()) }),
       musicStarted: () => backgroundMusic().started,
     };
@@ -288,6 +278,10 @@ export function LevelPlayer({ level }: { level: Level }) {
                   </div>
                 )}
 
+                {step.kind === "task" && step.meter && <Meter {...step.meter(ctx)} />}
+                {step.kind === "task" && step.keyMoves && <KeyMoves cluster={cluster} topic={step.keyMoves.topic} keys={step.keyMoves.keys} />}
+                {((step.kind === "task" || step.kind === "watch") && step.deliveries) && <Deliveries items={ctx.delivered} />}
+
                 {step.kind === "predict" && prediction && (
                   <>
                     <h2 className="mt-3 font-display text-xl font-extrabold leading-snug">
@@ -327,36 +321,12 @@ export function LevelPlayer({ level }: { level: Level }) {
 
       {phase === "steps" && step.kind === "task" && (
         <footer className="relative z-10 px-3 pb-3 sm:px-5">
-          <ToolDock tools={step.tools} consumers={level.consumers ?? []} on={handlers} />
+          <ToolDock tools={step.tools} consumers={level.consumers ?? []} partitions={(tp) => cluster.topic(tp).numPartitions} on={handlers} />
         </footer>
       )}
 
       {/* Recall check: the stage is hidden on purpose (testing effect) */}
-      {phase === "check" && question && (
-        <div className="flex flex-1 items-start justify-center overflow-y-auto px-4 py-6 sm:items-center">
-          <motion.div key={qIndex} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="card w-full max-w-2xl p-6 sm:p-9">
-            <div className="flex items-center justify-between">
-              <p className="font-display text-xs font-bold uppercase tracking-[0.14em] text-producer-dark">
-                {t("checkTitle")} · {qIndex + 1}/{questions.length}
-              </p>
-              {question.review && <span className="rounded-full bg-partition/10 px-2.5 py-1 font-display text-xs font-bold text-partition">{t("review")}</span>}
-            </div>
-            <p className="mt-1 text-base text-ink-2">{t("noPeeking")}</p>
-            <h2 className="mt-4 font-display text-2xl font-extrabold leading-snug">
-              <Text m={question.prompt} />
-            </h2>
-            {question.code && <div className="mt-3"><CodeBlock code={question.code} /></div>}
-            <div className="mt-4">
-              <AnswerInput key={`${seed}-${qIndex}`} input={question.input} disabled={qPicked !== undefined} picked={qPicked} answer={question.answer} onAnswer={answerQuestion} />
-            </div>
-            {qPicked !== undefined && <Feedback correct={String(qPicked) === String(question.answer)} explain={question.explain} />}
-            <button type="button" onClick={nextQuestion} disabled={qPicked === undefined} className={`${gameButtonClass({ variant: "primary", size: "md" })} mt-6 w-full`}>
-              {qIndex < questions.length - 1 ? t("next") : t("finish")}
-              <ArrowRight weight="bold" />
-            </button>
-          </motion.div>
-        </div>
-      )}
+      {phase === "check" && questions.length > 0 && <RecallQuiz key={seed} questions={questions} title={t("checkTitle")} onFinish={finishCheck} />}
 
       {phase === "result" && (
         <div className="flex flex-1 items-center justify-center px-4 py-6">

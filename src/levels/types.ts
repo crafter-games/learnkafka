@@ -5,7 +5,9 @@ import type { ConsumerSpec } from "@/stage/factoryStage";
 export type Msg = { key: string; values?: Record<string, string | number> };
 export const msg = (key: string, values?: Msg["values"]): Msg => ({ key, values });
 
-export type Concept = "record" | "reading" | "immutability" | "offset" | "position" | "topic" | "ordering";
+export type Concept =
+  | "record" | "reading" | "immutability" | "offset" | "position" | "topic" | "ordering"
+  | "parallelism" | "key-ordering" | "sticky" | "repartition";
 
 export type Choice = { id: string; label: Msg };
 
@@ -18,17 +20,33 @@ export type LevelCtx = {
   cluster: Cluster;
   rng: () => number;
   /** Produce and resolve once the box has landed on its conveyor. */
-  produce: (topic: string, key: string | null, value?: string) => Promise<void>;
+  produce: (topic: string, key: string | null, value?: string, partition?: number) => Promise<void>;
   fetch: (group: string, topic: string, partition: number) => Promise<void>;
   wait: (ms: number) => Promise<void>;
   stats: TaskStats;
+  /** Background helpers; all of them stop automatically when the step changes. */
+  bg: {
+    /** One worker per partition reads a record every `msPerRecord` (records "delivered" in order of completion). */
+    workers: (group: string, topic: string, msPerRecord: number) => void;
+    /** Produce `perSecond` records with random customer keys. */
+    autoProduce: (topic: string, perSecond: number, keys?: string[]) => void;
+    /** Count consecutive seconds where the group's total lag stays at or below `max`. */
+    watchCalm: (group: string, topic: string, max: number) => void;
+  };
+  /** Records in the order workers finished them. */
+  delivered: SimRecordLike[];
 };
+
+export type SimRecordLike = { key: string | null; value: string; partition: number; offset: number };
 
 export type TaskStats = {
   produced: number;
   nullKeys: number;
   routedOk: number;
   routedWrong: number;
+  /** Consecutive calm seconds (see ctx.bg.watchCalm). */
+  calm: number;
+  partitionsAdded: number;
 };
 
 export type Prediction = {
@@ -42,13 +60,25 @@ export type Prediction = {
 };
 
 export type Tool =
-  | { type: "produce"; topic: string; keys: string[]; allowNull?: boolean; allowCustom?: boolean; headers?: boolean }
+  | {
+      type: "produce";
+      topic: string;
+      keys: string[];
+      allowNull?: boolean;
+      allowCustom?: boolean;
+      headers?: boolean;
+      /** Number each key's records (#1, #2…) to make ordering visible. */
+      sequence?: boolean;
+      /** Ignore keys and spread records round-robin across partitions. */
+      roundRobin?: boolean;
+    }
+  | { type: "addPartition"; topic: string; max: number }
   | { type: "fetch"; topic: string; partition: number; groups: string[] }
   | { type: "route"; topics: string[]; count: number };
 
 export type Step =
   | { kind: "brief"; title: Msg; body: Msg; mapping?: { icon: string; thing: Msg; kafka: Msg }[]; breaks?: Msg; code?: string }
-  | { kind: "watch"; title: Msg; body: Msg; script: (ctx: LevelCtx) => Promise<void> }
+  | { kind: "watch"; title: Msg; body: Msg; script: (ctx: LevelCtx) => Promise<void>; deliveries?: boolean }
   | { kind: "predict"; build: (ctx: LevelCtx) => Prediction }
   | {
       kind: "task";
@@ -58,6 +88,13 @@ export type Step =
       /** Progress toward the goal, re-evaluated after every sim event. Done when done >= total. */
       progress: (ctx: LevelCtx, start: TaskStats) => { done: number; total: number };
       success: Msg;
+      onEnter?: (ctx: LevelCtx) => void;
+      /** A live gauge shown on the step card (e.g. backlog). */
+      meter?: (ctx: LevelCtx) => { label: Msg; value: number; max: number; danger: number };
+      /** Show the delivery log (completion order) on the step card. */
+      deliveries?: boolean;
+      /** Show where each key went before vs. now (after adding partitions). */
+      keyMoves?: { topic: string; keys: string[] };
     };
 
 /** A recall-check question; `build` gets a seeded rng so a retry gets new numbers. */

@@ -1,7 +1,11 @@
 import { seeded, type Level, type Question } from "./types";
 import { WORLD1 } from "./world1";
+import { WORLD2 } from "./world2";
 
-export const WORLDS = [{ id: 1, levels: WORLD1 }] as const;
+export const WORLDS = [
+  { id: 1, levels: WORLD1 },
+  { id: 2, levels: WORLD2 },
+] as const;
 export const ALL_LEVELS: Level[] = WORLDS.flatMap((w) => w.levels);
 
 export const getLevel = (id: string) => ALL_LEVELS.find((l) => l.id === id);
@@ -38,4 +42,20 @@ export function starsFor(correct: number, total: number): 0 | 1 | 2 | 3 {
   if (r < PASS_RATIO) return 0;
   if (r === 1) return 3;
   return r >= 0.9 ? 2 : 1;
+}
+
+/** Morning shift: one question per due concept (weakest first), interleaved, 3–5 questions. */
+export function buildReview(concepts: Question["concept"][], seed: number): BuiltQuestion[] {
+  const rng = seeded(seed);
+  const pool = ALL_LEVELS.flatMap((l) => l.check);
+  const picked = concepts.slice(0, 5).map((c) => {
+    const options = pool.filter((q) => q.concept === c);
+    return options[Math.floor(rng() * options.length)];
+  });
+  // Interleave: shuffle so related concepts aren't back to back
+  for (let i = picked.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [picked[i], picked[j]] = [picked[j], picked[i]];
+  }
+  return picked.filter(Boolean).map((q) => ({ ...q.build(rng), concept: q.concept, review: false }));
 }

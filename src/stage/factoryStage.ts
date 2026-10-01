@@ -47,6 +47,9 @@ type Lane = {
   nextLabel: HTMLElement;
   title: HTMLElement;
   cursors: Map<string, { obj: CSS2DObject; position: number }>;
+  /** Everything belonging to the lane, so lanes reserved for future partitions can be revealed. */
+  parts: THREE.Object3D[];
+  active: boolean;
 };
 
 type Arm = { spec: ConsumerSpec; obj: THREE.Object3D };
@@ -151,7 +154,8 @@ export class FactoryStage {
     let z = 0;
     this.cluster.topicList.forEach((t, ti) => {
       if (ti > 0) z += TOPIC_GAP;
-      for (let p = 0; p < t.numPartitions; p++) {
+      const max = Math.max(t.numPartitions, this.cluster.specs.find((sp) => sp.name === t.name)?.max ?? 0);
+      for (let p = 0; p < max; p++) {
         zs.push({ topic: t.name, partition: p, z });
         z += LANE_GAP;
       }
@@ -230,14 +234,16 @@ export class FactoryStage {
     for (const t of this.cluster.topicList) {
       const first = layout.find((l) => l.topic === t.name)!;
       const tag = css2d(label("stage-tag stage-tag--topic", this.text.topic(t.name)));
-      tag.position.set(this.slots - 1.4, 0.2, first.z - 1.0);
+      tag.position.set(this.slots + 0.4, 0.2, first.z - 0.95);
       this.scene.add(tag);
     }
 
     for (const { topic, partition, z } of layout) {
+      const parts: THREE.Object3D[] = [];
       let material: THREE.MeshStandardMaterial | null = null;
       for (let i = 0; i < this.slots; i++) {
         const belt = await model("conveyor-stripe-sides");
+        parts.push(belt);
         belt.position.set(i + 0.5, 0, z);
         belt.traverse((o) => {
           const mesh = o as THREE.Mesh;
@@ -250,11 +256,13 @@ export class FactoryStage {
       const end = await model("conveyor-stripe-part-end");
       end.position.set(this.slots + 0.25, 0, z);
       this.scene.add(end);
+      parts.push(end);
 
       const titleLabel = label("stage-lane", `P${partition}`);
       const titleObj = css2d(titleLabel);
       titleObj.position.set(-0.55, 0.3, z);
       this.scene.add(titleObj);
+      parts.push(titleObj);
 
       // Log-end marker: where the next record will land
       const next = new THREE.Group();
@@ -264,14 +272,18 @@ export class FactoryStage {
       );
       ring.position.y = 0.42;
       next.add(ring);
-      const nextL = label("stage-next", this.text.next(this.cluster.topic(topic).partitions[partition].length));
+      const nextL = label("stage-next", this.text.next(this.cluster.topic(topic).partitions[partition]?.length ?? 0));
       const nextObj = css2d(nextL);
       nextObj.position.set(0, 0.45, 0);
       next.add(nextObj);
       next.position.set(0.5, 0, z);
       this.scene.add(next);
+      parts.push(next, nextObj);
 
-      this.lanes.push({ topic, partition, z, material: material!, boxes: new Map(), viewStart: 0, next, nextLabel: nextL.inner, title: titleLabel.inner, cursors: new Map() });
+      const active = partition < this.cluster.topic(topic).numPartitions;
+      const lane: Lane = { topic, partition, z, material: material!, boxes: new Map(), viewStart: 0, next, nextLabel: nextL.inner, title: titleLabel.inner, cursors: new Map(), parts, active };
+      if (!active) for (const o of parts) o.visible = false;
+      this.lanes.push(lane);
     }
     await Promise.all(tiles);
 
@@ -290,7 +302,7 @@ export class FactoryStage {
         arm.add(tagObj);
         this.scene.add(arm);
         this.arms.set(spec.group, { spec, obj: arm });
-        for (const lane of this.lanes) this.ensureCursor(lane, spec);
+        for (const lane of this.lanes) if (lane.active) this.ensureCursor(lane, spec);
       }
     } else {
       for (const z of [zMin - 0.9, zMax + 0.9]) {
@@ -304,7 +316,8 @@ export class FactoryStage {
   /** A small flag under the conveyor showing a group's position (next offset to read). */
   private ensureCursor(lane: Lane, spec: ConsumerSpec) {
     if (lane.cursors.has(spec.group)) return lane.cursors.get(spec.group)!;
-    const l = label("stage-cursor", `▲ ${spec.label}`);
+    const l = label("stage-cursor", `▲ ${spec.label[0]}`);
+    l.inner.title = spec.label;
     l.inner.style.background = spec.color;
     const obj = css2d(l);
     const idx = [...this.arms.keys()].indexOf(spec.group);
@@ -375,7 +388,7 @@ export class FactoryStage {
     );
     sticker.position.set(0, 0.556, 0);
     box.add(sticker);
-    const tag = css2d(label("stage-key", record.key ?? "∅"));
+    const tag = css2d(label("stage-key", `${record.key ?? "∅"}${record.value.startsWith("#") ? ` ${record.value}` : ""}`));
     tag.position.set(0, 0.75, 0);
     box.add(tag);
     return box;
@@ -426,6 +439,26 @@ export class FactoryStage {
     await this.ready;
     if (event.type === "appended") await this.onAppended(event.record);
     if (event.type === "fetched") this.onFetched(event.group, event.record, event.position);
+    if (event.type === "partitionsAdded") this.revealLanes(event.topic, event.total);
+  }
+
+  /** New partitions: the reserved conveyors drop into place. */
+  private revealLanes(topic: string, total: number) {
+    for (const lane of this.lanes) {
+      if (lane.topic !== topic || lane.active || lane.partition >= total) continue;
+      lane.active = true;
+      lane.parts.forEach((o, i) => {
+        o.visible = true;
+        if (!(o instanceof CSS2DObject)) {
+          const y = o.position.y;
+          o.position.y = y + 2.5;
+          void this.tweens.to(o.position, { y }, 420 + i * 25, easeOutBack);
+        }
+      });
+      for (const arm of this.arms.values()) this.ensureCursor(lane, arm.spec);
+      this.puff(new THREE.Vector3(this.slots / 2, 0.4, lane.z), COLORS.partition);
+      this.pulse(topic, lane.partition);
+    }
   }
 
   private async onAppended(record: SimRecord) {

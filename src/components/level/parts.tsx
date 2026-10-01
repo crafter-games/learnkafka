@@ -8,6 +8,7 @@ import {
   type Icon,
 } from "@phosphor-icons/react";
 import type { Input, Msg } from "@/levels/types";
+import type { Cluster } from "@/sim/cluster";
 import { gameButtonClass } from "../ui/GameButton";
 
 const ICONS: Record<string, Icon> = {
@@ -31,7 +32,7 @@ export function Text({ m, className }: { m: Msg; className?: string }) {
 
 export function CodeBlock({ code }: { code: string }) {
   return (
-    <pre className="overflow-x-auto rounded-xl bg-ink px-4 py-3 font-mono text-base leading-relaxed text-paper">
+    <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded-xl bg-ink px-4 py-3 font-mono text-sm leading-relaxed text-paper">
       <code>{code}</code>
     </pre>
   );
@@ -173,6 +174,90 @@ export function AnswerInput({
         <span className="self-center font-mono text-sm font-bold text-broker">= {answer}</span>
       )}
     </form>
+  );
+}
+
+export function Meter({ label, value, max, danger }: { label: Msg; value: number; max: number; danger: number }) {
+  const hot = value >= danger;
+  return (
+    <div className="mt-4">
+      <div className="mb-1.5 flex items-baseline justify-between">
+        <Text m={label} className="font-display text-sm font-bold text-ink-2" />
+        <span className={`font-mono text-lg font-extrabold ${hot ? "text-danger" : "text-ink"}`}>{value}</span>
+      </div>
+      <div className="h-3 overflow-hidden rounded-full bg-paper-2">
+        <motion.div
+          className={`h-full rounded-full ${hot ? "bg-danger" : "bg-partition"}`}
+          animate={{ width: `${Math.min(100, (value / max) * 100)}%` }}
+          transition={{ type: "spring", stiffness: 200, damping: 24 }}
+        />
+      </div>
+    </div>
+  );
+}
+
+/** Completion order of records; flags a key whose sequence number went backwards. */
+export function Deliveries({ items }: { items: { key: string | null; value: string }[] }) {
+  const t = useTranslations("level");
+  const lastSeq = new Map<string, number>();
+  const rows = items.slice(-8).map((r, i) => {
+    const n = Number(r.value.replace("#", ""));
+    const k = r.key ?? "∅";
+    const ok = !r.value.startsWith("#") || (lastSeq.get(k) ?? 0) < n;
+    if (r.value.startsWith("#")) lastSeq.set(k, Math.max(lastSeq.get(k) ?? 0, n));
+    return { ...r, ok, i };
+  });
+  return (
+    <div className="mt-4">
+      <p className="mb-2 font-display text-xs font-bold uppercase tracking-[0.14em] text-ink-2">{t("delivered")}</p>
+      {rows.length === 0 ? (
+        <p className="text-sm text-ink-2">{t("nothingYet")}</p>
+      ) : (
+        <ol className="flex flex-wrap gap-1.5">
+          {rows.map((r) => (
+            <motion.li
+              key={`${r.i}-${items.length}`}
+              initial={{ scale: 0.6, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className={`flex items-center gap-1 rounded-lg px-2 py-1 font-mono text-sm font-bold ${r.ok ? "bg-paper-2 text-ink" : "bg-danger/15 text-danger"}`}
+            >
+              {r.key ?? "∅"} {r.value.startsWith("#") ? r.value : ""}
+              {!r.ok && <X weight="bold" />}
+            </motion.li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+}
+
+/** Where each key landed first vs. where it hashes now (after adding partitions). */
+export function KeyMoves({ cluster, topic, keys }: { cluster: Cluster; topic: string; keys: string[] }) {
+  const t = useTranslations("level");
+  const tp = cluster.topic(topic);
+  const rows = keys.map((k) => {
+    // Before the resize every record of a key sat on one partition; any record elsewhere is "before"
+    const now = tp.partitionFor(k);
+    const mine = tp.partitions.flat().filter((r) => r.key === k);
+    return { k, before: mine.find((r) => r.partition !== now)?.partition ?? (mine.length ? now : undefined), now };
+  });
+  return (
+    <div className="mt-4">
+      <p className="mb-2 font-display text-xs font-bold uppercase tracking-[0.14em] text-ink-2">{t("keyMoves", { n: tp.numPartitions })}</p>
+      <ul className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-x-3 gap-y-1 font-mono text-base">
+        {rows.map(({ k, before, now }) => {
+          const moved = before !== undefined && before !== now;
+          return (
+            <li key={k} className="contents">
+              <span className="font-bold">{k}</span>
+              <span className="text-ink-2">P{before ?? "?"}</span>
+              <span className="text-ink/30">→</span>
+              <span className={moved ? "rounded-md bg-danger/15 px-1.5 font-bold text-danger" : "text-broker"}>P{now}</span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 

@@ -34,3 +34,35 @@ describe("Cluster", () => {
     expect(c.produce("orders", null, "v", { source: "web" }).headers).toEqual({ source: "web" });
   });
 });
+
+describe("Cluster partitions", () => {
+  it("adds partitions; keys may remap, old records stay put", () => {
+    const c = new Cluster([{ name: "t", partitions: 3 }]);
+    const before = ["alice", "bob", "carol", "dave", "erin", "frank"].map((k) => c.produce("t", k, "v").partition);
+    c.addPartitions("t", 1);
+    expect(c.topic("t").numPartitions).toBe(4);
+    const after = ["alice", "bob", "carol", "dave", "erin", "frank"].map((k) => c.topic("t").partitionFor(k));
+    expect(after.some((p, i) => p !== before[i])).toBe(true);
+    expect(c.topic("t").endOffsets().reduce((a, b) => a + b, 0)).toBe(6);
+  });
+
+  it("explicit partitions override the partitioner", () => {
+    const c = new Cluster([{ name: "t", partitions: 3 }]);
+    expect(c.produce("t", "alice", "v", {}, 2).partition).toBe(2);
+  });
+
+  it("peeks the sticky partition for keyless records", () => {
+    const c = new Cluster([{ name: "t", partitions: 3 }]);
+    for (let i = 0; i < 4; i++) c.produce("t", null, "v");
+    expect(c.topic("t").peekNullPartition()).toBe(1);
+    expect(c.produce("t", null, "v").partition).toBe(1);
+  });
+
+  it("total lag sums partitions", () => {
+    const c = new Cluster([{ name: "t", partitions: 2 }]);
+    c.produce("t", null, "a", {}, 0);
+    c.produce("t", null, "b", {}, 1);
+    c.fetch("g", "t", 0);
+    expect(c.totalLag("g", "t")).toBe(1);
+  });
+});

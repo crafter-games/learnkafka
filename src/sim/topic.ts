@@ -32,13 +32,24 @@ export class Topic {
     return this.stickyPartition;
   }
 
+  /** Where the next keyless record would go (sticky partitioner state), for predictions. */
+  peekNullPartition(): number {
+    return this.stickyCount >= STICKY_BATCH_RECORDS ? (this.stickyPartition + 1) % this.numPartitions : this.stickyPartition;
+  }
+
+  /** Kafka can only ever ADD partitions; keyed records hash with the new count from now on. */
+  addPartitions(count: number) {
+    for (let i = 0; i < count; i++) this.partitions.push([]);
+    this.events.emit({ type: "partitionsAdded", topic: this.name, total: this.numPartitions });
+  }
+
   /** Which partition a key would go to, without producing (for predictions). */
   partitionFor(key: string): number {
     return partitionForKey(key, this.numPartitions);
   }
 
-  produce(key: string | null, value: string, headers: Headers = {}): SimRecord {
-    const partition = this.choosePartition(key);
+  /** `partition` overrides the partitioner (an explicit partition, e.g. round-robin demos). */
+  produce(key: string | null, value: string, headers: Headers = {}, partition = this.choosePartition(key)): SimRecord {
     const log = this.partitions[partition];
     const record: SimRecord = { topic: this.name, key, value, headers, partition, offset: log.length, timestamp: this.now() };
     this.events.emit({ type: "produced", topic: this.name, record, hashed: key !== null });

@@ -116,8 +116,13 @@
       "send": "Enviar",
       "read": "{group} lee el siguiente",
       "order": "Nuevo pedido",
-      "payment": "Nuevo pago"
-    }
+      "payment": "Nuevo pago",
+      "addPartition": "Agregar cinta P{n}",
+      "maxPartitions": "{n} cintas (máximo)"
+    },
+    "delivered": "Entregados (en orden de llegada)",
+    "nothingYet": "Aún no se entrega nada…",
+    "keyMoves": "A dónde va cada cliente ({n} particiones)"
   },
   "map": {
     "home": "Inicio",
@@ -130,13 +135,23 @@
       "title": "Eventos y el log",
       "body": "Toda historia en Kafka empieza con un registro en un log. Aprende qué es un registro, por qué leer nunca borra, qué son los offsets y cómo los topics organizan todo."
     },
-    "w2": "Particiones y keys",
+    "w2": {
+      "title": "Particiones y keys",
+      "body": "Las particiones son cómo Kafka escala y las keys son cómo mantiene el orden. Aprende a elegir cuántas particiones usar, por qué importan las keys y qué pasa cuando agregas particiones después."
+    },
     "w3": "Producers",
     "w4": "Consumers y grupos",
     "soon": "Próximamente",
     "sandbox": {
       "title": "Despacho libre",
       "body": "Sin objetivos ni quiz: solo tú, tres cintas y tus clientes."
+    },
+    "w5": "Brokers y replicación",
+    "shift": {
+      "title": "Turno de la mañana",
+      "empty": "Termina un nivel para tener tu primer repaso.",
+      "due": "{n, plural, one {# concepto listo} other {# conceptos listos}} para repasar",
+      "clear": "Todo al día. Practica cuando quieras."
     }
   },
   "levels": {
@@ -414,6 +429,276 @@
           "why": "Solo dentro de una partición. Por eso importan las keys: la misma key siempre va a la misma partición."
         }
       }
+    },
+    "2-1": {
+      "title": "Atasco",
+      "summary": "Las particiones son la unidad de paralelismo: más cintas, más trabajadores.",
+      "brief": {
+        "title": "Black Friday",
+        "body": "Los pedidos llegan a <b>2 por segundo</b>. El robot de despacho empaca <b>1 por segundo por cinta</b>, y el topic <code>orders</code> tiene una sola cinta. ¿Podrás seguir el ritmo?",
+        "breaks": "en Kafka puedes agregar particiones a un topic en vivo, pero <b>nunca quitarlas</b>."
+      },
+      "rush": {
+        "title": "Baja el backlog",
+        "body": "Los pedidos llegan solos. Agrega cintas hasta que el backlog se mantenga en <b>3 o menos durante 5 segundos</b>.",
+        "meter": "Backlog (registros esperando)",
+        "success": "¡Backlog bajo control! Cada partición nueva le dio al robot otra línea para trabajar en paralelo."
+      },
+      "unit": {
+        "title": "Las particiones son líneas de trabajo",
+        "body": "Dentro de un consumer group, cada partición la lee <b>un solo</b> consumer a la vez. Así que la cantidad de particiones limita cuántos consumers pueden trabajar en paralelo. Elígela pensando en el throughput que necesitarás más adelante, porque reducirla no es posible."
+      },
+      "map": {
+        "belts": "Más cintas",
+        "partitions": "Más particiones",
+        "worker": "Un trabajador por cinta",
+        "consumer": "Un consumer por partición (en un grupo)",
+        "backlog": "Paquetes esperando",
+        "lag": "Lag del consumer"
+      },
+      "min": {
+        "q": "Los pedidos llegan a {rate} por segundo. Cada trabajador empaca 1 por segundo, uno por partición. ¿Cuál es el mínimo de particiones?",
+        "why": "{rate} registros/s ÷ 1 registro/s por partición = {rate} particiones. Los equipos suelen dejar margen extra."
+      },
+      "reduce": {
+        "q": "¿Puedes reducir el topic de 4 particiones a 2?",
+        "no": "No: las particiones solo se pueden agregar",
+        "yes": "Sí, con --alter",
+        "empty": "Solo si el topic está vacío",
+        "why": "Kafka solo permite <b>agregar</b> particiones. Para tener menos, creas un topic nuevo y migras."
+      },
+      "check": {
+        "maxConsumers": {
+          "q": "Un topic tiene {n} particiones. ¿Cuántos consumers de UN grupo pueden leerlo en paralelo como máximo?",
+          "why": "{n}: cada partición va a un consumer del grupo. Los consumers extra quedan sin trabajo."
+        },
+        "capacity": {
+          "q": "Los producers escriben {p} registros/s. Un consumer procesa {c} registros/s. ¿Cuál es el mínimo de particiones para seguir el ritmo?",
+          "why": "{p} ÷ {c} = {k} particiones, así {k} consumers trabajan en paralelo."
+        },
+        "unit": {
+          "q": "La unidad de paralelismo en Kafka es la…",
+          "partition": "Partición",
+          "topic": "Topic",
+          "record": "Registro",
+          "producer": "Producer",
+          "why": "Las particiones son lo que se reparte entre consumers (y brokers)."
+        },
+        "shrink": {
+          "q": "¿Cómo reduces la cantidad de particiones de un topic?",
+          "cannot": "No se puede: creas un topic nuevo y migras",
+          "alter": "kafka-topics.sh --alter --partitions con un número menor",
+          "delete": "Borrando las últimas particiones una por una",
+          "why": "La cantidad de particiones solo sube. Planifica o muévete a un topic nuevo."
+        }
+      }
+    },
+    "2-2": {
+      "title": "Mismo cliente, misma cinta",
+      "summary": "Las keys mantienen en orden los eventos de cada cliente.",
+      "brief": {
+        "title": "Los tres pedidos de alice",
+        "body": "alice pidió un teléfono (<b>#1</b>), luego una funda (<b>#2</b>) y luego canceló la funda (<b>#3</b>). Hay que procesarlos en ese orden. Hoy el producer ignora las keys y reparte los registros en <b>round-robin</b> entre las cintas."
+      },
+      "busy": {
+        "title": "P0 está ocupada",
+        "body": "Una carga masiva acaba de dejar un montón de paquetes en P0. El robot avanza por cada cinta al mismo ritmo."
+      },
+      "rr": {
+        "title": "Envía los 3 pedidos de alice",
+        "body": "Presiona el botón tres veces y mira la lista de <b>Entregados</b>. ¿En qué orden se procesa lo de alice?",
+        "success": "¡Ups! #2 y #3 se procesaron antes que #1. El round-robin los puso en cintas distintas y P0 estaba ocupada."
+      },
+      "keys": {
+        "title": "La key mantiene el orden",
+        "body": "Con key, el particionador manda todos los registros de un cliente a la <b>misma partición</b>. Una partición se lee en orden, así que los eventos de ese cliente se procesan en orden, aunque otra cinta vaya más rápido.",
+        "breaks": "el orden solo se garantiza <b>por partición</b>. Registros con keys distintas en particiones distintas no tienen orden entre sí."
+      },
+      "map": {
+        "sticker": "Sticker del cliente",
+        "key": "Key",
+        "sameBelt": "Siempre la misma cinta",
+        "samePartition": "Misma partición",
+        "oneWorker": "Se lee de principio a fin",
+        "inOrder": "Orden por key"
+      },
+      "keyed": {
+        "title": "Otra vez, con keys",
+        "body": "Ahora carol envía 3 pedidos <b>con su key</b>. Mira la lista de entregas.",
+        "success": "#1, #2, #3: en orden, siempre."
+      },
+      "where": {
+        "q": "carol envía el pedido #4. ¿A qué cinta va?",
+        "why": "A P{p}, como todos los pedidos de carol. Misma key, misma partición."
+      },
+      "check": {
+        "how": {
+          "q": "Para mantener en orden los eventos de cada cliente, el producer debe…",
+          "key": "Usar el id del cliente como key",
+          "nokey": "Enviarlos sin key",
+          "topic": "Crear un topic por cliente",
+          "why": "Misma key → misma partición → se lee en orden."
+        },
+        "rr": {
+          "q": "Los registros repartidos en round-robin (o sin key) te dan…",
+          "none": "Ningún orden por cliente",
+          "global": "Orden global",
+          "time": "Orden por timestamp",
+          "why": "Caen en particiones distintas, que se leen de forma independiente."
+        },
+        "first": {
+          "q": "Los registros de alice están en los offsets {a}, {b} y {c} de P1. ¿Qué offset lee primero un consumer?",
+          "why": "Una partición se lee en orden de offset: {a}, luego {b}, luego {c}."
+        },
+        "hot": {
+          "q": "Una key recibe el 90% del tráfico. ¿Qué pasa?",
+          "hotspot": "Su partición se vuelve un punto caliente",
+          "auto": "Kafka la reparte automáticamente",
+          "nothing": "Nada especial",
+          "why": "Todos los registros de una key van a una partición, y un solo consumer se satura. Es el problema de la hot key."
+        }
+      }
+    },
+    "2-3": {
+      "title": "¿Sin etiqueta?",
+      "summary": "Registros sin key y el particionador sticky.",
+      "brief": {
+        "title": "Los paquetes sin key viajan juntos",
+        "body": "No todo evento necesita key. Con <b>key = null</b>, el particionador por defecto es <b>sticky</b>: llena el batch de una partición y luego pasa a la siguiente. Menos batches y más llenos significan menos peticiones.",
+        "breaks": "el Kafka real cambia cuando el batch llega a <code>batch.size</code> bytes (16 KB por defecto). Aquí un batch son {b} paquetes para que lo veas."
+      },
+      "map": {
+        "noSticker": "Sin sticker",
+        "nullKey": "key = null",
+        "truck": "Cargar un camión hasta llenarlo",
+        "batch": "Un batch para una partición",
+        "switch": "Pasar al siguiente muelle",
+        "nextPartition": "Siguiente partición"
+      },
+      "fill": {
+        "title": "Mira los batches",
+        "body": "Llegan seis paquetes sin key. Fíjate que no se alternan: se pegan."
+      },
+      "next": {
+        "q": "¿A dónde irá el siguiente paquete sin key?",
+        "why": "A P{p}: el particionador sticky sigue llenando el batch actual (hasta {b} aquí) antes de cambiar."
+      },
+      "why": {
+        "q": "¿Por qué quedarse en una partición en vez de alternar en cada registro?",
+        "batching": "Batches más grandes, menos peticiones",
+        "ordering": "Para mantener el orden",
+        "random": "Es aleatorio",
+        "why": "El particionado sticky es una optimización de throughput (KIP-794): los batches llenos comprimen mejor y necesitan menos viajes por la red."
+      },
+      "all": {
+        "title": "Llena todas las cintas",
+        "body": "Envía paquetes sin key hasta que cada cinta tenga al menos 4.",
+        "success": "Reparto parejo con el tiempo, y batches eficientes en el camino."
+      },
+      "check": {
+        "default": {
+          "q": "Con el particionador por defecto, los registros con key nula…",
+          "sticky": "Se reparten con particionado sticky",
+          "dropped": "Se rechazan",
+          "zero": "Van siempre a la partición 0",
+          "why": "Los registros sin key se quedan en una partición por batch y luego rotan."
+        },
+        "count": {
+          "q": "Batches de {b} registros, {n} particiones, empezando en P0. Envías {k} registros sin key. ¿Cuántos caen en P0?",
+          "why": "P0 recibe los batches número 0, {n}, 2·{n}… Contando {k} registros en batches de {b}: {x} en P0."
+        },
+        "why": {
+          "q": "El particionado sticky mejora principalmente…",
+          "batching": "El batching y el throughput",
+          "ordering": "El orden",
+          "durability": "La durabilidad",
+          "why": "Batches más llenos significan menos peticiones y mejor compresión."
+        },
+        "order": {
+          "q": "¿Los registros sin key mantienen su orden entre sí?",
+          "partition": "Solo dentro de la partición donde caen",
+          "always": "Siempre",
+          "never": "Nunca, ni dentro de una partición",
+          "why": "El orden es por partición, así que solo se mantiene dentro de cada una."
+        }
+      }
+    },
+    "2-4": {
+      "title": "Cinta nueva, caos nuevo",
+      "summary": "Agregar particiones mueve keys, y eso rompe el orden por key.",
+      "brief": {
+        "title": "El centro crece",
+        "body": "El negocio va muy bien y el equipo quiere una 4.ª cinta. Antes de presionar el botón, recuerda qué calcula el particionador: <code>murmur2(key) % particiones</code>."
+      },
+      "before": {
+        "title": "Cada uno en su lugar",
+        "body": "Cada cliente envía un pedido. Fíjate qué cinta usa cada uno."
+      },
+      "same": {
+        "q": "Después de agregar una 4.ª cinta, ¿cada cliente seguirá yendo a la misma cinta?",
+        "some": "Algunos clientes cambiarán",
+        "all": "Todos cambian",
+        "none": "Nadie cambia",
+        "why": "El divisor pasó de 3 a 4, así que <code>hash % 4</code> es distinto de <code>hash % 3</code> para muchas keys. Algunas se quedan y otras se mueven."
+      },
+      "grow": {
+        "title": "Agrega la 4.ª cinta",
+        "body": "Agrega P3, luego envía a cada cliente otra vez y descubre en la tabla quién cambió de cinta.",
+        "success": "Algunos clientes ahora viven en otra cinta, mientras sus pedidos viejos siguen donde estaban."
+      },
+      "hurts": {
+        "title": "Por qué duele",
+        "body": "Algunos pedidos viejos de un cliente están en una partición y los nuevos en otra. Un consumer podría procesar los nuevos primero: <b>el orden por key se rompió en el cambio</b>.",
+        "breaks": "planifica la cantidad de particiones desde el inicio. Si debes crecer un topic con keys, considera un topic nuevo y una migración."
+      },
+      "mod": {
+        "q": "El hash (positivo) de una key es {h}. ¿A qué partición va con 4 particiones?",
+        "why": "{h} % 4 = {r}. Con 3 particiones era {h} % 3 = {r3}."
+      },
+      "check": {
+        "mod": {
+          "q": "El hash (positivo) de una key es {h} y el topic tiene {n} particiones. ¿Qué partición?",
+          "why": "{h} % {n} = {r}."
+        },
+        "risk": {
+          "q": "El principal riesgo de agregar particiones a un topic con keys es…",
+          "ordering": "Las keys se mueven y se rompe el orden por key",
+          "loss": "Pérdida de datos",
+          "stop": "Los consumers se detienen",
+          "why": "Los registros existentes no se mueven, los nuevos pueden ir a otra partición, y la historia de una key queda partida."
+        },
+        "cmd": {
+          "q": "¿Qué comando agrega particiones a un topic?",
+          "alter": "kafka-topics.sh --alter --partitions N",
+          "create": "kafka-topics.sh --create --partitions N",
+          "reassign": "kafka-reassign-partitions.sh",
+          "why": "<code>--alter --partitions</code> sube la cantidad. Reassign mueve réplicas entre brokers."
+        },
+        "old": {
+          "q": "Después de agregar particiones, los registros existentes…",
+          "stay": "Se quedan en sus particiones originales",
+          "moved": "Se mueven a las particiones nuevas",
+          "rehashed": "Se rehashean y redistribuyen",
+          "why": "Los registros son inmutables y nunca se mueven. Solo los nuevos usan la nueva cantidad de particiones."
+        }
+      }
     }
+  },
+  "review": {
+    "title": "Turno de la mañana",
+    "back": "Volver al mapa",
+    "map": "Mapa del mundo",
+    "streak": "{n, plural, =0 {Empieza una racha hoy} one {Racha de # día} other {Racha de # días}}",
+    "done": "¡Turno terminado!",
+    "score": "Recordaste {correct} de {total}. Los conceptos que fallaste volverán antes.",
+    "emptyTitle": "Aún no hay nada que repasar",
+    "emptyBody": "Termina tu primer nivel y sus conceptos empezarán a aparecer aquí.",
+    "dueTitle": "{n, plural, one {# concepto} other {# conceptos}} para refrescar",
+    "dueBody": "Unas preguntas rápidas sobre cosas que aprendiste hace un tiempo, mezcladas.",
+    "caughtUp": "¡Todo al día!",
+    "nextOn": "Tu próximo repaso toca el {date}.",
+    "start": "Empezar el turno",
+    "practice": "Practicar los más débiles",
+    "why": "¿Para qué? Recordar algo justo cuando estás por olvidarlo es una de las formas más efectivas de fijarlo (práctica de recuperación espaciada)."
   }
 }

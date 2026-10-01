@@ -1,0 +1,37 @@
+{
+ "name": "m3-morning-shift",
+ "path": "/en/review",
+ "canvas": "main",
+ "viewport": [
+  1280,
+  800
+ ],
+ "steps": [
+  {
+   "wait": 1500
+  },
+  {
+   "eval": "localStorage.setItem('kafka-express:progress',JSON.stringify({state:{levels:{'1-1':{stars:3,attempts:1}},concepts:{record:{box:1,due:0},offset:{box:2,due:0},topic:{box:1,due:0},sticky:{box:3,due:0}},shifts:[]},version:2}));location.reload();true"
+  },
+  {
+   "wait": 2000
+  },
+  {
+   "screenshot": "due",
+   "full": true
+  },
+  {
+   "expect": "(async()=>{const sleep=ms=>new Promise(r=>setTimeout(r,ms));[...document.querySelectorAll('button')].find(b=>/Start the shift/.test(b.textContent)).click();await sleep(600);for(let i=0;i<10;i++){const q=window.__TEST__&&window.__TEST__.question&&window.__TEST__.question();if(!q)break;if(q.input==='number'){const el=document.querySelector('#answer-number');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,String(q.answer));el.dispatchEvent(new Event('input',{bubbles:true}));await sleep(80);el.form.requestSubmit()}else document.querySelector(`[data-value=\"${q.answer}\"]`).click();await sleep(300);const n=[...document.querySelectorAll('button')].find(b=>/^(Next|See results)/.test(b.textContent.trim())&&!b.disabled);const last=/See results/.test(n.textContent);n.click();await sleep(500);if(last)break}return document.body.innerText.includes('Shift done')})()"
+  },
+  {
+   "wait": 500
+  },
+  {
+   "screenshot": "done",
+   "full": true
+  },
+  {
+   "expect": "JSON.parse(localStorage.getItem('kafka-express:progress')).state.shifts.length===1"
+  }
+ ]
+}

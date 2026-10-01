@@ -10,38 +10,74 @@ const INTERVALS = [0, 1, 2, 4, 8, 16];
 type LevelResult = { stars: number; attempts: number };
 type ConceptState = { box: number; due: number };
 
+type Answer = { concept: Concept; correct: boolean };
+
 type Progress = {
   levels: Record<string, LevelResult>;
   concepts: Partial<Record<Concept, ConceptState>>;
-  recordCheck: (levelId: string, stars: number, answers: { concept: Concept; correct: boolean }[]) => void;
+  /** Days (YYYY-MM-DD) on which a morning shift was completed. */
+  shifts: string[];
+  recordCheck: (levelId: string, stars: number, answers: Answer[]) => void;
+  recordReview: (answers: Answer[]) => void;
   reset: () => void;
 };
+
+/** Leitner update: right → next box (longer interval), wrong → back to box 1 (due now). */
+function updateConcepts(concepts: Progress["concepts"], answers: Answer[]) {
+  const next = { ...concepts };
+  const now = Date.now();
+  for (const a of answers) {
+    const c = next[a.concept] ?? { box: 1, due: now };
+    const box = a.correct ? Math.min(5, c.box + 1) : 1;
+    next[a.concept] = { box, due: now + INTERVALS[box] * DAY };
+  }
+  return next;
+}
+
+const today = () => new Date().toISOString().slice(0, 10);
 
 export const useProgress = create<Progress>()(
   persist(
     (set) => ({
       levels: {},
       concepts: {},
+      shifts: [],
       recordCheck: (levelId, stars, answers) =>
         set((s) => {
           const prev = s.levels[levelId];
-          const concepts = { ...s.concepts };
-          const now = Date.now();
-          for (const a of answers) {
-            const c = concepts[a.concept] ?? { box: 1, due: now };
-            const box = a.correct ? Math.min(5, c.box + 1) : 1;
-            concepts[a.concept] = { box, due: now + INTERVALS[box] * DAY };
-          }
           return {
-            concepts,
+            concepts: updateConcepts(s.concepts, answers),
             levels: { ...s.levels, [levelId]: { stars: Math.max(stars, prev?.stars ?? 0), attempts: (prev?.attempts ?? 0) + 1 } },
           };
         }),
-      reset: () => set({ levels: {}, concepts: {} }),
+      recordReview: (answers) =>
+        set((s) => ({ concepts: updateConcepts(s.concepts, answers), shifts: s.shifts.includes(today()) ? s.shifts : [...s.shifts, today()] })),
+      reset: () => set({ levels: {}, concepts: {}, shifts: [] }),
     }),
-    { name: "kafka-express:progress", version: 1 },
+    { name: "kafka-express:progress", version: 2, migrate: (state) => ({ shifts: [], ...(state as object) }) as unknown as Progress },
   ),
 );
+
+/** Concepts due for review now, weakest (lowest box) first. */
+export function dueConcepts(concepts: Progress["concepts"], now = Date.now()): Concept[] {
+  return (Object.entries(concepts) as [Concept, ConceptState][])
+    .filter(([, c]) => c.due <= now)
+    .sort((a, b) => a[1].box - b[1].box || a[1].due - b[1].due)
+    .map(([k]) => k);
+}
+
+/** Consecutive days with a completed morning shift, ending today or yesterday. */
+export function shiftStreak(shifts: string[]): number {
+  const set = new Set(shifts);
+  const d = new Date();
+  if (!set.has(d.toISOString().slice(0, 10))) d.setDate(d.getDate() - 1);
+  let n = 0;
+  while (set.has(d.toISOString().slice(0, 10))) {
+    n++;
+    d.setDate(d.getDate() - 1);
+  }
+  return n;
+}
 
 /** A level is unlocked when it's the first one or the previous level was passed (≥1 star). */
 export function isUnlocked(levels: Progress["levels"], id: string) {

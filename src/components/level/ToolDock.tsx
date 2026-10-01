@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "motion/react";
-import { CreditCard, PaperPlaneTilt, Prohibit, Receipt, Scan } from "@phosphor-icons/react";
+import { CreditCard, PaperPlaneTilt, Plus, Prohibit, Receipt, Scan } from "@phosphor-icons/react";
 import type { Headers } from "@/sim/events";
 import type { Tool } from "@/levels/types";
 import { randInt, seeded } from "@/levels/types";
@@ -14,7 +14,8 @@ import { gameButtonClass } from "../ui/GameButton";
 import { Keycap } from "../ui/Keycap";
 
 export type ToolHandlers = {
-  produce: (topic: string, key: string | null, value: string, headers: Headers) => void;
+  produce: (topic: string, key: string | null, value: string, headers: Headers, roundRobin?: boolean) => void;
+  addPartition: (topic: string) => void;
   fetch: (group: string, topic: string, partition: number) => void;
   route: (ok: boolean, topic: string, key: string, value: string) => void;
 };
@@ -25,13 +26,33 @@ function ProduceTool({ tool, on }: { tool: Extract<Tool, { type: "produce" }>; o
   const [withHeaders, setWithHeaders] = useState(false);
   const [n, setN] = useState(1);
   const [last, setLast] = useState<string | null | undefined>(undefined);
+  const [seq, setSeq] = useState<Record<string, number>>({});
   const headers: Headers = withHeaders ? { source: "web" } : {};
   const value = `{"order":${1040 + n}}`;
   const send = (key: string | null) => {
-    on.produce(tool.topic, key, value, headers);
+    // In sequence mode each customer's orders are numbered #1, #2… so ordering is visible
+    const k = key ?? "∅";
+    const next = (seq[k] ?? 0) + 1;
+    on.produce(tool.topic, key, tool.sequence ? `#${next}` : value, headers, tool.roundRobin);
+    setSeq((s) => ({ ...s, [k]: next }));
     setLast(key);
     setN((x) => x + 1);
   };
+
+  // 1–9 send the matching customer
+  const sendRef = useRef(send);
+  useEffect(() => {
+    sendRef.current = send;
+  });
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement)?.tagName === "INPUT" || e.repeat) return;
+      const i = Number(e.key) - 1;
+      if (i >= 0 && i < tool.keys.length) sendRef.current(tool.keys[i]);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [tool.keys]);
 
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -45,7 +66,10 @@ function ProduceTool({ tool, on }: { tool: Extract<Tool, { type: "produce" }>; o
       {tool.keys.map((k, i) => (
         <button key={k} type="button" onClick={() => send(k)} className={`${gameButtonClass({ size: "sm" })} shrink-0 gap-2 pl-2.5`}>
           <span className="size-3.5 rounded-[4px] ring-2 ring-producer ring-offset-1 ring-offset-paper" style={{ background: keyColor(k) }} aria-hidden />
-          <span className="font-mono">{k}</span>
+          <span className="font-mono">
+            {k}
+            {tool.sequence && <span className="text-ink-2"> #{(seq[k] ?? 0) + 1}</span>}
+          </span>
           <Keycap className="max-md:hidden">{i + 1}</Keycap>
         </button>
       ))}
@@ -103,6 +127,17 @@ function FetchTool({ tool, groups, on }: { tool: Extract<Tool, { type: "fetch" }
           </button>
         ))}
     </div>
+  );
+}
+
+function AddPartitionTool({ tool, partitions, on }: { tool: Extract<Tool, { type: "addPartition" }>; partitions: number; on: ToolHandlers }) {
+  const t = useTranslations("level.tools");
+  const full = partitions >= tool.max;
+  return (
+    <button type="button" disabled={full} onClick={() => on.addPartition(tool.topic)} className={gameButtonClass({ variant: "accent", size: "md" })}>
+      <Plus weight="bold" />
+      {full ? t("maxPartitions", { n: partitions }) : t("addPartition", { n: partitions })}
+    </button>
   );
 }
 
@@ -165,7 +200,7 @@ function RouteTool({ tool, on }: { tool: Extract<Tool, { type: "route" }>; on: T
   );
 }
 
-export function ToolDock({ tools, consumers, on }: { tools: Tool[]; consumers: ConsumerSpec[]; on: ToolHandlers }) {
+export function ToolDock({ tools, consumers, partitions, on }: { tools: Tool[]; consumers: ConsumerSpec[]; partitions: (topic: string) => number; on: ToolHandlers }) {
   return (
     <div className="card mx-auto flex w-fit max-w-full flex-wrap items-center gap-3 px-3 py-2.5 sm:px-4">
       {tools.map((tool, i) =>
@@ -173,6 +208,8 @@ export function ToolDock({ tools, consumers, on }: { tools: Tool[]; consumers: C
           <ProduceTool key={i} tool={tool} on={on} />
         ) : tool.type === "fetch" ? (
           <FetchTool key={i} tool={tool} groups={consumers} on={on} />
+        ) : tool.type === "addPartition" ? (
+          <AddPartitionTool key={i} tool={tool} partitions={partitions(tool.topic)} on={on} />
         ) : (
           <RouteTool key={i} tool={tool} on={on} />
         ),

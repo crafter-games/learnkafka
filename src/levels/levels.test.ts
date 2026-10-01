@@ -33,3 +33,11 @@ describe("levels", () => {
     expect(starsFor(5, 5)).toBe(3);
   });
 });
+
+describe("morning shift", () => {
+  it("builds one question per concept, max 5", async () => {
+    const { buildReview } = await import(".");
+    const q = buildReview(["record", "offset", "topic", "sticky", "parallelism", "reading"], 4);
+    expect(q).toHaveLength(5);
+  });
+});

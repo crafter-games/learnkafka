@@ -17,7 +17,8 @@ export type SimEvent =
   | { type: "produced"; topic: string; record: SimRecord; hashed: boolean }
   | { type: "appended"; topic: string; record: SimRecord }
   /** A consumer group read a record. Reading never removes it from the log. */
-  | { type: "fetched"; topic: string; group: string; record: SimRecord; position: number };
+  | { type: "fetched"; topic: string; group: string; record: SimRecord; position: number }
+  | { type: "partitionsAdded"; topic: string; total: number };
 
 type Listener = (event: SimEvent) => void;
 

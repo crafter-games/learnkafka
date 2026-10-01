@@ -116,8 +116,13 @@
       "send": "Send",
       "read": "{group} reads next",
       "order": "New order",
-      "payment": "New payment"
-    }
+      "payment": "New payment",
+      "addPartition": "Add conveyor P{n}",
+      "maxPartitions": "{n} conveyors (max)"
+    },
+    "delivered": "Delivered (in completion order)",
+    "nothingYet": "Nothing delivered yet…",
+    "keyMoves": "Where each customer goes ({n} partitions)"
   },
   "map": {
     "home": "Home",
@@ -130,13 +135,23 @@
       "title": "Events & the Log",
       "body": "Every story in Kafka starts with a record on a log. Learn what a record is, why reading never deletes, what offsets are and how topics organize it all."
     },
-    "w2": "Partitions & Keys",
+    "w2": {
+      "title": "Partitions & Keys",
+      "body": "Partitions are how Kafka scales, and keys are how it keeps order. Learn how to choose a partition count, why keys matter and what happens when you add partitions later."
+    },
     "w3": "Producers",
     "w4": "Consumers & Groups",
     "soon": "Coming soon",
     "sandbox": {
       "title": "Free dispatch",
       "body": "No goals, no quiz: just you, three conveyors and your customers."
+    },
+    "w5": "Brokers & Replication",
+    "shift": {
+      "title": "Morning shift",
+      "empty": "Finish a level to get your first review.",
+      "due": "{n, plural, one {# concept} other {# concepts}} ready for review",
+      "clear": "All caught up. Practice anytime."
     }
   },
   "levels": {
@@ -414,6 +429,276 @@
           "why": "Only within a partition. That’s why keys matter: the same key always goes to the same partition."
         }
       }
+    },
+    "2-1": {
+      "title": "Traffic jam",
+      "summary": "Partitions are the unit of parallelism: more conveyors, more workers.",
+      "brief": {
+        "title": "Black Friday rush",
+        "body": "Orders are pouring in, <b>2 per second</b>. The fulfilment robot packs <b>1 per second per conveyor</b>, and the <code>orders</code> topic has just one conveyor. Can you keep up?",
+        "breaks": "in Kafka you can add partitions to a live topic, but you can <b>never remove</b> them."
+      },
+      "rush": {
+        "title": "Keep the backlog down",
+        "body": "Orders arrive on their own. Add conveyors until the backlog stays at <b>3 or less for 5 seconds</b>.",
+        "meter": "Backlog (records waiting)",
+        "success": "Backlog under control! Each new partition gave the robot one more lane to work on in parallel."
+      },
+      "unit": {
+        "title": "Partitions are lanes of work",
+        "body": "Within a consumer group, each partition is read by at most <b>one</b> consumer at a time. So the partition count caps how many consumers can work in parallel. Pick it for the throughput you’ll need later, because shrinking isn’t possible."
+      },
+      "map": {
+        "belts": "More conveyors",
+        "partitions": "More partitions",
+        "worker": "A worker per conveyor",
+        "consumer": "One consumer per partition (in a group)",
+        "backlog": "Parcels waiting",
+        "lag": "Consumer lag"
+      },
+      "min": {
+        "q": "Orders arrive at {rate} per second. Each worker packs 1 per second, one worker per partition. What’s the minimum number of partitions?",
+        "why": "{rate} records/s ÷ 1 record/s per partition = {rate} partitions. Teams usually add headroom on top."
+      },
+      "reduce": {
+        "q": "Can you shrink the topic from 4 partitions back to 2?",
+        "no": "No: partitions can only be added",
+        "yes": "Yes, with --alter",
+        "empty": "Only if the topic is empty",
+        "why": "Kafka can only <b>add</b> partitions. To get fewer, you create a new topic and migrate to it."
+      },
+      "check": {
+        "maxConsumers": {
+          "q": "A topic has {n} partitions. At most how many consumers in ONE group can read it in parallel?",
+          "why": "{n}: each partition goes to one consumer in the group. Any extra consumers sit idle."
+        },
+        "capacity": {
+          "q": "Producers write {p} records/s. One consumer handles {c} records/s. What’s the minimum number of partitions to keep up?",
+          "why": "{p} ÷ {c} = {k} partitions, so {k} consumers can work in parallel."
+        },
+        "unit": {
+          "q": "The unit of parallelism in Kafka is the…",
+          "partition": "Partition",
+          "topic": "Topic",
+          "record": "Record",
+          "producer": "Producer",
+          "why": "Partitions are what get spread across consumers (and brokers)."
+        },
+        "shrink": {
+          "q": "How do you lower a topic’s partition count?",
+          "cannot": "You can’t: create a new topic and migrate",
+          "alter": "kafka-topics.sh --alter --partitions with a lower number",
+          "delete": "Delete the last partitions one by one",
+          "why": "Partition counts only go up. Plan ahead, or move to a new topic."
+        }
+      }
+    },
+    "2-2": {
+      "title": "Same customer, same belt",
+      "summary": "Keys keep each customer’s events in order.",
+      "brief": {
+        "title": "alice’s three orders",
+        "body": "alice ordered a phone (<b>#1</b>), then a case (<b>#2</b>), then cancelled the case (<b>#3</b>). They must be handled in that order. Today the producer ignores keys and deals records <b>round-robin</b> across the conveyors."
+      },
+      "busy": {
+        "title": "P0 is busy",
+        "body": "A bulk import just dumped a pile of parcels onto P0. The robot works through each conveyor at the same pace."
+      },
+      "rr": {
+        "title": "Send alice’s 3 orders",
+        "body": "Press the button three times and watch the <b>Delivered</b> list. In what order does alice’s stuff get handled?",
+        "success": "Uh-oh: #2 and #3 were handled before #1! Round-robin put them on different conveyors, and P0 was busy."
+      },
+      "keys": {
+        "title": "The key keeps the order",
+        "body": "With a key, the partitioner sends every record of a customer to the <b>same partition</b>. One partition is read in order, so that customer’s events are handled in order, even when another conveyor is faster.",
+        "breaks": "order is only guaranteed <b>per partition</b>. Records with different keys on different partitions have no order between them."
+      },
+      "map": {
+        "sticker": "Customer sticker",
+        "key": "Key",
+        "sameBelt": "Always the same conveyor",
+        "samePartition": "Same partition",
+        "oneWorker": "Read front to back",
+        "inOrder": "Per-key ordering"
+      },
+      "keyed": {
+        "title": "Try again, with keys",
+        "body": "Now carol sends 3 orders <b>with her key</b>. Watch the delivery list.",
+        "success": "#1, #2, #3: in order, every time."
+      },
+      "where": {
+        "q": "carol sends order #4. Which conveyor?",
+        "why": "P{p}, like all of carol’s orders. Same key, same partition."
+      },
+      "check": {
+        "how": {
+          "q": "To keep each customer’s events in order, the producer should…",
+          "key": "Use the customer id as the key",
+          "nokey": "Send them without a key",
+          "topic": "Create one topic per customer",
+          "why": "Same key → same partition → read in order."
+        },
+        "rr": {
+          "q": "Records spread round-robin (or keyless) give you…",
+          "none": "No ordering per customer",
+          "global": "Global ordering",
+          "time": "Ordering by timestamp",
+          "why": "They land on different partitions, which are read independently."
+        },
+        "first": {
+          "q": "alice’s records sit at offsets {a}, {b} and {c} of P1. Which offset does a consumer read first?",
+          "why": "A partition is read in offset order: {a}, then {b}, then {c}."
+        },
+        "hot": {
+          "q": "One key gets 90% of all traffic. What happens?",
+          "hotspot": "Its partition becomes a hot spot",
+          "auto": "Kafka spreads it automatically",
+          "nothing": "Nothing special",
+          "why": "All records of a key go to one partition, so one consumer gets swamped. That’s the hot key problem."
+        }
+      }
+    },
+    "2-3": {
+      "title": "No label?",
+      "summary": "Keyless records and the sticky partitioner.",
+      "brief": {
+        "title": "Keyless parcels ride together",
+        "body": "Not every event needs a key. With <b>key = null</b>, the default partitioner is <b>sticky</b>: it fills one partition’s batch, then moves to the next. Fewer, fuller batches mean fewer requests.",
+        "breaks": "real Kafka switches when the batch reaches <code>batch.size</code> bytes (16 KB by default). Here a batch is {b} parcels so you can see it."
+      },
+      "map": {
+        "noSticker": "No sticker",
+        "nullKey": "key = null",
+        "truck": "Loading one truck until full",
+        "batch": "A batch for one partition",
+        "switch": "Moving to the next dock",
+        "nextPartition": "Next partition"
+      },
+      "fill": {
+        "title": "Watch the batches",
+        "body": "Six keyless parcels roll in. Notice they don’t alternate: they stick."
+      },
+      "next": {
+        "q": "Where will the next keyless parcel go?",
+        "why": "P{p}: the sticky partitioner keeps filling the current batch (up to {b} here) before switching."
+      },
+      "why": {
+        "q": "Why stick to one partition instead of alternating on every record?",
+        "batching": "Bigger batches, fewer requests",
+        "ordering": "To keep records in order",
+        "random": "It’s random",
+        "why": "Sticky partitioning is a throughput optimization (KIP-794): full batches compress better and need fewer network round trips."
+      },
+      "all": {
+        "title": "Fill every conveyor",
+        "body": "Send keyless parcels until each conveyor has at least 4.",
+        "success": "Even spread over time, and efficient batches along the way."
+      },
+      "check": {
+        "default": {
+          "q": "With the default partitioner, records with a null key are…",
+          "sticky": "Spread with sticky partitioning",
+          "dropped": "Rejected",
+          "zero": "Always sent to partition 0",
+          "why": "Keyless records stick to one partition per batch, then rotate."
+        },
+        "count": {
+          "q": "Batches of {b} records, {n} partitions, starting at P0. You send {k} keyless records. How many land on P0?",
+          "why": "P0 gets each batch number 0, {n}, 2·{n}… Counting {k} records in batches of {b}: {x} on P0."
+        },
+        "why": {
+          "q": "Sticky partitioning mainly improves…",
+          "batching": "Batching and throughput",
+          "ordering": "Ordering",
+          "durability": "Durability",
+          "why": "Fuller batches mean fewer requests and better compression."
+        },
+        "order": {
+          "q": "Do keyless records keep their order relative to each other?",
+          "partition": "Only within the partition they land on",
+          "always": "Always",
+          "never": "Never, not even within a partition",
+          "why": "Order is per partition, so it holds only within each partition."
+        }
+      }
+    },
+    "2-4": {
+      "title": "New belt, new chaos",
+      "summary": "Adding partitions moves keys, and that breaks per-key ordering.",
+      "brief": {
+        "title": "The hub grows",
+        "body": "Business is booming and the team wants a 4th conveyor. Before pressing the button, remember what the partitioner computes: <code>murmur2(key) % partitions</code>."
+      },
+      "before": {
+        "title": "Everyone in their place",
+        "body": "Each customer sends an order. Note which conveyor each one uses."
+      },
+      "same": {
+        "q": "After adding a 4th conveyor, will every customer still go to the same conveyor?",
+        "some": "Some customers will move",
+        "all": "All of them move",
+        "none": "Nobody moves",
+        "why": "The divisor changed from 3 to 4, so <code>hash % 4</code> differs from <code>hash % 3</code> for many keys. Some stay, some move."
+      },
+      "grow": {
+        "title": "Add the 4th conveyor",
+        "body": "Add P3, then send each customer again and spot who switched conveyors in the table.",
+        "success": "Some customers now live on a different conveyor, while their old orders stay where they were."
+      },
+      "hurts": {
+        "title": "Why it hurts",
+        "body": "Some of a customer’s old orders sit on one partition and the new ones on another. A consumer could handle the new ones first: <b>per-key ordering broke at the resize</b>.",
+        "breaks": "plan partition counts up front. If you must grow a keyed topic, consider a new topic and a migration."
+      },
+      "mod": {
+        "q": "A key’s (positive) hash is {h}. Which partition does it go to with 4 partitions?",
+        "why": "{h} % 4 = {r}. With 3 partitions it was {h} % 3 = {r3}."
+      },
+      "check": {
+        "mod": {
+          "q": "A key’s (positive) hash is {h} and the topic has {n} partitions. Which partition?",
+          "why": "{h} % {n} = {r}."
+        },
+        "risk": {
+          "q": "The main risk of adding partitions to a keyed topic is…",
+          "ordering": "Keys move, so per-key ordering breaks",
+          "loss": "Data loss",
+          "stop": "Consumers stop",
+          "why": "Existing records stay put, new ones may hash elsewhere, so a key’s history is split across partitions."
+        },
+        "cmd": {
+          "q": "Which command adds partitions to a topic?",
+          "alter": "kafka-topics.sh --alter --partitions N",
+          "create": "kafka-topics.sh --create --partitions N",
+          "reassign": "kafka-reassign-partitions.sh",
+          "why": "<code>--alter --partitions</code> raises the count. Reassign moves replicas between brokers."
+        },
+        "old": {
+          "q": "After adding partitions, existing records…",
+          "stay": "Stay in their original partitions",
+          "moved": "Are moved to the new partitions",
+          "rehashed": "Are rehashed and redistributed",
+          "why": "Records are immutable and never move. Only new records use the new partition count."
+        }
+      }
     }
+  },
+  "review": {
+    "title": "Morning shift",
+    "back": "Back to the map",
+    "map": "World map",
+    "streak": "{n, plural, =0 {Start a streak today} one {# day streak} other {# day streak}}",
+    "done": "Shift done!",
+    "score": "{correct} of {total} remembered. Concepts you missed come back sooner.",
+    "emptyTitle": "Nothing to review yet",
+    "emptyBody": "Finish your first level and its concepts will start showing up here.",
+    "dueTitle": "{n, plural, one {# concept} other {# concepts}} to refresh",
+    "dueBody": "A few quick questions on things you learned a while ago, mixed together.",
+    "caughtUp": "All caught up!",
+    "nextOn": "Your next review is due on {date}.",
+    "start": "Start the shift",
+    "practice": "Practice the weakest ones",
+    "why": "Why bother? Recalling something just as you’re about to forget it is one of the most effective ways to make it stick (spaced retrieval practice)."
   }
 }
