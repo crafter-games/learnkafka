@@ -4,6 +4,7 @@ import type { Concept } from "@/levels/types";
 import { ALL_LEVELS } from "@/levels";
 
 const DAY = 86_400_000;
+const UNLOCK_CODES = ["CRAFTER100"];
 /** Leitner intervals per box (days). Box 1 = due now. */
 const INTERVALS = [0, 1, 2, 4, 8, 16];
 
@@ -19,6 +20,8 @@ type Progress = {
   shifts: string[];
   recordCheck: (levelId: string, stars: number, answers: Answer[]) => void;
   recordReview: (answers: Answer[]) => void;
+  /** Redeem an unlock code; returns whether it was valid. */
+  redeem: (code: string) => boolean;
   reset: () => void;
 };
 
@@ -52,6 +55,14 @@ export const useProgress = create<Progress>()(
         }),
       recordReview: (answers) =>
         set((s) => ({ concepts: updateConcepts(s.concepts, answers), shifts: s.shifts.includes(today()) ? s.shifts : [...s.shifts, today()] })),
+      redeem: (code) => {
+        if (!UNLOCK_CODES.includes(code.trim().toUpperCase())) return false;
+        // CRAFTER100: every level complete with full marks
+        set((s) => ({
+          levels: Object.fromEntries(ALL_LEVELS.map((l) => [l.id, { stars: 3, attempts: Math.max(1, s.levels[l.id]?.attempts ?? 0) }])),
+        }));
+        return true;
+      },
       reset: () => set({ levels: {}, concepts: {}, shifts: [] }),
     }),
     { name: "kafka-express:progress", version: 2, migrate: (state) => ({ shifts: [], ...(state as object) }) as unknown as Progress },

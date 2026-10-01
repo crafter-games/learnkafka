@@ -2087,5 +2087,16 @@
     "start": "Start the shift",
     "practice": "Practice the weakest ones",
     "why": "Why bother? Recalling something just as you’re about to forget it is one of the most effective ways to make it stick (spaced retrieval practice)."
+  },
+  "code": {
+    "button": "Code",
+    "open": "Enter an unlock code",
+    "title": "Unlock code",
+    "body": "Got a code? Enter it here.",
+    "label": "Code",
+    "redeem": "Redeem",
+    "bad": "That code doesn’t work.",
+    "ok": "Unlocked! Every level is complete with 3 stars.",
+    "close": "Close"
   }
 }

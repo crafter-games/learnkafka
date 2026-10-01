@@ -2087,5 +2087,16 @@
     "start": "Empezar el turno",
     "practice": "Practicar los más débiles",
     "why": "¿Para qué? Recordar algo justo cuando estás por olvidarlo es una de las formas más efectivas de fijarlo (práctica de recuperación espaciada)."
+  },
+  "code": {
+    "button": "Código",
+    "open": "Ingresar un código de desbloqueo",
+    "title": "Código de desbloqueo",
+    "body": "¿Tienes un código? Escríbelo aquí.",
+    "label": "Código",
+    "redeem": "Canjear",
+    "bad": "Ese código no funciona.",
+    "ok": "¡Desbloqueado! Todos los niveles completos con 3 estrellas.",
+    "close": "Cerrar"
   }
 }

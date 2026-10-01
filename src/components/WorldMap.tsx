@@ -15,6 +15,7 @@ import { Hud } from "./Hud";
 import { Text } from "./level/parts";
 import { gameButtonClass } from "./ui/GameButton";
 import { Logo } from "./ui/Logo";
+import { UnlockCode } from "./UnlockCode";
 
 const UPCOMING = [8] as const;
 const noop = () => () => {};
@@ -154,6 +155,7 @@ export function WorldMap() {
             )}
             {due > 0 && <span className="absolute -right-1.5 -top-1.5 grid size-5 place-items-center rounded-full bg-danger text-[11px] font-extrabold text-white">{due}</span>}
           </Link>
+          <UnlockCode />
           <Link href="/play" className={gameButtonClass({ size: "sm" })} aria-label={t("sandbox.title")}>
             <Package size={18} weight="fill" className="text-partition" />
             <span className="hidden sm:inline">{t("sandbox.title")}</span>

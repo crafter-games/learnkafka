@@ -22,6 +22,10 @@ export function AudioDirector({ intensity }: { intensity: Intensity }) {
   useEffect(() => backgroundMusic().setMuted(musicMuted), [musicMuted]);
   useEffect(() => audioBus().setMuted(sfxMuted), [sfxMuted]);
   useEffect(() => backgroundMusic().setIntensity(intensity), [intensity]);
+  // QA hook: lets the playtest harness record the mix
+  useEffect(() => {
+    (window as unknown as { __music?: unknown }).__music = backgroundMusic();
+  }, []);
 
   // M toggles music, Shift+M toggles sound effects (GDD → Controls)
   useEffect(() => {

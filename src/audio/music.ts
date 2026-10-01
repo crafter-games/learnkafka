@@ -1,42 +1,59 @@
-// Generative, adaptive background music (Tone.js) — original, no assets.
-// A cheerful C-major loop (I–V–vi–IV) in vertical layers:
-//   base   marimba (tresillo) + bouncing bass + soft pad   → menus
-//   groove kick / clap / shaker + a quiet melody            → playing
-//   rush   melody up front + glockenspiel sparkle          → busy traffic
+// Generative, adaptive background music (Tone.js) — an ORIGINAL composition in the style of
+// courtroom/investigation game soundtracks: heroic minor key, galloping 16th-note synth bass,
+// staccato brass stabs, punchy snare and a "pursuit" lead. No existing melody is reproduced.
+//
+// Intensity layers:  0 = investigation (pads + bass)  ·  1 = + drums & brass  ·  2 = pursuit
+// (lead up front, faster, a whole tone higher). Every 8 bars the key climbs a semitone
+// (a classic game-music lift) and resets after four lifts, so the loop keeps building.
 // Ducks under explanations (GDD → Audio; learning-science §3 "background music").
 type ToneNS = typeof import("tone");
 
 export type Intensity = 0 | 1 | 2;
 
-const BPM = 112;
+const BPM: Record<Intensity, number> = { 0: 132, 1: 144, 2: 156 };
 const OFF_DB = -60;
-// One chord per bar: C – G – Am – F
+/** Pursuit mode lifts the whole track a whole tone. */
+const INTENSITY_LIFT: Record<Intensity, number> = { 0: 0, 1: 0, 2: 2 };
+/** Key lifts every 8 bars (semitones), then back to the start. */
+const MODULATIONS = [0, 1, 2, 3];
+
+// D minor, 8 bars: i – VI – VII – V7 | i – iv – ii°7 – V7   (MIDI numbers)
+const ROOTS = [38, 34, 36, 33, 38, 31, 40, 33];
 const CHORDS = [
-  ["C4", "E4", "G4"],
-  ["B3", "D4", "G4"],
-  ["C4", "E4", "A4"],
-  ["C4", "F4", "A4"],
+  [62, 65, 69],
+  [58, 62, 65],
+  [60, 64, 67],
+  [57, 61, 64, 67],
+  [62, 65, 69],
+  [55, 58, 62],
+  [52, 55, 58, 62],
+  [57, 61, 64, 67],
 ];
-const ROOTS = ["C2", "G1", "A1", "F1"];
-const FIFTHS = ["G2", "D2", "E2", "C2"];
-// 4-bar hook on an 8th-note grid (null = rest)
-const MELODY: (string | null)[] = [
-  "E5", null, "G5", null, "A5", "G5", "E5", null,
-  "D5", null, "G5", null, "B5", null, "A5", "G5",
-  "C5", null, "E5", null, "A5", null, "G5", "E5",
-  "F5", null, "A5", null, "G5", null, "E5", "D5",
+// Galloping bass, per 16th step: semitones above the root (null = rest)
+const BASS: (number | null)[] = [0, null, 12, 0, 0, null, 12, 0, 0, null, 12, 0, 7, null, 12, 10];
+// Brass stabs (16th steps) — syncopated hits on the chord
+const STABS = [0, 3, 6, 10, 12];
+// Original lead, 8 bars × 16 steps (MIDI, 0 = rest)
+const _ = 0;
+const LEAD: number[][] = [
+  [74, _, _, 69, _, 74, _, 76, 77, _, _, _, 76, _, 74, _],
+  [77, _, _, 74, _, 77, _, 79, 81, _, _, _, 79, _, 77, _],
+  [79, _, _, 76, _, 79, _, 81, 82, _, _, _, 81, _, 79, _],
+  [81, _, _, _, 76, _, _, 73, _, 76, _, _, 81, _, _, _],
+  [86, _, _, 81, _, 77, _, 74, 76, _, 77, _, 79, _, 81, _],
+  [82, _, _, 79, _, 74, _, 79, 81, _, 82, _, 84, _, 86, _],
+  [79, _, _, 82, _, 79, _, 76, 77, _, 79, _, 81, _, 82, _],
+  [81, _, _, _, _, _, 79, _, 77, _, 76, _, 73, _, 76, _],
 ];
-const TRESILLO = [1, 0, 0, 1, 0, 0, 1, 0];
-const LAYER_DB = { marimba: -15, pad: -24, bass: -13, groove: -17 } as const;
-const MELODY_DB: Record<Intensity, number> = { 0: OFF_DB, 1: -25, 2: -17 };
-const SPARKLE_DB: Record<Intensity, number> = { 0: OFF_DB, 1: OFF_DB, 2: -26 };
+const LAYER_DB = { bass: -13, pad: -25, drums: -15, brass: -19 } as const;
+const LEAD_DB: Record<Intensity, number> = { 0: OFF_DB, 1: -26, 2: -16 };
 
 type Layers = {
   bus: InstanceType<ToneNS["Volume"]>;
   duck: InstanceType<ToneNS["Gain"]>;
-  groove: InstanceType<ToneNS["Volume"]>;
-  melody: InstanceType<ToneNS["Volume"]>;
-  sparkle: InstanceType<ToneNS["Volume"]>;
+  drums: InstanceType<ToneNS["Volume"]>;
+  brass: InstanceType<ToneNS["Volume"]>;
+  lead: InstanceType<ToneNS["Volume"]>;
 };
 
 class Music {
@@ -65,109 +82,124 @@ class Music {
     Tone.getContext().lookAhead = 0.2;
 
     const bus = new Tone.Volume(-60).toDestination();
-    const limiter = new Tone.Limiter(-3).connect(bus);
+    const limiter = new Tone.Limiter(-1).connect(bus);
     const duck = new Tone.Gain(this.ducked ? 0.3 : 1).connect(limiter);
-    const reverb = new Tone.Reverb({ decay: 2.2, wet: 0.22 }).connect(duck);
+    const room = new Tone.Reverb({ decay: 1.8, wet: 0.18 }).connect(duck);
 
-    // Base: wooden marimba stabs, round bouncing bass, a whisper of pad
-    const marimbaVol = new Tone.Volume(LAYER_DB.marimba).connect(reverb);
-    const marimba = new Tone.PolySynth(Tone.Synth, {
-      oscillator: { type: "sine" },
-      envelope: { attack: 0.002, decay: 0.28, sustain: 0, release: 0.2 },
-    }).connect(marimbaVol);
-    const padVol = new Tone.Volume(LAYER_DB.pad).connect(reverb);
-    const pad = new Tone.PolySynth(Tone.Synth, {
-      oscillator: { type: "triangle" },
-      envelope: { attack: 0.6, decay: 0.4, sustain: 0.6, release: 1.2 },
-    }).connect(padVol);
+    // Base: galloping saw bass + string pad
     const bassVol = new Tone.Volume(LAYER_DB.bass).connect(duck);
     const bass = new Tone.MonoSynth({
-      oscillator: { type: "triangle" },
-      envelope: { attack: 0.005, decay: 0.18, sustain: 0.3, release: 0.15 },
-      filterEnvelope: { attack: 0.005, decay: 0.12, sustain: 0.3, baseFrequency: 180, octaves: 2.5 },
+      oscillator: { type: "sawtooth" },
+      filter: { Q: 2, type: "lowpass", rolloff: -24 },
+      envelope: { attack: 0.004, decay: 0.12, sustain: 0.25, release: 0.06 },
+      filterEnvelope: { attack: 0.004, decay: 0.1, sustain: 0.2, baseFrequency: 160, octaves: 3.2 },
     }).connect(bassVol);
+    const padVol = new Tone.Volume(LAYER_DB.pad).connect(room);
+    const padFilter = new Tone.Filter(1700, "lowpass").connect(padVol);
+    const pad = new Tone.PolySynth(Tone.Synth, {
+      oscillator: { type: "fatsawtooth", count: 3, spread: 22 },
+      envelope: { attack: 0.35, decay: 0.3, sustain: 0.6, release: 1 },
+    }).connect(padFilter);
 
-    // Groove: kick, hand clap, shaker
-    const groove = new Tone.Volume(OFF_DB).connect(duck);
-    const kick = new Tone.MembraneSynth({ pitchDecay: 0.02, octaves: 5, envelope: { attack: 0.001, decay: 0.25, sustain: 0 } }).connect(groove);
-    const clapFilter = new Tone.Filter(1800, "bandpass").connect(groove);
-    const clap = new Tone.NoiseSynth({ noise: { type: "white" }, envelope: { attack: 0.001, decay: 0.12, sustain: 0 } }).connect(clapFilter);
-    const shakerFilter = new Tone.Filter(8000, "highpass").connect(groove);
-    const shaker = new Tone.NoiseSynth({ noise: { type: "white" }, envelope: { attack: 0.002, decay: 0.03, sustain: 0 } }).connect(shakerFilter);
+    // Drums
+    const drums = new Tone.Volume(OFF_DB).connect(duck);
+    const kick = new Tone.MembraneSynth({ pitchDecay: 0.025, octaves: 6, envelope: { attack: 0.001, decay: 0.28, sustain: 0 } }).connect(drums);
+    const snareFilter = new Tone.Filter(2600, "bandpass").connect(drums);
+    const snare = new Tone.NoiseSynth({ noise: { type: "white" }, envelope: { attack: 0.001, decay: 0.16, sustain: 0 } }).connect(snareFilter);
+    const hatFilter = new Tone.Filter(9000, "highpass").connect(drums);
+    const hat = new Tone.NoiseSynth({ noise: { type: "white" }, envelope: { attack: 0.001, decay: 0.025, sustain: 0 } }).connect(hatFilter);
 
-    // Melody: a bright square lead with a little slapback, and a glockenspiel sparkle
-    const melodyVol = new Tone.Volume(OFF_DB).connect(reverb);
-    const slap = new Tone.FeedbackDelay("8n", 0.18).connect(melodyVol);
-    const lead = new Tone.Synth({
+    // Brass stabs
+    const brass = new Tone.Volume(OFF_DB).connect(room);
+    const brassFilter = new Tone.Filter(2400, "lowpass").connect(brass);
+    const horns = new Tone.PolySynth(Tone.Synth, {
+      oscillator: { type: "sawtooth" },
+      envelope: { attack: 0.012, decay: 0.14, sustain: 0.25, release: 0.08 },
+    }).connect(brassFilter);
+
+    // Lead: square with vibrato and a short echo
+    const lead = new Tone.Volume(OFF_DB).connect(room);
+    const echo = new Tone.FeedbackDelay("8n", 0.22).connect(lead);
+    const vibrato = new Tone.Vibrato(5.5, 0.08).connect(echo);
+    const leadSynth = new Tone.Synth({
       oscillator: { type: "square" },
-      envelope: { attack: 0.005, decay: 0.12, sustain: 0.25, release: 0.12 },
-    }).connect(slap);
-    lead.volume.value = -6;
-    const sparkleVol = new Tone.Volume(OFF_DB).connect(reverb);
-    const glock = new Tone.Synth({
-      oscillator: { type: "sine" },
-      envelope: { attack: 0.001, decay: 0.4, sustain: 0, release: 0.3 },
-    }).connect(sparkleVol);
+      envelope: { attack: 0.01, decay: 0.1, sustain: 0.55, release: 0.12 },
+    }).connect(vibrato);
+    leadSynth.volume.value = -4;
 
     const transport = Tone.getTransport();
-    transport.bpm.value = BPM;
-    transport.swing = 0.06;
-    transport.swingSubdivision = "8n";
+    transport.bpm.value = BPM[this.intensity];
+    const n = (midi: number, shift: number) => Tone.Frequency(midi + shift, "midi").toFrequency();
 
-    // One 32-step (4-bar) sequencer drives every part so they stay locked together
-    const steps = Array.from({ length: 32 }, (_, i) => i);
+    // One 16th-note grid over 8 bars drives every part, so modulations land together
     let lastTime = 0;
+    let section = 0;
+    const steps = Array.from({ length: 128 }, (_, i) => i);
     new Tone.Sequence(
       (time, step) => {
         // Under heavy load two steps can land on the same time; monophonic synths reject that
         if (time <= lastTime) return;
         lastTime = time;
+        if (step === 0) section++;
+        const shift = MODULATIONS[(section - 1) % MODULATIONS.length] + INTENSITY_LIFT[this.intensity];
         try {
-          playStep(time, step);
+          const bar = Math.floor(step / 16);
+          const s16 = step % 16;
+          const chord = CHORDS[bar];
+          if (s16 === 0) pad.triggerAttackRelease(chord.map((m) => n(m - 12, shift)), "1m", time, 0.35);
+          const b = BASS[s16];
+          if (b !== null) bass.triggerAttackRelease(n(ROOTS[bar] + b, shift), "16n", time, s16 % 4 === 0 ? 0.95 : 0.7);
+          if (STABS.includes(s16)) horns.triggerAttackRelease(chord.map((m) => n(m, shift)), "32n", time, s16 === 0 ? 0.8 : 0.55);
+          if ([0, 6, 8, 11].includes(s16)) kick.triggerAttackRelease("C1", "8n", time, 0.85);
+          if (s16 === 4 || s16 === 12) snare.triggerAttackRelease("16n", time, 0.8);
+          // A snare roll into every new 8-bar section
+          if (bar === 7 && s16 >= 12) snare.triggerAttackRelease("32n", time, 0.35 + (s16 - 12) * 0.12);
+          hat.triggerAttackRelease("32n", time, s16 % 2 ? 0.18 : 0.35);
+          const note = LEAD[bar][s16];
+          if (note) leadSynth.triggerAttackRelease(n(note, shift), s16 % 4 === 0 ? "8n" : "16n", time, 0.75);
         } catch {
           // A dropped note is better than a crashed music loop
         }
       },
       steps,
-      "8n",
+      "16n",
     ).start(0);
 
-    function playStep(time: number, step: number) {
-        const bar = Math.floor(step / 8);
-        const s8 = step % 8;
-        const chord = CHORDS[bar];
-        if (TRESILLO[s8]) marimba.triggerAttackRelease(chord, "16n", time, s8 === 0 ? 0.8 : 0.55);
-        if (s8 === 0) pad.triggerAttackRelease(chord, "1m", time, 0.3);
-        if (s8 === 0 || s8 === 4) bass.triggerAttackRelease(ROOTS[bar], "8n", time, 0.9);
-        if (s8 === 3) bass.triggerAttackRelease(Tone.Frequency(ROOTS[bar]).transpose(12).toNote(), "16n", time, 0.6);
-        if (s8 === 6) bass.triggerAttackRelease(FIFTHS[bar], "16n", time, 0.7);
-        if (s8 === 0 || s8 === 4) kick.triggerAttackRelease("C1", "8n", time, 0.8);
-        if (s8 === 2 || s8 === 6) clap.triggerAttackRelease("16n", time, 0.5);
-        shaker.triggerAttackRelease("32n", time, s8 % 2 ? 0.35 : 0.18);
-        const note = MELODY[step];
-        if (note) {
-          lead.triggerAttackRelease(note, "16n", time, 0.7);
-          if (s8 % 4 === 0) glock.triggerAttackRelease(Tone.Frequency(note).transpose(12).toNote(), "16n", time, 0.5);
-        }
-    }
-
     transport.start("+0.05");
-    this.layers = { bus, duck, groove, melody: melodyVol, sparkle: sparkleVol };
-    if (!this.muted) bus.volume.rampTo(-6, 1.5);
+    this.layers = { bus, duck, drums, brass, lead };
+    if (!this.muted) bus.volume.rampTo(-1, 1.5);
     this.applyIntensity(0.1);
   }
 
   private applyIntensity(seconds: number) {
-    if (!this.layers) return;
-    this.layers.groove.volume.rampTo(this.intensity >= 1 ? LAYER_DB.groove : OFF_DB, seconds);
-    this.layers.melody.volume.rampTo(MELODY_DB[this.intensity], seconds);
-    this.layers.sparkle.volume.rampTo(SPARKLE_DB[this.intensity], seconds);
+    if (!this.layers || !this.tone) return;
+    this.layers.drums.volume.rampTo(this.intensity >= 1 ? LAYER_DB.drums : OFF_DB, seconds);
+    this.layers.brass.volume.rampTo(this.intensity >= 1 ? LAYER_DB.brass : OFF_DB, seconds);
+    this.layers.lead.volume.rampTo(LEAD_DB[this.intensity], seconds);
+    this.tone.getTransport().bpm.rampTo(BPM[this.intensity], seconds * 2);
   }
 
   setIntensity(level: Intensity) {
     if (level === this.intensity) return;
     this.intensity = level;
-    this.applyIntensity(1.5);
+    this.applyIntensity(1.2);
+  }
+
+  /** Dev/QA helper: record `ms` of the live mix (webm/opus), returned as a data URL. */
+  async record(ms: number): Promise<string> {
+    await this.start();
+    const Tone = this.tone!;
+    const rec = new Tone.Recorder();
+    Tone.getDestination().connect(rec);
+    rec.start();
+    await new Promise((r) => setTimeout(r, ms));
+    const blob = await rec.stop();
+    Tone.getDestination().disconnect(rec);
+    return await new Promise((resolve) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(String(fr.result));
+      fr.readAsDataURL(blob);
+    });
   }
 
   /** Music dips ~10 dB while the player reads an explanation. */
@@ -180,7 +212,7 @@ class Music {
     this.muted = muted;
     if (!this.layers) return;
     this.layers.bus.volume.cancelScheduledValues(this.tone!.now());
-    this.layers.bus.volume.rampTo(muted ? -60 : -6, 0.4);
+    this.layers.bus.volume.rampTo(muted ? -60 : -1, 0.4);
   }
 }
 

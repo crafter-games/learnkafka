@@ -263,7 +263,7 @@ export function LevelPlayer({ level, onRestart }: { level: Level; onRestart: () 
 
   return (
     <main className="relative h-dvh overflow-hidden bg-ground">
-      <AudioDirector intensity={phase === "steps" && step.kind === "task" ? 1 : 0} />
+      <AudioDirector intensity={phase === "steps" && step.kind === "task" ? 2 : phase === "result" ? 1 : 0} />
 
       {/* The factory fills the screen; UI floats on top and the camera frames the free area */}
       {phase === "steps" && (

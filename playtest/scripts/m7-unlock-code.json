@@ -1,0 +1,71 @@
+{
+ "name": "m7-unlock-code",
+ "path": "/en/world",
+ "canvas": "main",
+ "viewport": [
+  1440,
+  900
+ ],
+ "steps": [
+  {
+   "wait": 3500
+  },
+  {
+   "eval": "[...document.querySelectorAll('button')].find(b=>/Code/.test(b.textContent)).click()"
+  },
+  {
+   "wait": 600
+  },
+  {
+   "eval": "(()=>{const i=document.querySelector('#unlock-code');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(i,'wrong');i.dispatchEvent(new Event('input',{bubbles:true}));setTimeout(()=>i.form.requestSubmit(),50);return 1})()"
+  },
+  {
+   "wait": 700
+  },
+  {
+   "screenshot": "bad-code",
+   "full": true
+  },
+  {
+   "eval": "(()=>{const i=document.querySelector('#unlock-code');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(i,'crafter100');i.dispatchEvent(new Event('input',{bubbles:true}));setTimeout(()=>i.form.requestSubmit(),50);return 1})()"
+  },
+  {
+   "wait": 600
+  },
+  {
+   "screenshot": "ok-code",
+   "full": true
+  },
+  {
+   "wait": 4500
+  },
+  {
+   "expect": "Object.values(JSON.parse(localStorage.getItem('kafka-express:progress')).state.levels).filter(l=>l.stars===3).length===28"
+  },
+  {
+   "press": "right"
+  },
+  {
+   "press": "right"
+  },
+  {
+   "press": "right"
+  },
+  {
+   "press": "right"
+  },
+  {
+   "press": "right"
+  },
+  {
+   "press": "right"
+  },
+  {
+   "wait": 1800
+  },
+  {
+   "screenshot": "world7-unlocked",
+   "full": true
+  }
+ ]
+}
