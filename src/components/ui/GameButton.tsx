@@ -3,29 +3,25 @@ import type { ComponentProps } from "react";
 type Variant = "primary" | "secondary" | "accent" | "ghost";
 type Size = "sm" | "md" | "lg" | "icon";
 
+// Tactile but quiet: solid fills, a 3px darker bottom edge that compresses on press.
 const base =
-  "relative inline-flex select-none items-center justify-center gap-2 rounded-2xl font-display font-semibold cursor-pointer " +
-  "transition-[transform,box-shadow,filter,border-color,background-color] duration-150 ease-out " +
-  "hover:-translate-y-0.5 active:translate-y-[3px] disabled:pointer-events-none disabled:opacity-45 " +
-  "focus-visible:outline-3 focus-visible:outline-offset-3";
+  "relative inline-flex select-none items-center justify-center gap-2 rounded-xl font-display font-bold cursor-pointer " +
+  "transition-[transform,box-shadow,background-color,border-color] duration-150 ease-out " +
+  "active:translate-y-[2px] disabled:pointer-events-none disabled:opacity-45 " +
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-partition";
 
 const variants: Record<Variant, string> = {
-  primary:
-    "bg-producer text-[#2a1800] shadow-[0_5px_0_var(--producer-dark),0_14px_28px_-10px_rgba(255,176,32,0.7)] " +
-    "hover:brightness-110 active:shadow-[0_2px_0_var(--producer-dark)] focus-visible:outline-producer",
-  accent:
-    "bg-partition text-bg shadow-[0_5px_0_var(--partition-dark),0_14px_28px_-12px_rgba(34,211,238,0.7)] " +
-    "hover:brightness-110 active:shadow-[0_2px_0_var(--partition-dark)] focus-visible:outline-partition",
+  primary: "bg-producer text-white shadow-[0_3px_0_var(--producer-dark)] hover:bg-[#f5952f] active:shadow-[0_1px_0_var(--producer-dark)]",
+  accent: "bg-partition text-white shadow-[0_3px_0_var(--partition-dark)] hover:bg-[#6569d1] active:shadow-[0_1px_0_var(--partition-dark)]",
   secondary:
-    "border-2 border-line bg-panel-2 text-text shadow-[0_4px_0_var(--bg-deep)] " +
-    "hover:border-partition/50 active:shadow-[0_1px_0_var(--bg-deep)] focus-visible:outline-partition",
-  ghost: "text-muted hover:text-text hover:bg-white/5 focus-visible:outline-partition",
+    "border border-line bg-paper text-ink shadow-[0_3px_0_rgba(43,40,64,0.14)] hover:bg-white active:shadow-[0_1px_0_rgba(43,40,64,0.14)]",
+  ghost: "text-ink-2 hover:text-ink hover:bg-ink/5",
 };
 
 const sizes: Record<Size, string> = {
   sm: "h-10 px-3.5 text-sm",
   md: "h-12 px-5 text-base",
-  lg: "h-16 px-8 text-xl",
+  lg: "h-14 px-7 text-lg",
   icon: "size-11 text-xl",
 };
 

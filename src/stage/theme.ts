@@ -1,17 +1,15 @@
-// GDD palette — each Kafka role keeps one colour everywhere.
+// Palette sampled from the Kenney Factory Kit so UI and 3D art read as one world.
+// Roles keep one colour everywhere: producer = orange, partition = indigo, consumer = teal, broker = green.
 export const COLORS = {
-  bg: 0x0b1020,
-  panel: 0x141b34,
-  producer: 0xffb020,
-  partition: 0x22d3ee,
-  consumer: 0xa78bfa,
-  broker: 0x34d399,
-  danger: 0xf43f5e,
-  text: 0xe6eaf2,
-  muted: 0x7c86a6,
+  ground: 0xdcd8ea,
+  groundEdge: 0xc9c4de,
+  ink: 0x2b2840,
+  producer: 0xf08a24,
+  partition: 0x5b5fc7,
+  consumer: 0x2fb5a3,
+  broker: 0x4caf6e,
+  danger: 0xe5484d,
+  paper: 0xfbf8f3,
 } as const;
-
-/** Logical stage size; the canvas scales to fit and letterboxes. */
-export const STAGE = { width: 1280, height: 720 } as const;
 
 export type StageFonts = { ui: string; mono: string };

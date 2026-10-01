@@ -4,15 +4,16 @@
     "description": "A visual game that teaches Apache Kafka: route parcels, run partitions and keep the city's events flowing."
   },
   "landing": {
-    "kicker": "Now hiring dispatchers",
+    "kicker": "Kafka Express · event logistics",
     "title": "Kafka Express",
-    "tagline": "Run the city's event hub. Route every order onto the right belt — no losses, no duplicates, no jams — and learn real Apache Kafka along the way.",
+    "tagline": "You're the new dispatcher. Route every order onto the right conveyor and discover how Apache Kafka really works — partitions, offsets, consumers and all.",
     "start": "Start shift",
     "facts": {
-      "visual": "See every record move",
-      "predict": "Predict, then watch",
-      "real": "Real Kafka 4.x behavior"
-    }
+      "visual": "Watch every record travel through the factory",
+      "predict": "Predict what happens, then see if you were right",
+      "real": "Real Kafka 4.x behaviour, down to the hash function"
+    },
+    "headline": "Learn Kafka by running the hub."
   },
   "hud": {
     "musicOn": "Turn music on",
@@ -74,6 +75,7 @@
     "producer": "producer",
     "topic": "topic: {name}",
     "partition": "partition {n}",
-    "next": "next {n}"
+    "next": "next {n}",
+    "partitioner": "partitioner"
   }
 }

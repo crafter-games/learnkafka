@@ -1,16 +1,12 @@
 import { Package } from "@phosphor-icons/react/dist/ssr";
 
-export function Logo({ compact = false }: { compact?: boolean }) {
+export function Logo() {
   return (
-    <span className="inline-flex items-center gap-2.5">
-      <span className="grid size-10 place-items-center rounded-xl bg-producer text-[#2a1800] shadow-[0_4px_0_var(--producer-dark)]">
-        <Package size={24} weight="fill" />
+    <span className="inline-flex items-center gap-2">
+      <span className="grid size-9 place-items-center rounded-lg bg-producer text-white shadow-[0_2px_0_var(--producer-dark)]">
+        <Package size={20} weight="fill" />
       </span>
-      {!compact && (
-        <span className="font-display text-xl font-bold tracking-tight">
-          Kafka <span className="text-producer">Express</span>
-        </span>
-      )}
+      <span className="font-display text-lg font-extrabold tracking-tight">Kafka Express</span>
     </span>
   );
 }

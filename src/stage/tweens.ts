@@ -1,5 +1,3 @@
-import type { Ticker } from "pixi.js";
-
 export type Ease = (t: number) => number;
 export const easeOutCubic: Ease = (t) => 1 - (1 - t) ** 3;
 export const easeInOutCubic: Ease = (t) => (t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2);
@@ -17,13 +15,9 @@ type Running = {
   done: () => void;
 };
 
-/** Minimal promise-based tweens driven by the Pixi ticker. */
+/** Minimal promise-based tweens; the owner calls update(dtMs) every frame. */
 export class Tweens {
   private running: Running[] = [];
-
-  constructor(ticker: Ticker) {
-    ticker.add((t) => this.update(t.deltaMS));
-  }
 
   to(target: object, to: Props, duration: number, ease: Ease = easeOutCubic, onUpdate?: (p: number) => void) {
     const obj = target as unknown as Props;
@@ -39,7 +33,7 @@ export class Tweens {
     return this.to({ p: 0 }, { p: 1 }, duration, ease, onUpdate);
   }
 
-  private update(dt: number) {
+  update(dt: number) {
     if (!this.running.length) return;
     const still: Running[] = [];
     for (const tw of this.running) {

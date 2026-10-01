@@ -22,10 +22,10 @@ export function Hud() {
         aria-pressed={!musicMuted}
         aria-label={musicMuted ? t("musicOn") : t("musicOff")}
         title={`${musicMuted ? t("musicOn") : t("musicOff")} (M)`}
-        className={`${gameButtonClass({ size: "icon" })} ${musicMuted ? "text-muted" : "text-consumer"}`}
+        className={`${gameButtonClass({ size: "icon" })} ${musicMuted ? "text-ink-2/60" : "text-partition"}`}
       >
         <MusicNotes weight={musicMuted ? "regular" : "fill"} />
-        {musicMuted && <span aria-hidden className="absolute h-0.5 w-7 rotate-45 rounded bg-current" />}
+        {musicMuted && <span aria-hidden className="absolute h-0.5 w-6 rotate-45 rounded bg-current" />}
       </button>
       <button
         type="button"
@@ -33,7 +33,7 @@ export function Hud() {
         aria-pressed={!sfxMuted}
         aria-label={sfxMuted ? t("sfxOn") : t("sfxOff")}
         title={`${sfxMuted ? t("sfxOn") : t("sfxOff")} (Shift+M)`}
-        className={`${gameButtonClass({ size: "icon" })} ${sfxMuted ? "text-muted" : "text-partition"}`}
+        className={`${gameButtonClass({ size: "icon" })} ${sfxMuted ? "text-ink-2/60" : "text-partition"}`}
       >
         {sfxMuted ? <SpeakerSlash /> : <SpeakerHigh weight="fill" />}
       </button>

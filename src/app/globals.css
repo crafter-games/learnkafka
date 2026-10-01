@@ -1,30 +1,33 @@
 @import "tailwindcss";
 
-/* Kafka Express design tokens — dark chunky game UI.
-   Role colours are semantic: producer=amber, partition=cyan, consumer=violet, broker=green. */
+/* Kafka Express — cozy factory theme. Palette sampled from the Kenney Factory Kit
+   so the UI and the 3D world read as one place. Role colours are semantic:
+   producer = orange, partition = indigo, consumer = teal, broker = green. */
 :root {
-  --bg: #0b1020;
-  --bg-deep: #070b18;
-  --panel: #141b34;
-  --panel-2: #1b2445;
-  --line: rgba(148, 163, 255, 0.14);
-  --producer: #ffb020;
-  --producer-dark: #b06f00;
-  --partition: #22d3ee;
-  --partition-dark: #0e7f93;
-  --consumer: #a78bfa;
-  --broker: #34d399;
-  --danger: #f43f5e;
-  --text: #e6eaf2;
-  --muted: #94a0c2;
-  color-scheme: dark;
+  --ground: #dcd8ea;
+  --ground-2: #cfcae2;
+  --paper: #fbf8f3;
+  --paper-2: #f2eee6;
+  --ink: #2b2840;
+  --ink-2: #5d5a78;
+  --line: rgba(43, 40, 64, 0.12);
+  --producer: #f08a24;
+  --producer-dark: #c2650c;
+  --partition: #5b5fc7;
+  --partition-dark: #3d409b;
+  --consumer: #2fb5a3;
+  --broker: #3f9f62;
+  --danger: #e5484d;
+  color-scheme: light;
 }
 
 @theme inline {
-  --color-bg: var(--bg);
-  --color-bg-deep: var(--bg-deep);
-  --color-panel: var(--panel);
-  --color-panel-2: var(--panel-2);
+  --color-ground: var(--ground);
+  --color-ground-2: var(--ground-2);
+  --color-paper: var(--paper);
+  --color-paper-2: var(--paper-2);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
   --color-line: var(--line);
   --color-producer: var(--producer);
   --color-producer-dark: var(--producer-dark);
@@ -33,53 +36,98 @@
   --color-consumer: var(--consumer);
   --color-broker: var(--broker);
   --color-danger: var(--danger);
-  --color-text: var(--text);
-  --color-muted: var(--muted);
   --font-display: var(--font-display);
   --font-sans: var(--font-ui);
   --font-mono: var(--font-code);
-  --animate-float: float 6s ease-in-out infinite;
-  --animate-pulse-dot: pulse-dot 1.8s ease-in-out infinite;
-}
-
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
-}
-@keyframes pulse-dot {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.6); }
-  50% { box-shadow: 0 0 0 6px rgba(52, 211, 153, 0); }
 }
 
 body {
-  background: var(--bg);
-  color: var(--text);
+  background: var(--ground);
+  color: var(--ink);
   font-family: var(--font-ui), system-ui, sans-serif;
   -webkit-tap-highlight-color: transparent;
 }
 
 button, a { touch-action: manipulation; }
 
-/* Game-world backdrop: grid + coloured glows */
-.world-bg {
-  background:
-    radial-gradient(60rem 30rem at 10% -10%, rgba(255, 176, 32, 0.13), transparent 60%),
-    radial-gradient(50rem 30rem at 100% 10%, rgba(34, 211, 238, 0.12), transparent 60%),
-    radial-gradient(40rem 25rem at 50% 120%, rgba(167, 139, 250, 0.12), transparent 60%),
-    linear-gradient(rgba(148, 163, 255, 0.05) 1px, transparent 1px) 0 0 / 44px 44px,
-    linear-gradient(90deg, rgba(148, 163, 255, 0.05) 1px, transparent 1px) 0 0 / 44px 44px,
-    var(--bg);
+/* Paper card floating over the factory floor */
+.card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.8) inset, 0 2px 0 rgba(43, 40, 64, 0.06), 0 16px 32px -18px rgba(43, 40, 64, 0.35);
 }
 
-/* Chunky panel: thick border + top highlight + drop shadow */
-.panel {
-  background: linear-gradient(180deg, var(--panel-2), var(--panel));
-  border: 2px solid var(--line);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 6px 0 var(--bg-deep),
-    0 18px 40px -18px rgba(0, 0, 0, 0.7);
+/* ---------- 3D stage labels (CSS2DRenderer) ----------
+   Sizes are em-based off --stage-zoom so tags shrink with the camera fit. */
+.stage-tag, .stage-lane, .stage-next, .stage-key, .stage-offset, .stage-hash { white-space: nowrap; line-height: 1; }
+.stage-tag {
+  font: 700 calc(12px * var(--stage-zoom, 1)) var(--font-display);
+  letter-spacing: 0.02em;
+  padding: 0.5em 0.85em;
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  box-shadow: 0 0.17em 0 rgba(43, 40, 64, 0.12);
 }
+.stage-tag--producer { background: var(--producer); color: #fff; border-color: var(--producer-dark); }
+.stage-tag--partitioner { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.stage-tag--topic { font-family: var(--font-code); background: var(--partition); color: #fff; border-color: var(--partition-dark); }
+
+.stage-lane {
+  font: 800 calc(15px * var(--stage-zoom, 1)) var(--font-display);
+  color: #fff;
+  background: var(--partition);
+  border-radius: 0.65em;
+  padding: 0.4em 0.55em;
+  box-shadow: 0 0.2em 0 var(--partition-dark);
+}
+.stage-lane.is-hit { animation: lane-hit 360ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+@keyframes lane-hit { 0% { transform: scale(1.35); } 100% { transform: scale(1); } }
+
+.stage-next {
+  font: 700 calc(10px * var(--stage-zoom, 1)) var(--font-code);
+  color: var(--partition-dark);
+  background: rgba(251, 248, 243, 0.85);
+  border: 1.5px dashed var(--partition);
+  border-radius: 0.6em;
+  padding: 0.3em 0.5em;
+}
+.stage-key {
+  font: 700 calc(10px * var(--stage-zoom, 1)) var(--font-code);
+  color: var(--ink);
+  background: rgba(251, 248, 243, 0.92);
+  border-radius: 0.5em;
+  padding: 0.2em 0.4em;
+}
+.stage-offset {
+  font: 800 calc(11px * var(--stage-zoom, 1)) var(--font-code);
+  min-width: 1.8em;
+  text-align: center;
+  color: #fff;
+  background: var(--partition);
+  border: 2px solid var(--paper);
+  border-radius: 999px;
+  padding: 0.25em 0.45em;
+  animation: pop 280ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.stage-hash {
+  font: 700 calc(13px * var(--stage-zoom, 1)) var(--font-code);
+  color: var(--paper);
+  background: var(--ink);
+  padding: 0.6em 0.9em;
+  border-radius: 0.9em;
+  box-shadow: 0 0.25em 0 rgba(0, 0, 0, 0.25);
+  opacity: 0;
+}
+.stage-hash.is-on { animation: hash 1500ms ease-out forwards; }
+@keyframes hash {
+  0% { opacity: 0; transform: translateY(6px) scale(0.9); }
+  12%, 80% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-6px); }
+}
+@keyframes pop { 0% { transform: scale(0); } 100% { transform: scale(1); } }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }

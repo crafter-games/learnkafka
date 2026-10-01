@@ -4,9 +4,9 @@
 
 | | |
 | --- | --- |
-| Engine | Next.js (App Router, TS) + **PixiJS v8** simulation stage + React/Motion UI |
+| Engine | Next.js (App Router, TS) + **Three.js** isometric 3D stage (Kenney Factory Kit) + React/Motion UI |
 | Platform | Web. Desktop-first; tablet and phone playable in landscape |
-| View | 2D, flat-vector top-down "control room" diagram that animates |
+| View | 3D isometric diorama (orthographic camera), live-rendered low-poly factory |
 | Scope | Small release. v1 = Worlds 1–4 (17 levels) + sandbox + daily review |
 | References | Mini Metro (clean animated networks), Human Resource Machine (puzzles teach a system), Brilliant (lesson → practice → review) |
 | Languages | English + Spanish (`/en`, `/es`) |
@@ -106,13 +106,13 @@ Players come back for the **Morning Shift**, a daily 3–5 card spaced review of
 
 ## Art direction
 
-- **Style**: flat vector drawn in code (Pixi Graphics + SVG UI), rounded shapes, 2 px strokes, isometric-free.
-- **Palette**: `#0B1020` bg · `#141B34` panels · `#FFB020` producers/parcels · `#22D3EE` partitions/belts · `#A78BFA` consumers · `#34D399` brokers/healthy · `#F43F5E` danger · `#E6EAF2` text.
-- **Readability**: each Kafka role always has the same colour and shape. Labels sit *on* the objects (offset on the parcel). Only the thing that changed animates. Text contrast is at least 4.5:1.
-- **Type**: Fredoka (display, buttons, stage labels), Nunito (body), JetBrains Mono (offsets, configs, CLI).
-- **UI style**: dark "chunky game UI" — thick 2–3 px borders, 3D buttons with a 4–5 px bottom edge that sinks on press, panels with a top highlight and drop shadow, Phosphor SVG icons (no emoji). Tokens live in `src/app/globals.css`.
-- **Stage**: logical 1280×720, scaled to fit, letterboxed. The HUD is anchored to the safe area.
-- **HUD**: top-left level title + step dots · top-right mute, language, pause · bottom concept dock with dials.
+- **Style**: cozy low-poly 3D factory diorama using the Kenney **Factory Kit** (CC0), rendered live with Three.js. Orthographic camera, soft shadows, neutral tone mapping. The platform floats on the page colour, and only shadows extend beyond it.
+- **Metaphor → models**: producer = `machine-window`, partitioner = `scanner-high` over a feeder belt, partition = a row of `conveyor-stripe-sides` tiles (1 tile = 1 offset slot), record = `box-small` with a key-coloured sticker, future consumers = `robot-arm-a`. Guide character: **Oopi** (Kenney mascot) delivers insights in the UI.
+- **Palette** (sampled from the kit): ground `#dcd8ea`, paper `#fbf8f3`, ink `#2b2840`, producer `#f08a24`, partition `#5b5fc7`, consumer `#2fb5a3`, broker `#3f9f62`, danger `#e5484d`. Key identity colours are only used on box stickers.
+- **UI style**: cozy/tycoon (Mini Motorways, Islanders): paper cards floating over the factory floor, solid fills, a quiet 3 px bottom edge on buttons, no neon, glows or gradients. Phosphor icons.
+- **Type**: Bricolage Grotesque (display), Figtree (body), JetBrains Mono (keys, offsets, configs).
+- **Readability**: labels are HTML (CSS2DRenderer) attached to objects and scale with the camera fit. Only the thing that changed animates.
+- **HUD**: top-left back + level title · top-right music, SFX, language · left mission card (lg+) · bottom-centre dispatch dock · Oopi speech bubble at the top of the floor.
 
 ## Audio
 
@@ -124,7 +124,8 @@ Players come back for the **Morning Shift**, a daily 3–5 card spaced review of
 
 | Key | Description | Source | Status |
 | --- | --- | --- | --- |
-| sprites (all) | parcels, belts, trucks, crews, brokers | code-drawn (Pixi Graphics) | todo |
+| factory models | machine, scanner, conveyors, boxes, floor, robot arms | kenney:factory-kit (CC0) | done |
+| oopi | guide portrait | kenney:factory-kit preview (CC0) | done |
 | ui_icons | HUD and menu icons | game-icons.net / Lucide (MIT) | todo |
 | font_ui / font_mono | Space Grotesk / JetBrains Mono | Google Fonts via `next/font` (OFL) | todo |
 | sfx_produce | soft whoosh | kenney:interface-sounds / jsfxr | todo |
@@ -158,3 +159,4 @@ Players come back for the **Morning Shift**, a daily 3–5 card spaced review of
 - 2026-10-01: GDD created after research and a design interview (all recommendations accepted).
 - 2026-10-01: M1 done — dispatch desk (murmur2 keyed + sticky null-key partitioning, 3 belts, SFX, EN/ES), deployed to learnkafka.crafter.run. Camera fits content bounds instead of the full 1280×720 (better on phones).
 - 2026-10-01: UI polish pass (ui-ux-pro-max + game-ui-ux): chunky dark game UI, Fredoka/Nunito, Phosphor icons, mission card with 4 objectives and insights, arc flights, sparks, a log-end "next" marker per partition. Added adaptive generative music (audio-design) with separate music/SFX toggles.
+- 2026-10-01: Art direction pivot after feedback ("assets look fake, style feels vibecoded"): Pixi 2D → Three.js isometric diorama with the Kenney Factory Kit; cozy/tycoon UI with a palette sampled from the kit; Oopi as the guide; landing shows the live factory in attract mode.

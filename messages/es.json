@@ -4,15 +4,16 @@
     "description": "Un juego visual que enseña Apache Kafka: enruta paquetes, opera particiones y mantén fluyendo los eventos de la ciudad."
   },
   "landing": {
-    "kicker": "Buscamos despachadores",
+    "kicker": "Kafka Express · logística de eventos",
     "title": "Kafka Express",
-    "tagline": "Opera el centro de eventos de la ciudad. Lleva cada pedido a la banda correcta — sin pérdidas, sin duplicados, sin atascos — y aprende Apache Kafka de verdad en el camino.",
+    "tagline": "Eres el nuevo despachador. Lleva cada pedido a la cinta correcta y descubre cómo funciona de verdad Apache Kafka: particiones, offsets, consumidores y más.",
     "start": "Empezar turno",
     "facts": {
-      "visual": "Mira moverse cada registro",
-      "predict": "Predice y luego observa",
-      "real": "Comportamiento real de Kafka 4.x"
-    }
+      "visual": "Mira cada registro recorrer la fábrica",
+      "predict": "Predice qué pasará y comprueba si acertaste",
+      "real": "Comportamiento real de Kafka 4.x, hasta la función hash"
+    },
+    "headline": "Aprende Kafka operando el centro."
   },
   "hud": {
     "musicOn": "Activar música",
@@ -74,6 +75,7 @@
     "producer": "producer",
     "topic": "topic: {name}",
     "partition": "partición {n}",
-    "next": "sig. {n}"
+    "next": "sig. {n}",
+    "partitioner": "particionador"
   }
 }

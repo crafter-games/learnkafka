@@ -1,7 +1,7 @@
 export function Keycap({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
     <kbd
-      className={`inline-flex h-6 min-w-6 items-center justify-center rounded-md border border-current/30 bg-black/20 px-1.5 font-mono text-[11px] font-bold leading-none shadow-[0_2px_0_rgba(0,0,0,0.35)] ${className}`}
+      className={`inline-flex h-5 min-w-5 items-center justify-center rounded-[5px] border border-ink/15 bg-paper-2 px-1 font-mono text-[10px] font-bold leading-none text-ink-2 shadow-[0_1.5px_0_rgba(43,40,64,0.18)] ${className}`}
     >
       {children}
     </kbd>

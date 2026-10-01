@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowLeft, CheckCircle, Circle, Lightbulb, PaperPlaneTilt, Prohibit, Trophy } from "@phosphor-icons/react";
+import { ArrowLeft, CheckCircle, Circle, PaperPlaneTilt, Prohibit, Trophy } from "@phosphor-icons/react";
 import { Topic } from "@/sim/topic";
 import type { SimRecord } from "@/sim/events";
 import { audioBus } from "@/audio/audioBus";
@@ -11,7 +11,7 @@ import { backgroundMusic, type Intensity } from "@/audio/music";
 import { Link } from "@/i18n/navigation";
 import { keyColor } from "@/stage/keyColors";
 import { AudioDirector } from "./AudioDirector";
-import { BeltCanvas } from "./BeltCanvas";
+import { FactoryCanvas } from "./FactoryCanvas";
 import { Hud } from "./Hud";
 import { gameButtonClass } from "./ui/GameButton";
 import { Keycap } from "./ui/Keycap";
@@ -128,6 +128,7 @@ export function DispatchDesk() {
   const labels = useMemo(
     () => ({
       producer: ts("producer"),
+      partitioner: ts("partitioner"),
       topic: (name: string) => ts("topic", { name }),
       partition: (n: number) => ts("partition", { n }),
       next: (n: number) => ts("next", { n }),
@@ -138,118 +139,112 @@ export function DispatchDesk() {
   const maxCount = Math.max(4, ...counts);
 
   return (
-    <main className="world-bg flex h-dvh flex-col overflow-hidden">
+    <main className="relative flex h-dvh flex-col overflow-hidden bg-ground">
       <AudioDirector intensity={intensity} />
 
       {/* HUD */}
-      <header className="flex items-center justify-between gap-3 px-3 pt-3 sm:px-5 [@media(max-height:560px)]:pt-2">
-        <div className="flex min-w-0 items-center gap-3">
+      <header className="relative z-10 flex items-center justify-between gap-3 px-3 pt-3 sm:px-5 [@media(max-height:560px)]:pt-2">
+        <div className="flex min-w-0 items-center gap-2.5">
           <Link href="/" aria-label={t("back")} className={gameButtonClass({ size: "icon" })}>
-            <ArrowLeft />
+            <ArrowLeft weight="bold" />
           </Link>
-          <div className="min-w-0">
-            <p className="font-display text-xs font-semibold uppercase tracking-[0.2em] text-partition">{t("level")}</p>
-            <h1 className="truncate font-display text-xl font-bold leading-tight sm:text-2xl">{t("title")}</h1>
+          <div className="min-w-0 leading-tight">
+            <p className="font-display text-[11px] font-bold uppercase tracking-[0.14em] text-ink-2">{t("level")}</p>
+            <h1 className="truncate font-display text-xl font-extrabold tracking-tight sm:text-2xl">{t("title")}</h1>
           </div>
         </div>
         <Hud />
       </header>
 
-      <div className="relative flex min-h-0 flex-1 gap-4 px-3 py-3 sm:px-5 [@media(max-height:560px)]:py-2">
+      <div className="relative flex min-h-0 flex-1">
         {/* Mission card */}
-        <aside className="panel hidden w-72 shrink-0 flex-col rounded-3xl p-5 lg:flex" aria-label={t("mission")}>
-          <p className="font-display text-xs font-semibold uppercase tracking-[0.2em] text-producer">{t("mission")}</p>
-          <p className="mt-2 text-sm leading-relaxed text-muted">{t("missionText")}</p>
-          <ol className="mt-5 space-y-3">
+        <aside className="card z-10 m-3 mr-0 hidden w-72 shrink-0 flex-col self-start p-5 sm:ml-5 lg:flex" aria-label={t("mission")}>
+          <p className="font-display text-[11px] font-bold uppercase tracking-[0.14em] text-producer-dark">{t("mission")}</p>
+          <p className="mt-1.5 text-[15px] leading-relaxed text-ink-2">{t("missionText")}</p>
+          <ol className="mt-4 space-y-2.5">
             {OBJECTIVES.map((id) => (
-              <li key={id} className={`flex items-start gap-2.5 text-sm font-semibold transition-colors ${done[id] ? "text-broker" : "text-text"}`}>
+              <li key={id} className={`flex items-start gap-2.5 text-[15px] font-semibold ${done[id] ? "text-broker" : "text-ink"}`}>
                 <motion.span
                   key={String(done[id])}
-                  initial={done[id] ? { scale: 0.3, rotate: -30 } : false}
-                  animate={{ scale: 1, rotate: 0 }}
-                  transition={{ type: "spring", stiffness: 500, damping: 14 }}
+                  initial={done[id] ? { scale: 0.3 } : false}
+                  animate={{ scale: 1 }}
+                  transition={{ type: "spring", stiffness: 500, damping: 15 }}
                   className="mt-px"
                 >
-                  {done[id] ? <CheckCircle size={20} weight="fill" /> : <Circle size={20} weight="bold" className="text-muted" />}
+                  {done[id] ? <CheckCircle size={20} weight="fill" /> : <Circle size={20} weight="bold" className="text-ink/25" />}
                 </motion.span>
-                <span className={done[id] ? "opacity-80" : ""}>
+                <span>
                   {t(`objectives.${id}`)}
-                  {id === "send5" && !done.send5 && <span className="ml-1 font-mono text-xs text-muted">({Math.min(sent, 5)}/5)</span>}
+                  {id === "send5" && !done.send5 && <span className="ml-1 font-mono text-xs text-ink-2">{Math.min(sent, 5)}/5</span>}
                 </span>
               </li>
             ))}
           </ol>
-          <div className="mt-6 rounded-2xl border-2 border-line bg-bg-deep/50 p-3.5">
-            <p className="mb-2.5 font-display text-xs font-semibold uppercase tracking-[0.2em] text-muted">{t("controls.title")}</p>
-            <ul className="space-y-2 text-sm text-text/90">
-              <li className="flex items-center gap-2"><Keycap>1</Keycap>–<Keycap>5</Keycap><span>{t("controls.customers")}</span></li>
-              <li className="flex items-center gap-2"><Keycap>0</Keycap><span>{t("controls.noKey")}</span></li>
-              <li className="flex items-center gap-2"><Keycap>M</Keycap><span>{t("controls.music")}</span></li>
-              <li className="flex items-center gap-2"><Keycap>⇧M</Keycap><span>{t("controls.sfx")}</span></li>
-            </ul>
+          <div className="mt-5 h-2 overflow-hidden rounded-full bg-paper-2">
+            <motion.div
+              className="h-full rounded-full bg-broker"
+              animate={{ width: `${(doneCount / OBJECTIVES.length) * 100}%` }}
+              transition={{ type: "spring", stiffness: 120, damping: 18 }}
+            />
           </div>
-          <div className="mt-auto pt-6">
-            <div className="mb-1.5 flex justify-between font-display text-xs font-semibold text-muted">
-              <span>{t("progress")}</span>
-              <span>
-                {doneCount}/{OBJECTIVES.length}
-              </span>
-            </div>
-            <div className="h-3.5 overflow-hidden rounded-full border-2 border-line bg-bg-deep">
-              <motion.div
-                className="h-full rounded-full bg-broker"
-                animate={{ width: `${(doneCount / OBJECTIVES.length) * 100}%` }}
-                transition={{ type: "spring", stiffness: 120, damping: 18 }}
-              />
-            </div>
-          </div>
+          <dl className="mt-5 grid grid-cols-[auto_1fr] items-center gap-x-2.5 gap-y-2 border-t border-line pt-4 text-[13px] text-ink-2">
+            <dt className="flex gap-1">
+              <Keycap>1</Keycap>
+              <Keycap>5</Keycap>
+            </dt>
+            <dd>{t("controls.customers")}</dd>
+            <dt>
+              <Keycap>0</Keycap>
+            </dt>
+            <dd>{t("controls.noKey")}</dd>
+            <dt className="flex gap-1">
+              <Keycap>M</Keycap>
+              <Keycap>⇧M</Keycap>
+            </dt>
+            <dd>
+              {t("controls.music")} · {t("controls.sfx")}
+            </dd>
+          </dl>
         </aside>
 
-        {/* Stage */}
-        <section className="panel relative min-w-0 flex-1 overflow-hidden rounded-3xl" data-testid="stage">
-          <BeltCanvas topic={topic} labels={labels} onLanded={onLanded} />
+        {/* Factory floor */}
+        <section className="relative min-w-0 flex-1" data-testid="stage">
+          <FactoryCanvas topic={topic} labels={labels} onLanded={onLanded} />
 
-          {/* Compact mission progress when the side card is hidden */}
-          <div className="absolute left-3 top-3 rounded-full border-2 border-line bg-bg/80 px-3 py-1 font-display text-xs font-semibold text-muted backdrop-blur lg:hidden">
+          <div className="card absolute left-3 top-2 px-3 py-1.5 font-display text-xs font-bold text-ink-2 lg:hidden">
             {t("mission")} · <span className="text-broker">{doneCount}/{OBJECTIVES.length}</span>
           </div>
 
+          {/* Oopi, the hub's guide bot, explains each discovery */}
           <AnimatePresence>
-            {insight && (
+            {(insight || allDone) && (
               <motion.div
-                key={insight}
-                initial={{ opacity: 0, y: -16, scale: 0.96 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -8, transition: { duration: 0.15 } }}
-                transition={{ type: "spring", stiffness: 380, damping: 26 }}
-                className="absolute inset-x-3 top-3 mx-auto flex max-w-xl items-start gap-3 rounded-2xl border-2 border-partition/40 bg-bg/90 p-3.5 shadow-[0_6px_0_var(--bg-deep)] backdrop-blur sm:p-4"
+                key={insight ?? "done"}
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8, transition: { duration: 0.15 } }}
+                transition={{ type: "spring", stiffness: 380, damping: 28 }}
+                className="absolute inset-x-3 top-2 mx-auto flex max-w-xl items-end gap-2"
                 role="status"
               >
-                <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-partition text-bg">
-                  <Lightbulb size={20} weight="fill" />
-                </span>
-                <span>
-                  <span className="block font-display text-base font-bold text-partition">{t(`insights.${insight}.title`)}</span>
-                  <span className="block text-sm leading-snug text-text/90">{t(`insights.${insight}.body`)}</span>
-                </span>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          <AnimatePresence>
-            {allDone && !insight && (
-              <motion.div
-                initial={{ opacity: 0, y: 20, scale: 0.9 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                className="absolute inset-x-3 top-3 mx-auto flex max-w-md items-center gap-3 rounded-2xl border-2 border-broker/50 bg-bg/90 p-4 shadow-[0_6px_0_var(--bg-deep)] backdrop-blur"
-                role="status"
-              >
-                <Trophy size={32} weight="duotone" className="shrink-0 text-producer" />
-                <span>
-                  <span className="block font-display text-lg font-bold text-broker">{t("complete.title")}</span>
-                  <span className="block text-sm text-muted">{t("complete.body")}</span>
-                </span>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/assets/sprites/oopi.png" alt="" width={72} height={72} className="-mb-1 size-16 shrink-0 drop-shadow-sm sm:size-[72px]" />
+                <div className="card relative flex-1 px-4 py-3">
+                  {insight ? (
+                    <>
+                      <p className="font-display text-base font-extrabold text-partition">{t(`insights.${insight}.title`)}</p>
+                      <p className="mt-0.5 text-sm leading-snug text-ink-2">{t(`insights.${insight}.body`)}</p>
+                    </>
+                  ) : (
+                    <p className="flex items-center gap-2">
+                      <Trophy size={22} weight="fill" className="shrink-0 text-producer" />
+                      <span>
+                        <span className="font-display text-base font-extrabold text-broker">{t("complete.title")} </span>
+                        <span className="text-sm text-ink-2">{t("complete.body")}</span>
+                      </span>
+                    </p>
+                  )}
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -257,28 +252,23 @@ export function DispatchDesk() {
       </div>
 
       {/* Dispatch dock */}
-      <footer className="px-3 pb-3 sm:px-5 [@media(max-height:560px)]:pb-2">
-        <div className="panel flex items-center justify-between gap-x-6 gap-y-3 rounded-3xl px-4 py-3 sm:px-5 lg:flex-wrap [@media(max-height:560px)]:py-2">
-          <div className="-my-2 flex min-w-0 items-center gap-2 overflow-x-auto py-2 [scrollbar-width:none] lg:flex-wrap lg:overflow-visible">
-            <span className="mr-1 font-display text-xs font-semibold uppercase tracking-[0.2em] text-muted [@media(max-height:560px)]:sr-only">
-              {t("customers")}
-            </span>
+      <footer className="relative z-10 px-3 pb-3 sm:px-5 [@media(max-height:560px)]:pb-2">
+        <div className="card mx-auto flex w-fit max-w-full items-center gap-x-5 px-3 py-2.5 sm:px-4">
+          <div className="-my-2 flex min-w-0 items-center gap-2 overflow-x-auto py-2 [scrollbar-width:none]">
             {CUSTOMERS.map((c, i) => (
-              <button key={c} type="button" onClick={() => send(c)} className={`${gameButtonClass({ size: "sm" })} shrink-0 gap-2 pl-2`} aria-label={t("sendTo", { key: c })}>
-                <span className="flex h-7 w-6 flex-col justify-center overflow-hidden rounded-md bg-producer" aria-hidden>
-                  <span className="h-1.5 w-full" style={{ background: keyColor(c) }} />
-                </span>
-                <span className="font-mono font-bold">{c}</span>
-                <Keycap className="text-muted max-md:hidden">{i + 1}</Keycap>
+              <button key={c} type="button" onClick={() => send(c)} className={`${gameButtonClass({ size: "sm" })} shrink-0 gap-2 pl-2.5`} aria-label={t("sendTo", { key: c })}>
+                <span className="size-3.5 rounded-[4px] ring-2 ring-producer ring-offset-1 ring-offset-paper" style={{ background: keyColor(c) }} aria-hidden />
+                <span className="font-mono">{c}</span>
+                <Keycap className="max-md:hidden">{i + 1}</Keycap>
               </button>
             ))}
-            <button type="button" onClick={() => send(null)} className={`${gameButtonClass({ size: "sm" })} shrink-0 gap-2 text-muted`}>
-              <Prohibit size={18} weight="bold" />
-              <span className="font-mono font-bold">{t("noKey")}</span>
+            <button type="button" onClick={() => send(null)} className={`${gameButtonClass({ size: "sm" })} shrink-0 gap-2 text-ink-2`}>
+              <Prohibit size={16} weight="bold" />
+              <span className="font-mono">{t("noKey")}</span>
               <Keycap className="max-md:hidden">0</Keycap>
             </button>
             <form
-              className="flex shrink-0 items-center gap-2"
+              className="flex shrink-0 items-center gap-2 border-l border-line pl-2"
               onSubmit={(e) => {
                 e.preventDefault();
                 const k = customKey.trim();
@@ -295,24 +285,24 @@ export function DispatchDesk() {
                 placeholder={t("custom")}
                 maxLength={24}
                 autoComplete="off"
-                className="h-10 w-36 rounded-2xl border-2 border-line bg-bg-deep/70 px-3.5 font-mono text-sm font-semibold outline-none transition focus:border-partition"
+                className="h-10 w-32 rounded-xl border border-line bg-paper-2 px-3 font-mono text-sm font-semibold text-ink outline-none transition placeholder:text-ink-2/60 focus:border-partition focus:bg-white"
               />
               <button type="submit" className={gameButtonClass({ variant: "accent", size: "sm" })} aria-label={t("send")}>
-                <PaperPlaneTilt size={18} weight="fill" />
+                <PaperPlaneTilt size={16} weight="fill" />
                 <span className="hidden sm:inline">{t("send")}</span>
               </button>
             </form>
           </div>
 
-          <div className="flex shrink-0 items-end gap-3 max-sm:hidden [@media(max-height:560px)]:hidden" aria-live="polite" aria-label={t("stats")}>
+          <div className="flex shrink-0 items-end gap-2.5 border-l border-line pl-4 max-sm:hidden [@media(max-height:560px)]:hidden" aria-live="polite" aria-label={t("stats")}>
             {counts.map((n, p) => (
               <div key={p} className="flex flex-col items-center gap-1">
-                <div className="flex h-10 w-7 items-end overflow-hidden rounded-lg border-2 border-line bg-bg-deep [@media(max-height:560px)]:h-7">
+                <div className="flex h-9 w-6 items-end overflow-hidden rounded-md bg-paper-2">
                   <motion.div className="w-full rounded-md bg-partition" animate={{ height: `${(n / maxCount) * 100}%` }} transition={{ type: "spring", stiffness: 200, damping: 20 }} />
                 </div>
-                <span className="font-mono text-xs font-bold text-partition">
+                <span className="font-mono text-[11px] font-bold text-partition">
                   P{p}
-                  <span className="text-text">·{n}</span>
+                  <span className="text-ink-2">·{n}</span>
                 </span>
               </div>
             ))}
