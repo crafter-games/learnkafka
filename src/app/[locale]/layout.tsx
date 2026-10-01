@@ -17,7 +17,21 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: LayoutProps<"/[locale]">): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "meta" });
-  return { title: t("title"), description: t("description") };
+  return {
+    metadataBase: new URL("https://learnkafka.crafter.run"),
+    title: t("title"),
+    description: t("description"),
+    alternates: { canonical: `/${locale}`, languages: { en: "/en", es: "/es" } },
+    openGraph: {
+      type: "website",
+      siteName: "Kafka Express",
+      title: t("title"),
+      description: t("description"),
+      url: `/${locale}`,
+      locale: locale === "es" ? "es_ES" : "en_US",
+    },
+    twitter: { card: "summary_large_image", title: t("title"), description: t("description") },
+  };
 }
 
 export default async function LocaleLayout({ children, params }: LayoutProps<"/[locale]">) {
