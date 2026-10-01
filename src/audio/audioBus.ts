@@ -7,6 +7,7 @@ export const SFX = {
   stamp: "/audio/sfx/stamp.wav",
   hash: "/audio/sfx/hash.wav",
   click: "/audio/sfx/click.wav",
+  blip: "/audio/sfx/blip.wav",
   unlock: "/audio/sfx/unlock.wav",
   correct: "/audio/sfx/correct.wav",
   wrong: "/audio/sfx/wrong.wav",

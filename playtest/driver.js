@@ -4,7 +4,7 @@
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const stop = window.__STOP;
   const btn = (re) => [...document.querySelectorAll("button")].find((b) => re.test(b.textContent.trim()) && !b.disabled);
-  const NEXT = /^(Next|Start the recall check|Siguiente|Empezar el repaso)/;
+  const NEXT = /^(Next|Start the recall check|Let's go!|Siguiente|Empezar el repaso|¡A jugar!)/;
   const answer = async (q) => {
     if (q.input === "number") {
       const i = document.querySelector("#answer-number");
@@ -29,16 +29,23 @@
       continue;
     }
     const s = T().step();
+    if (s.kind === "predict" && document.querySelector("[data-value]:not([disabled]), #answer-number:not([disabled])")) {
+      await answer(T().prediction());
+      await sleep(2700);
+      continue;
+    }
+    // Dialogue box: finish typing / turn the page until its last page shows a button
+    const dlg = document.querySelector("[data-dialogue]");
+    if (dlg && (dlg.dataset.dialogue === "more" || !dlg.querySelector("button"))) {
+      dlg.click();
+      await sleep(150);
+      continue;
+    }
     const next = btn(NEXT);
     if (next) {
       log.push(s.kind);
       next.click();
       await sleep(600);
-      continue;
-    }
-    if (s.kind === "predict" && !document.querySelector("[role=status]")) {
-      await answer(T().prediction());
-      await sleep(2700);
       continue;
     }
     if (s.kind === "task") {
@@ -61,7 +68,7 @@
       // World 6: transactions — begin, send, then abort (abort task) or commit after a pause
       const txnBegin = document.querySelector('[data-txn="begin"]');
       if (txnBegin) {
-        const wantAbort = /abort|abortar/i.test(document.querySelector("aside h2")?.textContent || "");
+        const wantAbort = /abort|abortar/i.test(document.querySelector("[data-objective]")?.textContent || "");
         if (!txnBegin.disabled) {
           txnBegin.click();
           await sleep(400);
@@ -103,13 +110,13 @@
         await sleep(2500);
         continue;
       }
-      // Consumer groups: crash one robot per task, then only hire
+      // Consumer groups: crash a robot, rehire, and crash again every ~8 s until the task counts it
       window.__crashed = window.__crashed || {};
       const robotCrash = btn(/Crash a robot|Tumbar un robot/);
-      if (robotCrash && !window.__crashed[s.index]) {
+      if (robotCrash && Date.now() - (window.__crashed[s.index] || 0) > 8000) {
         await sleep(2500);
-        robotCrash.click();
-        window.__crashed[s.index] = true;
+        btn(/Crash a robot|Tumbar un robot/)?.click();
+        window.__crashed[s.index] = Date.now();
         await sleep(1200);
         continue;
       }

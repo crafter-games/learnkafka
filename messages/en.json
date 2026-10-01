@@ -98,7 +98,7 @@
     "levelLabel": "World {world} · Level {id}",
     "progress": "Level progress",
     "kind": {
-      "brief": "Oopi explains",
+      "brief": "Lesson",
       "watch": "Watch",
       "predict": "Predict",
       "task": "Your turn"
@@ -185,7 +185,14 @@
       "hw": "High watermark: consumers can read offsets below {hw}.",
       "offline": "No leader: the partition is offline."
     },
-    "table": "State a consumer rebuilds (key → latest value)"
+    "table": "State a consumer rebuilds (key → latest value)",
+    "objective": "Objective",
+    "reread": "Read the instructions again",
+    "chooseAbove": "Pick your answer above ↑",
+    "taskDone": "Done!",
+    "answerWas": "The answer was {answer}.",
+    "letsGo": "Let's go!",
+    "watching": "Watching…"
   },
   "map": {
     "home": "Home",
@@ -633,8 +640,8 @@
           "why": "They land on different partitions, which are read independently."
         },
         "first": {
-          "q": "alice’s records sit at offsets {a}, {b} and {c} of P1. Which offset does a consumer read first?",
-          "why": "A partition is read in offset order: {a}, then {b}, then {c}."
+          "q": "alice’s records sit at offsets {a}, {bb} and {c} of P1. Which offset does a consumer read first?",
+          "why": "A partition is read in offset order: {a}, then {bb}, then {c}."
         },
         "hot": {
           "q": "One key gets 90% of all traffic. What happens?",
@@ -651,7 +658,7 @@
       "brief": {
         "title": "Keyless parcels ride together",
         "body": "Not every event needs a key. With <b>key = null</b>, the default partitioner is <b>sticky</b>: it fills one partition’s batch, then moves to the next. Fewer, fuller batches mean fewer requests.",
-        "breaks": "real Kafka switches when the batch reaches <code>batch.size</code> bytes (16 KB by default). Here a batch is {b} parcels so you can see it."
+        "breaks": "real Kafka switches when the batch reaches <code>batch.size</code> bytes (16 KB by default). Here a batch is {bb} parcels so you can see it."
       },
       "map": {
         "noSticker": "No sticker",
@@ -667,7 +674,7 @@
       },
       "next": {
         "q": "Where will the next keyless parcel go?",
-        "why": "P{p}: the sticky partitioner keeps filling the current batch (up to {b} here) before switching."
+        "why": "P{p}: the sticky partitioner keeps filling the current batch (up to {bb} here) before switching."
       },
       "why": {
         "q": "Why stick to one partition instead of alternating on every record?",
@@ -690,8 +697,8 @@
           "why": "Keyless records stick to one partition per batch, then rotate."
         },
         "count": {
-          "q": "Batches of {b} records, {n} partitions, starting at P0. You send {k} keyless records. How many land on P0?",
-          "why": "P0 gets each batch number 0, {n}, 2·{n}… Counting {k} records in batches of {b}: {x} on P0."
+          "q": "Batches of {bb} records, {n} partitions, starting at P0. You send {k} keyless records. How many land on P0?",
+          "why": "P0 gets each batch number 0, {n}, 2·{n}… Counting {k} records in batches of {bb}: {x} on P0."
         },
         "why": {
           "q": "Sticky partitioning mainly improves…",
@@ -807,8 +814,8 @@
       },
       "check": {
         "first": {
-          "q": "batch.size = {b} records, records arrive every {ms} ms to one partition, linger.ms = {L} ms. How many records does the first batch hold?",
-          "why": "The batch closes when it’s full ({b}) or when linger.ms expires ({L} ms, by which time 1 + {L}/{ms} records could have arrived). Here that’s {count}."
+          "q": "batch.size = {bb} records, records arrive every {ms} ms to one partition, linger.ms = {L} ms. How many records does the first batch hold?",
+          "why": "The batch closes when it’s full ({bb}) or when linger.ms expires ({L} ms, by which time 1 + {L}/{ms} records could have arrived). Here that’s {count}."
         },
         "linger": {
           "q": "What does linger.ms control?",
@@ -1082,10 +1089,10 @@
           "why": "Kafka is pull-based, so each consumer reads at its own pace."
         },
         "default": {
-          "q": "What’s the default max.poll.records?",
-          "500": "500",
           "1": "1",
           "50": "50",
+          "500": "500",
+          "q": "What’s the default max.poll.records?",
           "all": "No limit",
           "why": "Up to 500 records per poll() by default."
         },
@@ -1476,8 +1483,8 @@
           "why": "30 000 ms: a follower that hasn’t caught up in 30 s leaves the ISR."
         },
         "calc": {
-          "q": "The leader has {leader} records, follower A has {a}, follower B has {b}, and both are in the ISR. What’s the high watermark?",
-          "why": "The minimum across the ISR: {b}."
+          "q": "The leader has {leader} records, follower A has {a}, follower B has {bb}, and both are in the ISR. What’s the high watermark?",
+          "why": "The minimum across the ISR: {bb}."
         }
       }
     },

@@ -67,6 +67,8 @@ const sfx = {
   }),
   // wrong prediction: soft low "bwomp", not punishing
   wrong: render(0.28, ({ p, osc }) => Math.exp(-p * 4) * osc(220 - 70 * p) * 0.3),
+  // dialogue text blip (typewriter), very short and soft
+  blip: render(0.035, ({ t, osc }) => Math.exp(-t * 90) * osc(1180) * 0.22),
   // generic UI click
   click: render(0.05, ({ t, osc }) => Math.exp(-t * 120) * osc(1600) * 0.35),
 };

@@ -224,6 +224,20 @@ export class LevelSession {
     else if (batching && field === "codec") batching.config.codec = value as typeof batching.config.codec;
   }
 
+  private mounts = 0;
+
+  /** Pair with `release()` from a React effect; survives StrictMode's mount → unmount → mount. */
+  retain() {
+    this.mounts++;
+  }
+
+  release() {
+    this.mounts--;
+    setTimeout(() => {
+      if (this.mounts <= 0) this.dispose();
+    }, 0);
+  }
+
   /** Level unmounted: stop everything, including replication. */
   dispose() {
     this.stopBackground();

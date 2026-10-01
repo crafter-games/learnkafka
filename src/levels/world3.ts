@@ -18,7 +18,7 @@ const q31: Question[] = [
       const ms = [50, 100, 200][randInt(r, 0, 2)];
       const L = [100, 250, 500, 1000][randInt(r, 0, 3)];
       const count = Math.min(b, Math.floor(L / ms) + 1);
-      return { prompt: msg("3-1.check.first.q", { b, ms, L }), input: { type: "number" }, answer: count, explain: msg("3-1.check.first.why", { b, ms, L, count }) };
+      return { prompt: msg("3-1.check.first.q", { bb: b, ms, L }), input: { type: "number" }, answer: count, explain: msg("3-1.check.first.why", { bb: b, ms, L, count }) };
     },
   },
   { concept: "batching", build: (r) => ({ prompt: msg("3-1.check.linger.q"), input: choices(r, "3-1.check.linger", ["wait", "retry", "keep"]), answer: "wait", explain: msg("3-1.check.linger.why") }) },

@@ -38,11 +38,11 @@ export function CodeBlock({ code }: { code: string }) {
   );
 }
 
-export function MappingCard({ items, breaks }: { items: { icon: string; thing: Msg; kafka: Msg }[]; breaks?: Msg }) {
+export function MappingCard({ items, breaks, big }: { items: { icon: string; thing: Msg; kafka: Msg }[]; breaks?: Msg; big?: boolean }) {
   const t = useTranslations("level");
   return (
-    <div className="mt-3">
-      <p className="mb-1.5 font-display text-xs font-bold uppercase tracking-[0.14em] text-ink-2">{t("mapping")}</p>
+    <div className={big ? "" : "mt-3"}>
+      {!big && <p className="mb-1.5 font-display text-xs font-bold uppercase tracking-[0.14em] text-ink-2">{t("mapping")}</p>}
       <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-paper-2/60">
         {items.map((it, i) => {
           const I = ICONS[it.icon] ?? Package;
@@ -52,9 +52,9 @@ export function MappingCard({ items, breaks }: { items: { icon: string; thing: M
               initial={{ opacity: 0, x: -6 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.05 * i }}
-              className="grid grid-cols-[20px_1fr_auto_1fr] items-center gap-2 px-3 py-1.5 text-[0.9375rem] leading-snug"
+              className={`grid items-center gap-2 px-3 leading-snug ${big ? "grid-cols-[28px_1fr_auto_1fr] py-2.5 text-[1.0625rem] sm:text-[1.25rem]" : "grid-cols-[20px_1fr_auto_1fr] py-1.5 text-[0.9375rem]"}`}
             >
-              <I size={18} weight="duotone" className="text-producer-dark" />
+              <I size={big ? 26 : 18} weight="duotone" className="text-producer-dark" />
               <Text m={it.thing} className="text-ink-2" />
               <span className="text-ink/30">→</span>
               <Text m={it.kafka} className="font-semibold text-partition-dark" />
@@ -67,10 +67,10 @@ export function MappingCard({ items, breaks }: { items: { icon: string; thing: M
   );
 }
 
-export function Breaks({ m }: { m: Msg }) {
+export function Breaks({ m, big }: { m: Msg; big?: boolean }) {
   const t = useTranslations("level");
   return (
-    <p className="mt-3 rounded-xl border border-dashed border-producer/50 bg-producer/5 px-3 py-2 text-sm leading-snug text-ink-2">
+    <p className={`rounded-xl border border-dashed border-producer/50 bg-producer/5 leading-snug text-ink-2 ${big ? "px-4 py-3 text-[1.125rem] sm:text-[1.3rem]" : "mt-3 px-3 py-2 text-sm"}`}>
       <span className="font-display font-bold text-producer-dark">{t("breaks")} </span>
       <Text m={m} />
     </p>
@@ -85,7 +85,9 @@ export function AnswerInput({
   picked,
   answer,
   onAnswer,
+  big,
 }: {
+  big?: boolean;
   input: Input;
   partitions?: number;
   disabled: boolean;
@@ -107,7 +109,7 @@ export function AnswerInput({
 
   if (input.type === "choice") {
     return (
-      <div className="grid gap-2">
+      <div className={`grid gap-2 ${big ? "sm:grid-cols-2 sm:gap-3" : ""}`}>
         {input.options.map((o, i) => (
           <button
             key={o.id}
@@ -115,7 +117,7 @@ export function AnswerInput({
             data-value={o.id}
             disabled={disabled}
             onClick={() => onAnswer(o.id)}
-            className={`${gameButtonClass({ size: "md" })} h-auto min-h-12 justify-start px-4 py-2.5 text-left font-sans text-[1.0625rem] font-semibold ${state(o.id)}`}
+            className={`${gameButtonClass({ size: "md" })} h-auto min-h-12 justify-start px-4 text-left font-sans font-semibold ${big ? "min-h-14 py-3 text-[1.1875rem] sm:text-[1.3rem]" : "py-2.5 text-[1.0625rem]"} ${state(o.id)}`}
           >
             <span className="font-mono text-sm text-ink-2">{String.fromCharCode(65 + i)}</span>
             <Text m={o.label} />
@@ -128,7 +130,7 @@ export function AnswerInput({
 
   if (input.type === "partition") {
     return (
-      <div className="flex flex-wrap gap-2">
+      <div className={`flex flex-wrap gap-2 ${big ? "justify-center gap-3" : ""}`}>
         {Array.from({ length: partitions ?? 1 }, (_, p) => (
           <button
             key={p}
@@ -136,7 +138,7 @@ export function AnswerInput({
             data-value={p}
             disabled={disabled}
             onClick={() => onAnswer(p)}
-            className={`${gameButtonClass({ variant: picked === undefined ? "accent" : "secondary", size: "md" })} min-w-16 font-display text-lg ${state(p)}`}
+            className={`${gameButtonClass({ variant: picked === undefined ? "accent" : "secondary", size: "md" })} font-display ${big ? "h-16 min-w-24 text-2xl" : "min-w-16 text-lg"} ${state(p)}`}
           >
             P{p}
           </button>
@@ -147,7 +149,7 @@ export function AnswerInput({
 
   return (
     <form
-      className="flex gap-2"
+      className={`flex gap-2 ${big ? "justify-center" : ""}`}
       onSubmit={(e) => {
         e.preventDefault();
         if (num.trim() !== "") onAnswer(Number(num));
@@ -274,9 +276,9 @@ export function Receipts({ receipts }: { receipts: { n: number; key: string; sta
         <p className="text-sm text-ink-2">{t("nothingYet")}</p>
       ) : (
         <ol className="flex flex-wrap gap-1.5">
-          {receipts.slice(-12).map((r) => (
+          {receipts.slice(-12).map((r, i) => (
             <li
-              key={r.n}
+              key={`${i}-${r.n}`}
               className={`rounded-lg px-2 py-1 font-mono text-sm font-bold ${r.status === "acked" ? "bg-broker/15 text-broker" : r.status === "lost" ? "bg-danger/15 text-danger line-through" : r.status === "rejected" ? "bg-producer/15 text-producer-dark" : "bg-paper-2 text-ink-2"}`}
             >
               #{r.n} {r.status === "acked" ? "✓" : r.status === "lost" ? "✗" : r.status === "rejected" ? "⊘" : "…"}

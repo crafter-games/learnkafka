@@ -101,7 +101,7 @@ const q52: Question[] = [
     concept: "isr",
     build: (r) => {
       const leader = randInt(r, 10, 30), a = leader, b = leader - randInt(r, 1, 6);
-      return { prompt: msg("5-2.check.calc.q", { leader, a, b }), input: { type: "number" }, answer: b, explain: msg("5-2.check.calc.why", { b }) };
+      return { prompt: msg("5-2.check.calc.q", { leader, a, bb: b }), input: { type: "number" }, answer: b, explain: msg("5-2.check.calc.why", { bb: b }) };
     },
   },
 ];

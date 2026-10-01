@@ -96,7 +96,7 @@ const q22: Question[] = [
     concept: "key-ordering",
     build: (r) => {
       const a = randInt(r, 1, 6), b = a + randInt(r, 2, 5), c = b + randInt(r, 2, 5);
-      return { prompt: msg("2-2.check.first.q", { a: c, b: a, c: b }), input: { type: "number" }, answer: a, explain: msg("2-2.check.first.why", { a, b, c }) };
+      return { prompt: msg("2-2.check.first.q", { a: c, bb: a, c: b }), input: { type: "number" }, answer: a, explain: msg("2-2.check.first.why", { a, bb: b, c }) };
     },
   },
   { concept: "key-ordering", build: (r) => ({ prompt: msg("2-2.check.hot.q"), input: choices(r, "2-2.check.hot", ["hotspot", "auto", "nothing"]), answer: "hotspot", explain: msg("2-2.check.hot.why") }) },
@@ -179,7 +179,7 @@ const q23: Question[] = [
       // P0 gets the first batch, then every n-th batch after it
       let onP0 = 0;
       for (let i = 0; i < k; i++) if (Math.floor(i / b) % n === 0) onP0++;
-      return { prompt: msg("2-3.check.count.q", { b, n, k }), input: { type: "number" }, answer: onP0, explain: msg("2-3.check.count.why", { b, n, k, x: onP0 }) };
+      return { prompt: msg("2-3.check.count.q", { bb: b, n, k }), input: { type: "number" }, answer: onP0, explain: msg("2-3.check.count.why", { bb: b, n, k, x: onP0 }) };
     },
   },
   { concept: "sticky", build: (r) => ({ prompt: msg("2-3.check.why.q"), input: choices(r, "2-3.check.why", ["batching", "ordering", "durability"]), answer: "batching", explain: msg("2-3.check.why.why") }) },
@@ -203,7 +203,7 @@ const level23: Level = {
         { icon: "factory", thing: msg("2-3.map.truck"), kafka: msg("2-3.map.batch") },
         { icon: "next", thing: msg("2-3.map.switch"), kafka: msg("2-3.map.nextPartition") },
       ],
-      breaks: msg("2-3.brief.breaks", { b: STICKY_BATCH_RECORDS }),
+      breaks: msg("2-3.brief.breaks", { bb: STICKY_BATCH_RECORDS }),
     },
     {
       kind: "watch",
@@ -221,7 +221,7 @@ const level23: Level = {
       kind: "predict",
       build: (ctx) => {
         const p = ctx.cluster.topic("orders").peekNullPartition();
-        return { prompt: msg("2-3.next.q"), input: { type: "partition", topic: "orders" }, answer: p, explain: msg("2-3.next.why", { p, b: STICKY_BATCH_RECORDS }), reveal: (c) => c.produce("orders", null) };
+        return { prompt: msg("2-3.next.q"), input: { type: "partition", topic: "orders" }, answer: p, explain: msg("2-3.next.why", { p, bb: STICKY_BATCH_RECORDS }), reveal: (c) => c.produce("orders", null) };
       },
     },
     {

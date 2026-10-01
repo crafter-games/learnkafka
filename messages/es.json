@@ -98,7 +98,7 @@
     "levelLabel": "Mundo {world} · Nivel {id}",
     "progress": "Progreso del nivel",
     "kind": {
-      "brief": "Oopi explica",
+      "brief": "Lección",
       "watch": "Observa",
       "predict": "Predice",
       "task": "Tu turno"
@@ -185,7 +185,14 @@
       "hw": "High watermark: los consumers pueden leer los offsets por debajo de {hw}.",
       "offline": "Sin líder: la partición está offline."
     },
-    "table": "Estado que reconstruye un consumer (key → último valor)"
+    "table": "Estado que reconstruye un consumer (key → último valor)",
+    "objective": "Objetivo",
+    "reread": "Volver a leer las instrucciones",
+    "chooseAbove": "Elige tu respuesta arriba ↑",
+    "taskDone": "¡Hecho!",
+    "answerWas": "La respuesta era {answer}.",
+    "letsGo": "¡A jugar!",
+    "watching": "Mirando…"
   },
   "map": {
     "home": "Inicio",
@@ -633,8 +640,8 @@
           "why": "Caen en particiones distintas, que se leen de forma independiente."
         },
         "first": {
-          "q": "Los registros de alice están en los offsets {a}, {b} y {c} de P1. ¿Qué offset lee primero un consumer?",
-          "why": "Una partición se lee en orden de offset: {a}, luego {b}, luego {c}."
+          "q": "Los registros de alice están en los offsets {a}, {bb} y {c} de P1. ¿Qué offset lee primero un consumer?",
+          "why": "Una partición se lee en orden de offset: {a}, luego {bb}, luego {c}."
         },
         "hot": {
           "q": "Una key recibe el 90% del tráfico. ¿Qué pasa?",
@@ -651,7 +658,7 @@
       "brief": {
         "title": "Los paquetes sin key viajan juntos",
         "body": "No todo evento necesita key. Con <b>key = null</b>, el particionador por defecto es <b>sticky</b>: llena el batch de una partición y luego pasa a la siguiente. Menos batches y más llenos significan menos peticiones.",
-        "breaks": "el Kafka real cambia cuando el batch llega a <code>batch.size</code> bytes (16 KB por defecto). Aquí un batch son {b} paquetes para que lo veas."
+        "breaks": "el Kafka real cambia cuando el batch llega a <code>batch.size</code> bytes (16 KB por defecto). Aquí un batch son {bb} paquetes para que lo veas."
       },
       "map": {
         "noSticker": "Sin sticker",
@@ -667,7 +674,7 @@
       },
       "next": {
         "q": "¿A dónde irá el siguiente paquete sin key?",
-        "why": "A P{p}: el particionador sticky sigue llenando el batch actual (hasta {b} aquí) antes de cambiar."
+        "why": "A P{p}: el particionador sticky sigue llenando el batch actual (hasta {bb} aquí) antes de cambiar."
       },
       "why": {
         "q": "¿Por qué quedarse en una partición en vez de alternar en cada registro?",
@@ -690,8 +697,8 @@
           "why": "Los registros sin key se quedan en una partición por batch y luego rotan."
         },
         "count": {
-          "q": "Batches de {b} registros, {n} particiones, empezando en P0. Envías {k} registros sin key. ¿Cuántos caen en P0?",
-          "why": "P0 recibe los batches número 0, {n}, 2·{n}… Contando {k} registros en batches de {b}: {x} en P0."
+          "q": "Batches de {bb} registros, {n} particiones, empezando en P0. Envías {k} registros sin key. ¿Cuántos caen en P0?",
+          "why": "P0 recibe los batches número 0, {n}, 2·{n}… Contando {k} registros en batches de {bb}: {x} en P0."
         },
         "why": {
           "q": "El particionado sticky mejora principalmente…",
@@ -807,8 +814,8 @@
       },
       "check": {
         "first": {
-          "q": "batch.size = {b} registros, llegan registros cada {ms} ms a una partición, linger.ms = {L} ms. ¿Cuántos registros lleva el primer batch?",
-          "why": "El batch se cierra cuando se llena ({b}) o cuando vence linger.ms ({L} ms, tiempo en que pudieron llegar 1 + {L}/{ms} registros). Aquí son {count}."
+          "q": "batch.size = {bb} registros, llegan registros cada {ms} ms a una partición, linger.ms = {L} ms. ¿Cuántos registros lleva el primer batch?",
+          "why": "El batch se cierra cuando se llena ({bb}) o cuando vence linger.ms ({L} ms, tiempo en que pudieron llegar 1 + {L}/{ms} registros). Aquí son {count}."
         },
         "linger": {
           "q": "¿Qué controla linger.ms?",
@@ -1082,10 +1089,10 @@
           "why": "Kafka funciona por pull, así cada consumer lee a su propio ritmo."
         },
         "default": {
-          "q": "¿Cuál es el max.poll.records por defecto?",
-          "500": "500",
           "1": "1",
           "50": "50",
+          "500": "500",
+          "q": "¿Cuál es el max.poll.records por defecto?",
           "all": "Sin límite",
           "why": "Hasta 500 registros por poll() por defecto."
         },
@@ -1476,8 +1483,8 @@
           "why": "30 000 ms: un follower que no se pone al día en 30 s sale del ISR."
         },
         "calc": {
-          "q": "El líder tiene {leader} registros, el follower A tiene {a}, el follower B tiene {b}, y ambos están en el ISR. ¿Cuál es el high watermark?",
-          "why": "El mínimo dentro del ISR: {b}."
+          "q": "El líder tiene {leader} registros, el follower A tiene {a}, el follower B tiene {bb}, y ambos están en el ISR. ¿Cuál es el high watermark?",
+          "why": "El mínimo dentro del ISR: {bb}."
         }
       }
     },

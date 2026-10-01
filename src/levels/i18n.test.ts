@@ -25,3 +25,10 @@ describe("level copy", () => {
   });
   it("found a meaningful number of keys", () => expect(keys.size).toBeGreaterThan(80));
 });
+
+describe("placeholders", () => {
+  // Text/Rich pass `b` and `code` as rich-text tag functions, so a {b} value would render a function
+  it("never use the names of rich-text tags", () => {
+    for (const json of [en, es]) expect(JSON.stringify(json)).not.toMatch(/\{(b|code)\}/);
+  });
+});
