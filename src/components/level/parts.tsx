@@ -265,7 +265,7 @@ export function KeyMoves({ cluster, topic, keys }: { cluster: Cluster; topic: st
 }
 
 /** The producer's view: which orders it was told are saved, which are waiting, which were lost. */
-export function Receipts({ receipts }: { receipts: { n: number; key: string; status: "pending" | "acked" | "lost" }[] }) {
+export function Receipts({ receipts }: { receipts: { n: number; key: string; status: "pending" | "acked" | "lost" | "rejected" }[] }) {
   const t = useTranslations("level");
   return (
     <div className="mt-4">
@@ -277,9 +277,9 @@ export function Receipts({ receipts }: { receipts: { n: number; key: string; sta
           {receipts.slice(-12).map((r) => (
             <li
               key={r.n}
-              className={`rounded-lg px-2 py-1 font-mono text-sm font-bold ${r.status === "acked" ? "bg-broker/15 text-broker" : r.status === "lost" ? "bg-danger/15 text-danger line-through" : "bg-paper-2 text-ink-2"}`}
+              className={`rounded-lg px-2 py-1 font-mono text-sm font-bold ${r.status === "acked" ? "bg-broker/15 text-broker" : r.status === "lost" ? "bg-danger/15 text-danger line-through" : r.status === "rejected" ? "bg-producer/15 text-producer-dark" : "bg-paper-2 text-ink-2"}`}
             >
-              #{r.n} {r.status === "acked" ? "✓" : r.status === "lost" ? "✗" : "…"}
+              #{r.n} {r.status === "acked" ? "✓" : r.status === "lost" ? "✗" : r.status === "rejected" ? "⊘" : "…"}
             </li>
           ))}
         </ol>
@@ -302,6 +302,81 @@ export function GroupStats({ processed, duplicates, lost, lag }: { processed: nu
       {cell(t("duplicates"), duplicates, duplicates ? "text-danger" : "text-ink")}
       {cell(t("lost"), lost, lost ? "text-danger" : "text-ink")}
       {cell(t("lag"), lag, "text-partition")}
+    </div>
+  );
+}
+
+/** Which replicas are in sync, and the high watermark consumers can read up to. */
+export function IsrPanel({ rs }: { rs: { replicas: string[]; isr: Set<string>; down: Set<string>; leader: string | null; highWatermark: () => number } }) {
+  const t = useTranslations("level.isr");
+  return (
+    <div className="mt-4 rounded-xl border border-line bg-paper-2/60 p-3">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="mr-1 font-display text-xs font-bold uppercase tracking-[0.14em] text-ink-2">ISR</span>
+        {rs.replicas.map((r) => {
+          const n = r.replace(/\D/g, "");
+          const state = rs.down.has(r) ? "down" : rs.isr.has(r) ? "in" : "out";
+          return (
+            <span key={r} className={`rounded-lg px-2 py-0.5 font-mono text-sm font-bold ${state === "in" ? "bg-broker/15 text-broker" : state === "out" ? "bg-producer/15 text-producer-dark" : "bg-ink/10 text-ink-2 line-through"}`}>
+              b{n}
+              {rs.leader === r ? " ★" : ""}
+            </span>
+          );
+        })}
+      </div>
+      <p className="mt-2 text-sm text-ink-2">
+        {rs.leader ? t("hw", { hw: rs.highWatermark() }) : <span className="font-semibold text-danger">{t("offline")}</span>}
+      </p>
+    </div>
+  );
+}
+
+/** What each consumer has been handed, by isolation level (aborted records struck through). */
+export function SeenBy({ readers }: { readers: { label: string; color: string; isolation: string; seen: { key: string | null; value: string; aborted: boolean }[] }[] }) {
+  const t = useTranslations("level");
+  return (
+    <div className="mt-4 space-y-2.5">
+      {readers.map((r) => (
+        <div key={r.label}>
+          <p className="mb-1 flex items-center gap-2 text-sm font-semibold">
+            <span className="size-2.5 rounded-full" style={{ background: r.color }} />
+            {r.label} <code className="rounded bg-paper-2 px-1 font-mono text-xs text-ink-2">{r.isolation}</code>
+          </p>
+          {r.seen.length === 0 ? (
+            <p className="text-sm text-ink-2">{t("nothingYet")}</p>
+          ) : (
+            <ol className="flex flex-wrap gap-1">
+              {r.seen.slice(-10).map((x, i) => (
+                <li key={i} className={`rounded-md px-1.5 py-0.5 font-mono text-xs font-bold ${x.aborted ? "bg-danger/15 text-danger line-through" : "bg-paper-2 text-ink"}`}>
+                  {x.value}
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** The state a consumer rebuilds by reading the log: latest value per key. */
+export function StateTable({ table }: { table: Map<string, string> }) {
+  const t = useTranslations("level");
+  return (
+    <div className="mt-4">
+      <p className="mb-1.5 font-display text-xs font-bold uppercase tracking-[0.14em] text-ink-2">{t("table")}</p>
+      {table.size === 0 ? (
+        <p className="text-sm text-ink-2">{t("nothingYet")}</p>
+      ) : (
+        <ul className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 rounded-xl bg-paper-2 px-3 py-2 font-mono text-sm">
+          {[...table].map(([k, v]) => (
+            <li key={k} className="contents">
+              <span className="font-bold">{k}</span>
+              <span className="text-ink-2">{v}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

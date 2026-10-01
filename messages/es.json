@@ -81,7 +81,17 @@
     "batch": "P{p} {bar}",
     "ackLost": "ack perdido → reintento",
     "dupDropped": "seq {seq} ya escrito → descartado",
-    "replica": "broker {n} · {role, select, leader {líder ★} follower {réplica} other {caído}}"
+    "replica": "broker {n} · {role, select, leader {líder ★} follower {en sync} lagging {fuera de sync} other {caído}}",
+    "controller": "controlador {n} · {role, select, active {activo ★} standby {en espera} other {caído}}",
+    "rejected": {
+      "offline": "partición offline: sin líder",
+      "notEnoughReplicas": "NotEnoughReplicas: rechazado",
+      "noQuorum": "sin quórum de controladores: no hay elección",
+      "noIsr": "no hay réplica en sync para elegir",
+      "fenced": "ProducerFenced: tomó el control una instancia más nueva",
+      "outOfRange": "OffsetOutOfRange → vuelve al inicio del log"
+    },
+    "segment": "seg {index}{state, select, active { · activo} remote { · remoto} other {}}"
   },
   "level": {
     "map": "Mapa del mundo",
@@ -135,13 +145,30 @@
         "acks": "acks",
         "protocol": "protocolo",
         "commit": "commit",
-        "maxPollRecords": "max.poll.records"
+        "maxPollRecords": "max.poll.records",
+        "minInsync": "min.insync.replicas",
+        "unclean": "elección unclean",
+        "retainSegments": "segmentos a conservar"
       },
       "member": {
         "join": "Contratar robot ({n})",
         "leave": "Se va un robot",
         "crash": "Tumbar un robot"
-      }
+      },
+      "brokerName": "b{n}",
+      "brokerCrash": "Tumbar {n}",
+      "brokerSlow": "frenar",
+      "brokerFix": "arreglar",
+      "brokerRevive": "revivir",
+      "controllerCrash": "Tumbar al controlador activo",
+      "txn": {
+        "begin": "Iniciar transacción",
+        "send": "Enviar pedido + factura",
+        "commit": "Commit",
+        "abort": "Abortar"
+      },
+      "clean": "Pasar el limpiador del log",
+      "tombstone": "Borrar {key} (tombstone)"
     },
     "delivered": "Entregados (en orden de llegada)",
     "nothingYet": "Aún no se entrega nada…",
@@ -153,7 +180,12 @@
       "lost": "perdidos",
       "lag": "lag"
     },
-    "restart": "Reiniciar nivel"
+    "restart": "Reiniciar nivel",
+    "isr": {
+      "hw": "High watermark: los consumers pueden leer los offsets por debajo de {hw}.",
+      "offline": "Sin líder: la partición está offline."
+    },
+    "table": "Estado que reconstruye un consumer (key → último valor)"
   },
   "map": {
     "home": "Inicio",
@@ -183,20 +215,30 @@
       "title": "Despacho libre",
       "body": "Sin objetivos ni quiz: solo tú, tres cintas y tus clientes."
     },
-    "w5": "Brokers y replicación",
+    "w5": {
+      "title": "Brokers y replicación",
+      "body": "Cómo un clúster sobrevive a las fallas: réplicas, líderes y seguidores, el ISR y el high watermark, min.insync.replicas y los controladores KRaft que dirigen las elecciones."
+    },
     "shift": {
       "title": "Turno de la mañana",
       "empty": "Termina un nivel para tener tu primer repaso.",
       "due": "{n, plural, one {# concepto listo} other {# conceptos listos}} para repasar",
       "clear": "Todo al día. Practica cuando quieras."
     },
-    "w6": "Garantías de entrega",
-    "w7": "Retención y compactación",
+    "w6": {
+      "title": "Garantías de entrega",
+      "body": "At-most-once, at-least-once, exactly-once: diagnostica síntomas reales y luego usa transacciones para que un grupo de escrituras ocurra todo junto o nada."
+    },
+    "w7": {
+      "title": "Retención y compactación",
+      "body": "A dónde van los datos viejos: segmentos del log, retención que borra segmentos enteros, compactación que conserva el último valor por key, y tiered storage que mueve la historia a almacenamiento remoto barato."
+    },
     "prev": "Mundo anterior",
     "next": "Mundo siguiente",
     "playLevel": "Jugar {id}",
     "worldLocked": "Termina el Mundo {n} para desbloquear",
-    "soonBody": "Esta isla aún está en construcción. Viene más Kafka en camino."
+    "soonBody": "Esta isla aún está en construcción. Viene más Kafka en camino.",
+    "w8": "Streams y Connect"
   },
   "levels": {
     "1-1": {
@@ -1311,6 +1353,720 @@
         "size": {
           "q": "Los producers escriben {rate} registros/s. Un consumer procesa {per} registros/s. ¿Mínimo de particiones (y consumers) para seguir el ritmo?",
           "why": "{rate} ÷ {per} = {k}, así que {k} particiones con {k} consumers."
+        }
+      }
+    },
+    "5-1": {
+      "title": "Copias por todas partes",
+      "summary": "Factor de replicación, líderes y seguidores.",
+      "brief": {
+        "title": "Una partición, tres almacenes",
+        "body": "Un <b>clúster</b> de Kafka es un grupo de <b>brokers</b>. Cada partición se guarda en <code>replication.factor</code> de ellos. Una réplica es la <b>líder</b>: recibe todas las escrituras (y por defecto sirve las lecturas). Las demás son <b>followers</b> que copian de ella sin parar.",
+        "breaks": "<code>default.replication.factor</code> vale <b>1</b>, así que un topic creado sin pensar no tiene ninguna copia. En producción se usa 3."
+      },
+      "map": {
+        "warehouse": "Un almacén",
+        "broker": "Un broker",
+        "copies": "La misma cinta en 3 almacenes",
+        "replicas": "Réplicas de una partición (RF=3)",
+        "star": "El almacén ★",
+        "leader": "El líder de la partición"
+      },
+      "copy": {
+        "title": "Los followers copian",
+        "body": "Tres pedidos llegan al líder. Mira cómo los followers copian cada paquete desde la cinta del líder."
+      },
+      "where": {
+        "q": "¿A dónde envía el producer sus escrituras?",
+        "leader": "Al líder de la partición",
+        "any": "A cualquier réplica",
+        "all": "A las tres a la vez",
+        "why": "Los producers solo escriben en el líder. Los followers leen de él, igual que los consumers."
+      },
+      "lose": {
+        "title": "Pierde un almacén, conserva los datos",
+        "body": "Envía un par de pedidos y espera su ✓. Luego tumba el <b>broker 1</b>, el líder.",
+        "success": "Un follower pasó a ser líder y cada pedido con ✓ sigue ahí. Para eso están las réplicas."
+      },
+      "rf": {
+        "q": "Con replication.factor = 3, ¿cuántos brokers pueden fallar antes de que un registro confirmado (acks=all) corra peligro?",
+        "why": "Dos. Debe sobrevivir una copia: RF − 1 fallas."
+      },
+      "check": {
+        "default": {
+          "q": "¿Cuál es el default.replication.factor de Kafka?",
+          "one": "1",
+          "three": "3",
+          "two": "2",
+          "why": "1: sin copias. Defínelo siempre de forma explícita (3 es lo habitual)."
+        },
+        "writes": {
+          "q": "¿Qué réplica recibe las escrituras de una partición?",
+          "leader": "La líder",
+          "any": "Cualquier réplica",
+          "all": "Todas las réplicas juntas",
+          "why": "Todas las escrituras pasan por la líder."
+        },
+        "survive": {
+          "q": "replication.factor = {rf}. ¿Cuántas réplicas pueden fallar y aún quedar una copia?",
+          "why": "{rf} − 1 = {n}."
+        },
+        "followers": {
+          "q": "¿Cómo reciben los followers los registros nuevos?",
+          "fetch": "Los copian (fetch) desde el líder",
+          "producer": "El producer se los envía directamente",
+          "zk": "Los copia ZooKeeper",
+          "why": "Los followers replican haciendo fetch al líder."
+        }
+      }
+    },
+    "5-2": {
+      "title": "Seguir el ritmo",
+      "summary": "El ISR y el high watermark.",
+      "brief": {
+        "title": "En sync o fuera",
+        "body": "Las réplicas que siguen el ritmo del líder forman el <b>ISR</b> (in-sync replicas). Una que se atrasa más de <code>replica.lag.time.max.ms</code> sale de él. Un registro está <b>confirmado</b> (committed) cuando todos los miembros del ISR lo tienen, y el <b>high watermark</b> (HW) marca ese punto: los consumers solo leen por debajo.",
+        "breaks": "el límite real es de 30 segundos. Aquí son unos 2,5 para que no tengas que esperar."
+      },
+      "map": {
+        "pace": "Copias que siguen el ritmo",
+        "isr": "El ISR",
+        "hw": "La banderita verde HW",
+        "hwK": "High watermark (fin de los datos confirmados)"
+      },
+      "slow": {
+        "title": "Frena a un follower",
+        "body": "Los pedidos siguen llegando. Pulsa <b>frenar</b> en el broker 3 y mira cómo sale del ISR (etiqueta naranja). Luego pulsa <b>arreglar</b> y mira cómo se pone al día y vuelve.",
+        "success": "Sale y vuelve a entrar. El ISR cambia todo el tiempo en los clústeres reales, y el HW avanza tan rápido como la réplica en sync más lenta."
+      },
+      "wait": {
+        "q": "Mientras el broker 3 estaba fuera del ISR, ¿las escrituras con acks=all lo esperaban?",
+        "no": "No: acks=all espera al ISR, y no estaba en él",
+        "yes": "Sí, esperaban a las 3 réplicas",
+        "rejected": "Se rechazaban",
+        "why": "“All” significa todas las réplicas <b>en sync</b>. Sacar a un follower lento mantiene rápidas las escrituras."
+      },
+      "read": {
+        "q": "Un consumer puede leer registros…",
+        "hw": "Hasta el high watermark",
+        "leader": "Hasta el final del log del líder",
+        "slowest": "Hasta la réplica más lenta, esté en sync o no",
+        "why": "Solo son visibles los registros confirmados (bajo el HW), así un consumer nunca ve algo que una falla podría deshacer."
+      },
+      "check": {
+        "isr": {
+          "q": "El ISR es…",
+          "caught": "Las réplicas que ahora están al día con el líder",
+          "all": "Todas las réplicas",
+          "leaders": "Los líderes de todas las particiones",
+          "why": "Réplicas en sync: las que pueden ser líder sin perder datos."
+        },
+        "hw": {
+          "q": "El high watermark marca…",
+          "committed": "El final de los datos confirmados (todas las réplicas del ISR los tienen)",
+          "end": "El final del log del líder",
+          "oldest": "El registro más antiguo guardado",
+          "why": "Los consumers leen hasta el HW."
+        },
+        "lag": {
+          "q": "¿Cuál es el replica.lag.time.max.ms por defecto?",
+          "thirty": "30 segundos",
+          "one": "1 segundo",
+          "five": "5 minutos",
+          "why": "30 000 ms: un follower que no se pone al día en 30 s sale del ISR."
+        },
+        "calc": {
+          "q": "El líder tiene {leader} registros, el follower A tiene {a}, el follower B tiene {b}, y ambos están en el ISR. ¿Cuál es el high watermark?",
+          "why": "El mínimo dentro del ISR: {b}."
+        }
+      }
+    },
+    "5-3": {
+      "title": "Red de seguridad",
+      "summary": "min.insync.replicas: rechazar escrituras antes que arriesgarlas.",
+      "brief": {
+        "title": "¿Cuántas copias bastan?",
+        "body": "<code>acks=all</code> espera a todas las réplicas <b>en sync</b>. Pero si el ISR se reduce al líder, “all” es una sola copia. <code>min.insync.replicas</code> pone el mínimo: con menos réplicas en sync, las escrituras con <code>acks=all</code> se <b>rechazan</b> (NotEnoughReplicas). Cambias disponibilidad por durabilidad.",
+        "breaks": "solo aplica a producers que usan acks=all."
+      },
+      "alone": {
+        "title": "Queda una copia",
+        "body": "Con el valor por defecto <code>min.insync.replicas=1</code>, los dos followers caen y el producer sigue escribiendo…"
+      },
+      "net": {
+        "title": "Pon la red de seguridad",
+        "body": "Pon <code>min.insync.replicas=2</code> y envía un pedido mientras solo hay una réplica arriba: debería rechazarse (⊘). Luego <b>revive</b> un follower y vuelve a enviar hasta que se acepte (✓). (Si hace falta, vuelve a tumbar brokers.)",
+        "success": "Rechazado mientras había una sola copia, aceptado cuando hubo dos réplicas en sync. Se acabaron los pedidos “guardados” que viven en un solo broker."
+      },
+      "one": {
+        "q": "RF=3, min.insync.replicas=2, un broker caído. Las escrituras con acks=all…",
+        "ok": "Siguen funcionando (2 réplicas en sync)",
+        "rejected": "Se rechazan",
+        "lost": "Se pierden",
+        "why": "Dos réplicas en sync cumplen el mínimo de 2, así que las escrituras pasan."
+      },
+      "two": {
+        "q": "El mismo clúster, pero con dos brokers caídos. Las escrituras con acks=all…",
+        "rejected": "Se rechazan con NotEnoughReplicas",
+        "ok": "Siguen funcionando",
+        "lost": "Funcionan y luego se pierden",
+        "why": "Solo el líder está en sync, por debajo del mínimo de 2, así que el producer recibe un error en vez de un frágil “guardado”."
+      },
+      "check": {
+        "default": {
+          "q": "¿Cuál es el min.insync.replicas por defecto?",
+          "one": "1",
+          "two": "2",
+          "three": "3",
+          "why": "1. Con acks=all eso puede significar una sola copia."
+        },
+        "when": {
+          "q": "¿Cuándo recibe una escritura con acks=all el error NotEnoughReplicas?",
+          "below": "Cuando el ISR es menor que min.insync.replicas",
+          "slow": "Cuando la red está lenta",
+          "always": "Siempre con RF=3",
+          "why": "El mínimo protege la durabilidad."
+        },
+        "prod": {
+          "q": "Una configuración habitual en producción es…",
+          "rf3min2": "RF=3 con min.insync.replicas=2",
+          "rf1min1": "RF=1 con min.insync.replicas=1",
+          "rf3min3": "RF=3 con min.insync.replicas=3",
+          "why": "Aguanta la caída de un broker para escribir, y cada registro confirmado existe en al menos 2 brokers."
+        },
+        "acks1": {
+          "q": "Con acks=1, min.insync.replicas…",
+          "ignored": "No aplica",
+          "rejected": "Rechaza todas las escrituras",
+          "waits": "Hace que el producer espere a todas las réplicas",
+          "why": "El mínimo solo se revisa con acks=all."
+        }
+      }
+    },
+    "5-4": {
+      "title": "¿Quién manda aquí?",
+      "summary": "Controladores KRaft, quórum y elección de líderes.",
+      "brief": {
+        "title": "La torre de control",
+        "body": "Alguien tiene que decidir quién lidera cada partición. En Kafka 4.x es el <b>quórum de controladores KRaft</b>: unos pocos nodos controladores que guardan la metadata del clúster en un log Raft (<code>__cluster_metadata</code>). Uno está <b>activo</b> y dirige las elecciones de líder. Para hacer cualquier cosa debe estar viva la mayoría.",
+        "breaks": "antes este trabajo lo hacía ZooKeeper. Se eliminó en Kafka 4.0."
+      },
+      "map": {
+        "tower": "Las pantallas de la torre",
+        "quorum": "El quórum de controladores",
+        "star": "La pantalla ★",
+        "active": "El controlador activo",
+        "logbook": "La bitácora de la torre",
+        "metadata": "El log de metadata"
+      },
+      "lose": {
+        "title": "Pierde un controlador",
+        "body": "Tumba al controlador activo y mira cómo otro toma el mando. Luego tumba un broker que lidera una partición: el nuevo controlador activo igual debería dirigir la elección.",
+        "success": "El quórum aguantó una baja (2 de 3 vivos) y siguió haciendo elecciones."
+      },
+      "noquorum": {
+        "q": "Dos de tres controladores están caídos, y luego muere el líder de la partición. ¿Qué pasa?",
+        "offline": "No hay elección: la partición queda offline hasta que vuelva una mayoría",
+        "elected": "Se elige un nuevo líder igual",
+        "zk": "ZooKeeper toma el control",
+        "why": "Un solo controlador no es mayoría, así que no puede confirmar cambios de metadata y las elecciones se detienen. Por eso se usan 3 (o 5) controladores."
+      },
+      "unclean": {
+        "title": "Elecciones unclean",
+        "body": "¿Y si no queda viva ninguna réplica en sync? Por defecto Kafka espera (la partición queda offline). Con <code>unclean.leader.election.enable=true</code>, una réplica fuera de sync puede ser líder: la partición vuelve antes, pero los registros que nunca copió se <b>pierden</b>. Desde Kafka 4.1, Eligible Leader Replicas (ELR) hacen más inteligente la elección segura."
+      },
+      "choose": {
+        "q": "Para pedidos que no te puedes permitir perder, unclean.leader.election.enable debería ser…",
+        "false": "false (el valor por defecto)",
+        "true": "true",
+        "why": "Esperar a una réplica en sync protege la durabilidad. Activa la elección unclean solo donde la disponibilidad importa más que cada registro."
+      },
+      "check": {
+        "zk": {
+          "q": "En Kafka 4.x, ZooKeeper…",
+          "removed": "Se eliminó: KRaft gestiona la metadata",
+          "required": "Es obligatorio",
+          "optional": "Es opcional",
+          "why": "Kafka 4.0 eliminó ZooKeeper por completo."
+        },
+        "job": {
+          "q": "Los controladores KRaft principalmente…",
+          "metadata": "Gestionan la metadata del clúster y dirigen las elecciones",
+          "data": "Guardan todos los registros",
+          "consumers": "Entregan registros a los consumers",
+          "why": "Se encargan del plano de control. Los brokers sirven los datos."
+        },
+        "quorum": {
+          "q": "Un quórum tiene {n} controladores. ¿Cuántos pueden fallar sin que deje de funcionar?",
+          "why": "Necesita mayoría ({m} de {n}), así que pueden fallar {f}."
+        },
+        "unclean": {
+          "q": "Activar la elección unclean de líder puede causar…",
+          "loss": "Pérdida de datos, a cambio de disponibilidad",
+          "faster": "Consumers más rápidos",
+          "nothing": "Nada en absoluto",
+          "why": "Un líder fuera de sync no tiene los registros más recientes."
+        }
+      }
+    },
+    "6-1": {
+      "title": "Diagnostica el síntoma",
+      "summary": "At-most, at-least, exactly-once: relaciona cada síntoma con su causa.",
+      "brief": {
+        "title": "Tres promesas",
+        "body": "Todo pipeline hace una de tres promesas. <b>At-most-once</b>: nunca dos veces, pero quizá nunca. <b>At-least-once</b>: nunca se pierde, pero quizá dos veces. <b>Exactly-once</b>: una vez y punto, lo que requiere maquinaria extra. Ahora juegas a ser ingeniero de soporte: cada ticket describe un síntoma. ¿Qué mecanismo lo causó?",
+        "breaks": "los mecanismos vienen de los Mundos 3 y 4. Están mezclados a propósito: distinguir cosas parecidas es lo que fija el conocimiento."
+      },
+      "map": {
+        "atmost": "Se entrega 0 o 1 vez",
+        "atmostK": "At-most-once",
+        "atleast": "Se entrega 1 o más veces",
+        "atleastK": "At-least-once",
+        "exactly": "Se entrega exactamente una vez",
+        "exactlyK": "Exactly-once"
+      },
+      "s1": {
+        "q": "Ticket: tras un corte breve de red, algunos pedidos aparecen DOS veces en el topic, en offsets distintos. ¿Causa?",
+        "retry": "Reintentos del producer tras un ack perdido, sin idempotencia",
+        "commitBefore": "El consumer hizo commit antes de procesar",
+        "acks1": "acks=1 y una caída del líder",
+        "why": "Dos copias en el log significan que el producer escribió dos veces: un reintento cuyo primer intento sí funcionó. <code>enable.idempotence=true</code> lo resuelve."
+      },
+      "s2": {
+        "q": "Ticket: el producer recibió éxito para el pedido #42, pero tras caerse un broker, #42 no está en el topic. ¿Causa?",
+        "acks1": "acks=1: solo el líder lo tenía cuando murió",
+        "retry": "Reintentos del producer",
+        "rebalance": "Un rebalance de consumers",
+        "why": "Un registro confirmado desapareció en una conmutación por falla, la clásica pérdida con acks=1. Usa <code>acks=all</code> (y min.insync.replicas=2)."
+      },
+      "s3": {
+        "q": "Ticket: tras caerse un consumer, algunos pedidos nunca se cobraron, pero SÍ están en el topic. ¿Causa?",
+        "commitBefore": "El consumer hizo commit antes de procesarlos",
+        "autoCommit": "Reprocesamiento por auto-commit",
+        "idempotence": "La idempotencia estaba apagada",
+        "why": "Los registros existen, pero el marcapáginas del grupo los pasó antes de procesarlos: at-most-once. Haz commit después de procesar."
+      },
+      "s4": {
+        "q": "Ticket: tras reiniciar un consumer, algunos clientes recibieron DOS facturas por un mismo pedido (el pedido está una vez en el topic). ¿Causa?",
+        "autoCommit": "El consumer procesó registros pero cayó antes del commit (auto-commit)",
+        "acks1": "acks=1",
+        "compaction": "Compactación del log",
+        "why": "Una copia en el log pero procesada dos veces indica reprocesamiento del lado consumer: at-least-once. Haz el procesamiento idempotente (por ejemplo, deduplicando por id de pedido) o usa transacciones."
+      },
+      "s5": {
+        "q": "Ticket: usamos transacciones de Kafka de punta a punta, pero a veces los clientes reciben dos CORREOS de confirmación. ¿Causa?",
+        "sideEffect": "Los correos son un efecto fuera de Kafka; las transacciones no pueden deshacerlos",
+        "retry": "Reintentos del producer",
+        "lag": "Lag del consumer",
+        "why": "Exactly-once cubre lecturas y escrituras <b>dentro de Kafka</b>. Un correo enviado al procesar no se deshace si la transacción aborta y se repite."
+      },
+      "check": {
+        "atmost": {
+          "q": "La entrega at-most-once arriesga…",
+          "loss": "Perder registros",
+          "dups": "Duplicados",
+          "neither": "Ninguna de las dos",
+          "why": "Nunca dos veces, quizá nunca."
+        },
+        "atleast": {
+          "q": "La entrega at-least-once arriesga…",
+          "dups": "Duplicados",
+          "loss": "Perder registros",
+          "neither": "Ninguna de las dos",
+          "why": "Nunca se pierde, quizá dos veces."
+        },
+        "default": {
+          "q": "Un consumer típico que hace commit después de procesar te da…",
+          "atleast": "At-least-once",
+          "atmost": "At-most-once",
+          "exactly": "Exactly-once",
+          "why": "Una caída entre procesar y hacer commit repite registros."
+        },
+        "idem": {
+          "q": "La forma habitual de volver seguro el at-least-once es…",
+          "process": "Hacer idempotente el procesamiento (deduplicar por id)",
+          "store": "Guardar los registros dos veces",
+          "nothing": "Nada, los duplicados no hacen daño",
+          "why": "Si procesar un registro dos veces tiene el mismo efecto que una, los duplicados no importan."
+        }
+      }
+    },
+    "6-2": {
+      "title": "Todo o nada",
+      "summary": "Transacciones: marcadores, read_committed y el último offset estable.",
+      "brief": {
+        "title": "Un pedido y su factura",
+        "body": "Algunas escrituras van juntas: un pedido en <code>orders</code> y su factura en <code>invoices</code>. Una <b>transacción</b> las hace atómicas: ambas se vuelven visibles o ninguna. El coordinador la termina dejando un marcador <b>COMMIT</b> o <b>ABORT</b> en cada partición que tocó. Dos lectores observan <code>orders</code>: Billing lee con <code>read_committed</code> y Audit con <code>read_uncommitted</code> (el valor por defecto)."
+      },
+      "map": {
+        "pending": "Cajas marcadas ⧗",
+        "pendingK": "Registros de una transacción abierta",
+        "plate": "Placas verdes/rojas",
+        "marker": "Marcadores COMMIT / ABORT",
+        "readers": "Dos robots lectores",
+        "isolation": "isolation.level"
+      },
+      "abort": {
+        "title": "Cambio de planes: abortar",
+        "body": "Inicia una transacción, envía un pedido + factura y luego <b>abórtala</b>. Compara lo que vieron Billing y Audit.",
+        "success": "Audit (read_uncommitted) vio el pedido abortado. Billing (read_committed) nunca: los registros abortados se filtran."
+      },
+      "stuck": {
+        "q": "Hay una transacción abierta sin terminar. ¿Qué hace Billing (read_committed) en ese punto del log?",
+        "waits": "Espera: no puede leer más allá del primer registro abierto (el LSO)",
+        "skips": "Se salta los registros abiertos y sigue",
+        "reads": "Los lee igual",
+        "why": "read_committed se detiene en el <b>last stable offset</b> hasta que la transacción haga commit o aborte. Una transacción abierta mucho tiempo frena a estos consumers."
+      },
+      "commit": {
+        "title": "Ahora, commit",
+        "body": "Inicia, envía un pedido + factura, <b>mira cómo espera Billing</b> y luego haz commit. Repite hasta que Billing reciba 2 pedidos.",
+        "success": "Cayó el COMMIT, el LSO avanzó y Billing se puso al día. Ambos topics muestran las escrituras juntas."
+      },
+      "check": {
+        "atomic": {
+          "q": "Una transacción que escribe en dos topics garantiza…",
+          "all": "Que ambas escrituras se vuelven visibles, o ninguna",
+          "some": "Que al menos una escritura funciona",
+          "order": "Que los topics quedan en el mismo orden",
+          "why": "Visibilidad atómica entre particiones y topics."
+        },
+        "default": {
+          "q": "¿Cuál es el isolation.level por defecto del consumer?",
+          "uncommitted": "read_uncommitted",
+          "committed": "read_committed",
+          "why": "El valor por defecto devuelve todo, incluidos los datos abortados. Usa read_committed en pipelines transaccionales."
+        },
+        "lso": {
+          "q": "El last stable offset (LSO) es…",
+          "open": "El primer offset de una transacción aún abierta",
+          "end": "El final del log",
+          "hw": "Siempre igual al high watermark",
+          "why": "Los consumers read_committed no pueden leer más allá."
+        },
+        "markers": {
+          "q": "¿Cómo registra Kafka que una transacción hizo commit o abortó?",
+          "markers": "Con marcadores de control escritos en cada partición que tocó",
+          "deleted": "Borra los registros abortados",
+          "zk": "Lo anota en ZooKeeper",
+          "why": "Los registros son inmutables. Los marcadores le dicen a los lectores cómo tratarlos."
+        }
+      }
+    },
+    "6-3": {
+      "title": "Exactly once, y zombies",
+      "summary": "Leer-procesar-escribir con transacciones, y el fencing de producers zombie.",
+      "brief": {
+        "title": "La receta exactly-once",
+        "body": "Un procesador lee <code>orders</code> y escribe <code>invoices</code>. Para exactly-once, las escrituras de facturas <b>y</b> el commit de offsets del consumer van en la <b>misma transacción</b> (<code>sendOffsetsToTransaction</code>). Si el procesador muere a mitad de camino, la transacción aborta, así que ni la factura ni el offset “ocurrieron”, y el reintento empieza limpio. Los lectores usan read_committed."
+      },
+      "crash": {
+        "title": "Caída a mitad de transacción",
+        "body": "El procesador escribe la factura #1 dentro de una transacción y se cae. Arranca un reemplazo con el mismo <code>transactional.id</code>, hace fencing de la instancia vieja, aborta su transacción abierta y rehace el trabajo. Observa a Billing (read_committed) en <code>invoices</code>."
+      },
+      "count": {
+        "q": "¿Cuántas copias de la factura #1 recibió Billing?",
+        "why": "Una. El primer intento se abortó y se filtró, el reintento hizo commit. El log tiene ambas, pero read_committed ve una."
+      },
+      "zombie": {
+        "q": "El procesador viejo despierta (un “zombie”) e intenta hacer commit de su transacción. ¿Qué pasa?",
+        "fenced": "Queda fuera (fenced): el broker lo rechaza porque una época más nueva es dueña de ese transactional.id",
+        "duplicate": "Se agrega su factura, un duplicado",
+        "both": "Ambas instancias hacen commit",
+        "why": "Cada instancia nueva incrementa la época del producer para su transactional.id. Las peticiones de épocas viejas fallan con ProducerFenced (reforzado por el KIP-890 en 4.0)."
+      },
+      "email": {
+        "q": "El procesador además envía un correo al cliente al crear una factura. Con este esquema exactly-once, ¿puede un cliente recibir dos correos?",
+        "maybe": "Sí: el correo no es parte de la transacción de Kafka",
+        "never": "Nunca, exactly-once lo cubre",
+        "always": "Siempre",
+        "why": "Los efectos fuera de Kafka no se deshacen. Hazlos idempotentes (deduplica por id de factura) o muévelos después de los datos confirmados."
+      },
+      "check": {
+        "recipe": {
+          "q": "Exactly-once para leer-procesar-escribir en Kafka usa…",
+          "txn": "Un producer transaccional idempotente + offsets confirmados en la transacción + lectores read_committed",
+          "acks": "Solo acks=all",
+          "retries": "Más reintentos",
+          "why": "Se necesitan las tres piezas."
+        },
+        "offsets": {
+          "q": "En un procesador exactly-once, los offsets del consumer se confirman…",
+          "inside": "Dentro de la misma transacción que la salida",
+          "after": "Después de la transacción, por separado",
+          "before": "Antes de procesar",
+          "why": "sendOffsetsToTransaction ata el avance y la salida."
+        },
+        "zombie": {
+          "q": "¿Cómo evita Kafka que un producer zombie confirme trabajo viejo?",
+          "epoch": "Con fencing por época en el transactional.id",
+          "timeout": "Espera un timeout",
+          "nothing": "No puede",
+          "why": "Instancia más nueva, época mayor: las épocas viejas se rechazan."
+        },
+        "limits": {
+          "q": "El exactly-once de Kafka NO cubre…",
+          "external": "Efectos fuera de Kafka (bases de datos, correos, APIs)",
+          "kafka": "Escrituras en topics de Kafka",
+          "never": "Nada, lo cubre todo",
+          "why": "Solo las lecturas y escrituras de Kafka están dentro de la transacción."
+        }
+      }
+    },
+    "7-1": {
+      "title": "Segmentos",
+      "summary": "Una partición es una cadena de archivos de segmento; solo se escribe el último.",
+      "brief": {
+        "title": "Una partición es una pila de archivos",
+        "body": "En disco, una partición no es un archivo infinito. Es una cadena de <b>segmentos</b>. Los registros nuevos siempre van al último, el <b>segmento activo</b>. Cuando llega a <code>segment.bytes</code> (1 GiB) o <code>segment.ms</code> (7 días) se cierra y empieza uno nuevo (un “roll”).",
+        "breaks": "aquí un segmento guarda solo 4 paquetes para que lo veas rotar."
+      },
+      "map": {
+        "chapter": "Un capítulo terminado",
+        "segment": "Un segmento cerrado",
+        "current": "El capítulo que se está escribiendo",
+        "active": "El segmento activo"
+      },
+      "fill": {
+        "title": "Llena el log",
+        "body": "Llegan diez pedidos. Mira los divisores: cada 4 paquetes el segmento activo se cierra y se abre uno nuevo."
+      },
+      "count": {
+        "q": "Los segmentos guardan 4 registros. Después de 13 registros, ¿cuántos segmentos tiene la partición?",
+        "why": "Offsets 0–3, 4–7, 8–11 y 12: cuatro segmentos. El último es el activo."
+      },
+      "where": {
+        "q": "¿Qué segmento recibe los registros nuevos?",
+        "active": "Solo el activo (el último)",
+        "oldest": "El más antiguo",
+        "any": "Cualquier segmento con espacio libre",
+        "why": "Los segmentos son archivos append-only, y solo el activo está abierto para escribir."
+      },
+      "roll": {
+        "title": "Rota a un segmento nuevo",
+        "body": "Envía pedidos hasta que aparezca un cuarto segmento.",
+        "success": "¡Rotó! El segmento lleno se cerró y desde ahora solo la retención o la compactación lo tocarán."
+      },
+      "check": {
+        "count": {
+          "q": "Los segmentos guardan {size} registros. Después de {n} registros, ¿cuántos segmentos hay?",
+          "why": "⌈{n} ÷ {size}⌉ = {segs}."
+        },
+        "write": {
+          "q": "Kafka agrega los registros nuevos al…",
+          "active": "Segmento activo",
+          "oldest": "Segmento más antiguo",
+          "any": "Cualquier segmento",
+          "why": "Solo el segmento más nuevo está abierto para escribir."
+        },
+        "roll": {
+          "q": "Por defecto, un segmento rota al llegar a…",
+          "gib": "1 GiB (segment.bytes) o 7 días (segment.ms)",
+          "mb": "1 MB",
+          "records": "1000 registros",
+          "why": "Lo que ocurra primero."
+        },
+        "unit": {
+          "q": "La retención borra datos en unidades de…",
+          "segments": "Segmentos cerrados enteros",
+          "records": "Registros sueltos",
+          "keys": "Keys",
+          "why": "Por eso un registro puede vivir más que su tiempo de retención: su segmento tiene que cerrarse y vencer primero."
+        }
+      }
+    },
+    "7-2": {
+      "title": "Fuera lo viejo",
+      "summary": "La retención borra segmentos enteros; los offsets nunca se reutilizan.",
+      "brief": {
+        "title": "Nada dura para siempre",
+        "body": "Con <code>cleanup.policy=delete</code>, Kafka borra <b>segmentos cerrados enteros</b> cuando superan <code>retention.ms</code> (7 días por defecto) o cuando la partición excede <code>retention.bytes</code>. El primer offset que sigue en disco, el <b>log start offset</b>, avanza. Los offsets nunca se reutilizan."
+      },
+      "map": {
+        "shred": "Triturar los capítulos más viejos",
+        "delete": "Borrar segmentos viejos",
+        "firstPage": "La primera página que se conserva",
+        "logStart": "Log start offset"
+      },
+      "fill": {
+        "title": "Una semana movida",
+        "body": "Llegan once pedidos. Audit leyó uno de los primeros y luego se fue de vacaciones…"
+      },
+      "room": {
+        "title": "Haz espacio",
+        "body": "Baja cuántos segmentos se conservan y mira desaparecer segmentos enteros. Luego envía un par de pedidos más.",
+        "success": "Desaparecieron segmentos enteros de una vez, y los pedidos nuevos siguieron contando desde donde terminaba el log."
+      },
+      "next": {
+        "q": "Después del borrado, ¿qué offset recibirá el siguiente pedido?",
+        "why": "{end}: los offsets siguen contando. Los números borrados nunca se vuelven a asignar."
+      },
+      "audit": {
+        "q": "Audit vuelve. Su posición apunta a un offset que se borró. ¿Qué pasa en su siguiente fetch?",
+        "reset": "OffsetOutOfRange, así que se reubica según auto.offset.reset",
+        "crash": "El consumer queda roto para siempre",
+        "old": "Lee los registros borrados",
+        "why": "Su posición está por debajo del log start. La política de reset decide dónde cae (aquí earliest = el nuevo inicio del log). Se saltó la historia en silencio: ¡vigila el lag antes de que venzan los datos!"
+      },
+      "check": {
+        "whole": {
+          "q": "La retención (cleanup.policy=delete) elimina…",
+          "whole": "Segmentos cerrados enteros",
+          "each": "Cada registro justo en su fecha límite",
+          "keys": "Las versiones viejas de cada key",
+          "why": "El borrado funciona por segmento, nunca en el activo."
+        },
+        "reuse": {
+          "q": "El log de una partición terminaba en el offset {end} antes de que la retención borrara sus primeros segmentos. ¿Qué offset recibe el siguiente registro?",
+          "why": "{end}: los offsets nunca se reutilizan."
+        },
+        "default": {
+          "q": "¿Cuál es el retention.ms por defecto?",
+          "week": "7 días",
+          "day": "1 día",
+          "forever": "Para siempre",
+          "why": "604 800 000 ms = 7 días."
+        },
+        "oor": {
+          "q": "La posición de un consumer está por debajo del log start offset. Entonces…",
+          "reset": "OffsetOutOfRange: se reubica con auto.offset.reset",
+          "crash": "Kafka borra el consumer",
+          "waits": "Espera a que vuelvan los datos",
+          "why": "Los datos ya no existen. La política de reset elige una nueva posición."
+        }
+      }
+    },
+    "7-3": {
+      "title": "Solo lo último",
+      "summary": "La compactación conserva el último valor por key; los tombstones borran keys.",
+      "brief": {
+        "title": "Una libreta de direcciones, no un diario",
+        "body": "Algunos topics guardan <b>estado</b>: el perfil actual de cada cliente. Con <code>cleanup.policy=compact</code>, un <b>limpiador</b> en segundo plano elimina los registros que fueron reemplazados por uno más nuevo con la misma key. Un consumer que lee desde el inicio reconstruye el mismo estado final, con muchos menos registros.",
+        "breaks": "el limpiador nunca toca el segmento activo, y los offsets nunca cambian: la compactación deja huecos."
+      },
+      "map": {
+        "book": "Una libreta de direcciones",
+        "topic": "Un topic compactado",
+        "cross": "Tachar entradas viejas",
+        "compaction": "Compactación",
+        "stamp": "Un sello de “borrado”",
+        "tombstone": "Tombstone (key + value nulo)"
+      },
+      "updates": {
+        "title": "Actualizaciones de perfil",
+        "body": "Los clientes actualizan su perfil: alice tres veces, bob dos. La tabla muestra el estado que reconstruiría un consumer."
+      },
+      "survive": {
+        "q": "Pasa el limpiador. ¿Qué registros de alice sobreviven?",
+        "three": "Solo el #3, el último",
+        "one": "Solo el #1, el original",
+        "all": "Los tres",
+        "why": "Para cada key solo se necesita el registro más nuevo para reconstruir el estado. Las versiones viejas en segmentos cerrados se eliminan."
+      },
+      "offsets": {
+        "q": "Después de compactar, ¿se renumeran los registros que quedan?",
+        "gaps": "No: los offsets se mantienen y quedan huecos",
+        "renumber": "Sí, se renumeran desde 0",
+        "why": "Los registros son inmutables y conservan su offset. Los consumers simplemente saltan los huecos."
+      },
+      "forget": {
+        "title": "Olvida a carol",
+        "body": "carol pidió que la borren. Escribe un <b>tombstone</b> para ella (key + value nulo), envía algunas actualizaciones más para que quede en un segmento cerrado y pasa el limpiador.",
+        "success": "carol ya no está en el estado reconstruido, y sus registros viejos se eliminaron. El tombstone se queda un tiempo (delete.retention.ms, 1 día) para que todo consumer vea el borrado."
+      },
+      "check": {
+        "keeps": {
+          "q": "La compactación del log garantiza conservar…",
+          "latest": "Al menos el último registro de cada key",
+          "first": "El primer registro de cada key",
+          "all": "Todos los registros",
+          "why": "Las versiones viejas de una key se pueden eliminar."
+        },
+        "tomb": {
+          "q": "¿Cómo se borra una key de un topic compactado?",
+          "null": "Escribiendo un registro con esa key y value nulo (un tombstone)",
+          "delete": "Llamando a una API de borrado sobre el offset",
+          "header": "Agregando un header de borrado",
+          "why": "Los tombstones borran la key y se limpian después de delete.retention.ms."
+        },
+        "active": {
+          "q": "¿Se compacta el segmento activo?",
+          "never": "Nunca",
+          "first": "Solo la primera vez",
+          "always": "Siempre primero",
+          "why": "Solo se limpian los segmentos cerrados."
+        },
+        "offsets": {
+          "q": "Después de compactar, los offsets…",
+          "gaps": "Se mantienen, con huecos",
+          "renumber": "Se renumeran",
+          "reset": "Vuelven a empezar desde 0",
+          "why": "Un offset identifica un registro para siempre."
+        }
+      }
+    },
+    "7-4": {
+      "title": "Bodega fría",
+      "summary": "Tiered storage: los segmentos viejos pasan a almacenamiento remoto barato y siguen siendo legibles.",
+      "brief": {
+        "title": "El almacén en la nube",
+        "body": "Guardar un año de datos en los discos de los brokers es caro. El <b>tiered storage</b> (listo para producción desde Kafka 3.9) copia los segmentos cerrados a almacenamiento remoto de objetos (como S3) y deja solo los recientes en disco local. Los consumers no lo notan: el broker trae los datos viejos del almacenamiento remoto por ellos."
+      },
+      "map": {
+        "cold": "El almacén frío",
+        "remote": "Almacenamiento remoto (object store)",
+        "shelf": "La estantería del piso",
+        "local": "Disco local (segmentos recientes)"
+      },
+      "offload": {
+        "title": "Descarga",
+        "body": "Llegan diez pedidos. Solo el segmento cerrado más nuevo se queda local; los más viejos se ponen azules: ahora viven en almacenamiento remoto."
+      },
+      "read": {
+        "q": "Archive quiere leer el offset 0, que ahora está en almacenamiento remoto. ¿Qué pasa?",
+        "broker": "El broker lo trae del almacenamiento remoto y lo entrega",
+        "gone": "Los datos ya no existen",
+        "s3": "Archive debe leer de S3 por su cuenta",
+        "why": "Los segmentos remotos siguen siendo parte del log. El broker los sirve (las lecturas recientes siguen saliendo del disco local)."
+      },
+      "archive": {
+        "title": "Lee el archivo",
+        "body": "Deja que Archive lea los primeros 4 pedidos, todos de segmentos remotos.",
+        "success": "Datos viejos, servidos de forma transparente. Retención larga y barata sin discos enormes en los brokers."
+      },
+      "compact": {
+        "q": "¿Puede un topic compactado usar tiered storage?",
+        "no": "No, no está soportado",
+        "yes": "Sí, siempre",
+        "why": "El tiered storage funciona con topics de política delete. Los topics compactados se quedan en disco local."
+      },
+      "check": {
+        "what": {
+          "q": "El tiered storage…",
+          "offload": "Mueve los segmentos cerrados a almacenamiento remoto de objetos y los mantiene legibles",
+          "delete": "Borra los segmentos viejos más rápido",
+          "compress": "Comprime los segmentos en disco local",
+          "why": "Retención larga a menor costo."
+        },
+        "serve": {
+          "q": "¿Quién entrega a los consumers las lecturas de segmentos remotos?",
+          "broker": "El broker",
+          "s3": "Los consumers leen S3 directamente",
+          "never": "Nadie, quedan archivados offline",
+          "why": "Los consumers siguen hablando solo con los brokers."
+        },
+        "which": {
+          "q": "¿Qué segmentos se pueden descargar a remoto?",
+          "closed": "Los segmentos cerrados",
+          "active": "El segmento activo",
+          "all": "Todos, de inmediato",
+          "why": "El segmento activo todavía se está escribiendo."
+        },
+        "compact": {
+          "q": "¿Los topics compactados soportan tiered storage?",
+          "no": "No",
+          "yes": "Sí",
+          "why": "No está soportado: usa topics con cleanup.policy=delete."
         }
       }
     }

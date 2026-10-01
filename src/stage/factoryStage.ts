@@ -27,7 +27,10 @@ export type StageLabels = {
   batch?: (partition: number, count: number, size: number) => string;
   ackLost?: string;
   dupDropped?: (seq: number) => string;
-  replica?: (name: string, role: "leader" | "follower" | "down") => string;
+  replica?: (name: string, role: "leader" | "follower" | "lagging" | "down") => string;
+  controller?: (name: string, role: "active" | "standby" | "down") => string;
+  rejected?: (reason: string) => string;
+  segment?: (index: number, state: "active" | "closed" | "remote") => string;
 };
 
 export type ConsumerSpec = { group: string; label: string; color: string };
@@ -41,6 +44,10 @@ export type StageOptions = {
   replicas?: string[];
   /** World 4: one robot arm per consumer-group member, driven by assignment events. */
   memberArms?: boolean;
+  /** World 5: KRaft controller nodes shown as screens at the back of the hub. */
+  controllers?: string[];
+  /** World 7: records per segment, to draw segment boundaries. */
+  segmentSize?: number;
   onLanded?: (record: SimRecord) => void;
 };
 
@@ -96,6 +103,13 @@ export class FactoryStage {
   private commitMarks = new Map<string, CSS2DObject>();
   private leader: string | undefined;
   private down = new Set<string>();
+  private isr: Set<string> | null = null;
+  private hwMark: CSS2DObject | null = null;
+  private controllerTags = new Map<string, HTMLElement>();
+  private txnBoxes = new Map<string, { box: THREE.Object3D; tag: HTMLElement }[]>();
+  private segmentMarks = new Map<string, THREE.Object3D[]>();
+  private controllersDown = new Set<string>();
+  private activeController: string | null = null;
   private frame = 0;
   private last = performance.now();
   private resizeObs: ResizeObserver;
@@ -175,7 +189,7 @@ export class FactoryStage {
     const layout = this.layoutLanes();
     const zMin = layout[0].z, zMax = layout[layout.length - 1].z;
     const armSpan = ((this.options.consumers?.length ?? 0) - 1) * 0.75 + 0.8;
-    const halfZ = Math.ceil(Math.max(-zMin, zMax, armSpan) + 1.7);
+    const halfZ = Math.ceil(Math.max(-zMin + (this.options.controllers?.length ? 1.6 : 0), zMax, armSpan) + 1.7);
     this.floor = { minX: -6, maxX: this.slots + (this.options.memberArms ? 5 : this.options.consumers?.length ? 4 : 2), halfZ };
     const { minX, maxX } = this.floor;
 
@@ -300,6 +314,8 @@ export class FactoryStage {
     }
     await Promise.all(tiles);
 
+    if (this.options.controllers?.length) await this.buildControllers(zMin);
+
     // Consumers: one robot arm per group; otherwise two decorative arms hint at what's coming
     const consumers = this.options.consumers ?? [];
     if (consumers.length) {
@@ -326,9 +342,15 @@ export class FactoryStage {
     }
   }
 
+  private role(name: string): "leader" | "follower" | "lagging" | "down" {
+    if (this.down.has(name)) return "down";
+    if (name === this.leader) return "leader";
+    return this.isr && !this.isr.has(name) ? "lagging" : "follower";
+  }
+
   private tagText(name: string) {
     if (!this.options.replicas?.includes(name) || !this.text.replica) return this.text.topic(name);
-    return this.text.replica(name, this.down.has(name) ? "down" : name === this.leader ? "leader" : "follower");
+    return this.text.replica(name, this.role(name));
   }
 
   private refreshTags() {
@@ -336,7 +358,27 @@ export class FactoryStage {
       el.textContent = this.tagText(name);
       el.classList.toggle("is-down", this.down.has(name));
       el.classList.toggle("is-leader", name === this.leader);
+      el.classList.toggle("is-lagging", this.role(name) === "lagging");
     }
+    for (const [name, el] of this.controllerTags) {
+      const role = this.controllersDown.has(name) ? "down" : name === this.activeController ? "active" : "standby";
+      el.textContent = this.text.controller?.(name, role) ?? name;
+      el.classList.toggle("is-down", role === "down");
+      el.classList.toggle("is-leader", role === "active");
+    }
+  }
+
+  /** High watermark: a flag on the leader's conveyor; consumers may read below it. */
+  private onHighWatermark(topic: string, offset: number) {
+    const lane = this.lanes.find((l) => l.topic === topic);
+    if (!lane) return;
+    if (!this.hwMark) {
+      this.hwMark = css2d(label("stage-hw", "HW"));
+      this.hwMark.center.set(0.5, 1);
+      this.scene.add(this.hwMark);
+    }
+    this.hwMark.position.z = lane.z - 0.55;
+    void this.tweens.to(this.hwMark.position, { x: this.slotX(lane, Math.max(offset, lane.viewStart)) - 0.5, y: 0.2 }, 260, easeOutBack);
   }
 
   private flashAlert(text: string) {
@@ -346,6 +388,23 @@ export class FactoryStage {
     void this.alertLabel.offsetWidth;
     this.alertLabel.classList.add("is-on");
     setTimeout(() => (this.alertObj.visible = false), 1500);
+  }
+
+  private async buildControllers(zMin: number) {
+    const names = this.options.controllers ?? [];
+    this.activeController = names[0] ?? null;
+    for (const [i, name] of names.entries()) {
+      const screen = await model("screen-wide");
+      screen.position.set(-4.6 + i * 1.5, 0, zMin - 1.9);
+      screen.scale.setScalar(0.85);
+      this.scene.add(screen);
+      const tl = label("stage-tag stage-tag--controller", name);
+      this.controllerTags.set(name, tl.inner);
+      const obj = css2d(tl);
+      obj.position.set(0, 1.25, 0);
+      screen.add(obj);
+    }
+    this.refreshTags();
   }
 
   /** A small flag under the conveyor showing a group's position (next offset to read). */
@@ -429,6 +488,7 @@ export class FactoryStage {
     const box = new THREE.Group();
     const body = await model("box-small");
     const dup = record.headers["x-dup"] === "1";
+    const tombstone = record.headers["x-tombstone"] === "1";
     const codec = record.headers["x-codec"];
     // Compressed batches travel vacuum-packed: smaller boxes
     const squeeze = codec ? 0.55 + 0.45 * (CODECS[codec as Codec]?.ratio ?? 1) : 1;
@@ -436,12 +496,20 @@ export class FactoryStage {
     box.add(body);
     const sticker = new THREE.Mesh(
       new THREE.BoxGeometry(0.34 * squeeze, 0.012, 0.3 * squeeze),
-      new THREE.MeshStandardMaterial({ color: dup ? COLORS.danger : keyColor(record.key), roughness: 0.6 }),
+      new THREE.MeshStandardMaterial({ color: dup ? COLORS.danger : tombstone ? 0x2b2840 : keyColor(record.key), roughness: 0.6 }),
     );
     sticker.position.set(0, 0.556 * squeeze, 0);
     box.add(sticker);
-    const text = `${record.key ?? "∅"}${record.value.startsWith("#") ? ` ${record.value}` : ""}${dup ? " · DUP" : ""}`;
-    const tag = css2d(label(dup ? "stage-key stage-key--dup" : "stage-key", text));
+    const txnId = record.headers["x-txn"];
+    const shown = record.value.startsWith("#") || record.value.startsWith("inv#") || record.headers["x-show"] === "1" ? ` ${record.value}` : "";
+    const text = tombstone ? `${record.key} ∅` : `${record.key ?? "∅"}${shown}${dup ? " · DUP" : ""}${txnId ? " ⧗" : ""}`;
+    const tl = label(dup ? "stage-key stage-key--dup" : tombstone ? "stage-key stage-key--tomb" : txnId ? "stage-key stage-key--txn" : "stage-key", text);
+    const tag = css2d(tl);
+    if (txnId) {
+      const list = this.txnBoxes.get(txnId) ?? [];
+      list.push({ box, tag: tl.inner });
+      this.txnBoxes.set(txnId, list);
+    }
     tag.position.set(0, 0.75, 0);
     box.add(tag);
     return box;
@@ -495,6 +563,27 @@ export class FactoryStage {
     if (event.type === "ackLost" && this.text.ackLost) this.flashAlert(this.text.ackLost);
     if (event.type === "duplicateRejected" && this.text.dupDropped) this.showPill(this.text.dupDropped(event.seq), "is-good");
     if (event.type === "brokerDown") this.onBrokerDown(event.topic);
+    if (event.type === "brokerUp") this.onBrokerUp(event.topic);
+    if (event.type === "isrChanged") {
+      this.isr = new Set(event.isr);
+      this.refreshTags();
+    }
+    if (event.type === "highWatermark") this.onHighWatermark(event.topic, event.offset);
+    if (event.type === "produceRejected" && this.text.rejected) this.flashAlert(this.text.rejected(event.reason));
+    if (event.type === "partitionOffline" && this.text.rejected) this.flashAlert(this.text.rejected(event.reason));
+    if (event.type === "segments") this.onSegments(event.topic, event.partition, event.segments);
+    if (event.type === "recordsRemoved") this.onRemoved(event.topic, event.partition, event.offsets);
+    if (event.type === "offsetOutOfRange" && this.text.rejected) this.flashAlert(this.text.rejected("outOfRange"));
+    if (event.type === "txn" && (event.state === "commit" || event.state === "abort")) this.onTxnEnd(String(event.id), event.state === "commit");
+    if (event.type === "txn" && event.state === "fenced" && this.text.rejected) this.flashAlert(this.text.rejected("fenced"));
+    if (event.type === "controllerDown") {
+      this.controllersDown.add(event.name);
+      this.refreshTags();
+    }
+    if (event.type === "controllerElected") {
+      this.activeController = event.name;
+      this.refreshTags();
+    }
     if (event.type === "leaderElected") {
       this.leader = event.topic;
       this.refreshTags();
@@ -534,7 +623,7 @@ export class FactoryStage {
     if (!m) return;
     this.members.delete(id);
     this.puff(m.obj.position.clone().setY(0.8), COLORS.danger);
-    void this.tweens.to(m.obj.rotation, { z: 1.4 }, 420).then(() => this.tweens.to(m.obj.position, { y: -2 }, 500)).then(() => this.scene.remove(m.obj));
+    void this.tweens.to(m.obj.rotation, { z: 1.4 }, 420).then(() => this.tweens.to(m.obj.position, { y: -2 }, 500)).then(() => this.removeObject(m.obj));
   }
 
   /** The committed offset: a bookmark ⚑ above the conveyor (where a restart resumes). */
@@ -584,6 +673,125 @@ export class FactoryStage {
     this.puff(new THREE.Vector3(this.slots / 2, 0.6, this.lane(topic, 0).z), COLORS.danger);
   }
 
+  /** CSS2D labels don't follow scale or removal of their parent: hide/remove them explicitly. */
+  private hideLabels(obj: THREE.Object3D) {
+    obj.traverse((o) => {
+      if (o instanceof CSS2DObject) o.visible = false;
+    });
+  }
+
+  private removeObject(obj: THREE.Object3D) {
+    obj.traverse((o) => {
+      if (o instanceof CSS2DObject) o.element.remove();
+    });
+    this.scene.remove(obj);
+    obj.removeFromParent();
+  }
+
+  /** A translucent shell over a box: blue = in remote storage, grey = aborted. */
+  private shell(box: THREE.Object3D, color: number, opacity: number) {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.6, 0.56), new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false }));
+    mesh.position.y = 0.27;
+    box.add(mesh);
+  }
+
+  /** Segment boundaries: thin dividers across the conveyor plus a label per segment. */
+  private onSegments(topic: string, partition: number, segments: { index: number; start: number; end: number; active: boolean; remote: boolean }[]) {
+    const lane = this.lane(topic, partition);
+    if (!lane || !this.options.segmentSize) return;
+    const id = `${topic}/${partition}`;
+    for (const o of this.segmentMarks.get(id) ?? []) this.removeObject(o);
+    const marks: THREE.Object3D[] = [];
+    const size = this.options.segmentSize;
+    for (const seg of segments) {
+      const from = Math.max(seg.index * size, lane.viewStart);
+      const to = seg.active ? Math.max(seg.end, seg.index * size + 1) : (seg.index + 1) * size;
+      if (to <= lane.viewStart) continue;
+      const x0 = this.slotX(lane, from) - 0.5;
+      const divider = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.55, 1.0), new THREE.MeshStandardMaterial({ color: seg.active ? COLORS.producer : 0x2b2840 }));
+      divider.position.set(x0, 0.4, lane.z);
+      this.scene.add(divider);
+      marks.push(divider);
+      const state = seg.remote ? "remote" : seg.active ? "active" : "closed";
+      const l = label(`stage-segment is-${state}`, this.text.segment?.(seg.index, state) ?? `seg ${seg.index}`);
+      const obj = css2d(l);
+      obj.center.set(0, 0);
+      obj.position.set(x0 + 0.1, 0.05, lane.z + 0.62);
+      this.scene.add(obj);
+      marks.push(obj);
+      // Offloaded segments: boxes get a cold blue tint
+      for (let o = seg.start; o < seg.end; o++) {
+        const box = lane.boxes.get(o);
+        if (box && seg.remote && !box.userData.remote) {
+          box.userData.remote = true;
+          this.shell(box, 0x4f8cff, 0.6);
+        }
+      }
+    }
+    this.segmentMarks.set(id, marks);
+  }
+
+  /** Retention or compaction removed records: boxes shrink away; offsets (and gaps) stay. */
+  private onRemoved(topic: string, partition: number, offsets: number[]) {
+    const lane = this.lane(topic, partition);
+    if (!lane) return;
+    offsets.forEach((o, i) => {
+      const box = lane.boxes.get(o);
+      if (!box) return;
+      lane.boxes.delete(o);
+      setTimeout(() => {
+        this.hideLabels(box);
+        this.puff(box.position.clone().setY(0.6), 0x9a95b8);
+        void this.tweens.to(box.scale, { x: 0.01, y: 0.01, z: 0.01 }, 320).then(() => this.removeObject(box));
+      }, i * 60);
+    });
+  }
+
+  /** A transaction marker: a flat COMMIT/ABORT plate dropped onto the conveyor by the coordinator. */
+  private async dropMarker(lane: Lane, record: SimRecord) {
+    const commit = record.headers["x-control"] === "commit";
+    const plate = new THREE.Group();
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.1, 0.5), new THREE.MeshStandardMaterial({ color: commit ? COLORS.broker : COLORS.danger, roughness: 0.6 }));
+    slab.castShadow = true;
+    plate.add(slab);
+    const tag = css2d(label(`stage-marker ${commit ? "is-commit" : "is-abort"}`, commit ? "COMMIT" : "ABORT"));
+    tag.position.set(0, 0.15, 0);
+    plate.add(tag);
+    plate.position.set(this.slotX(lane, record.offset), 3, lane.z);
+    this.scene.add(plate);
+    lane.boxes.set(record.offset, plate);
+    await this.tweens.to(plate.position, { y: 0.45 }, 420, easeOutBack);
+    this.puff(plate.position.clone(), commit ? COLORS.broker : COLORS.danger);
+    const leo = this.cluster.topic(record.topic).partitions[record.partition].length;
+    lane.nextLabel.textContent = this.text.next(leo);
+    void this.tweens.to(lane.next.position, { x: this.slotX(lane, leo) }, 300, easeOutBack);
+    this.options.onLanded?.(record);
+  }
+
+  private onTxnEnd(id: string, commit: boolean) {
+    for (const { box, tag } of this.txnBoxes.get(id) ?? []) {
+      tag.textContent = tag.textContent?.replace(" ⧗", commit ? " ✓" : " ✗") ?? "";
+      tag.classList.remove("stage-key--txn");
+      tag.classList.add(commit ? "stage-key--ok" : "stage-key--aborted");
+      if (!commit) this.shell(box, 0x5f5a78, 0.55);
+      box.scale.set(1.15, 0.85, 1.15);
+      void this.tweens.to(box.scale, { x: 1, y: 1, z: 1 }, 260, easeOutBack);
+    }
+    this.txnBoxes.delete(id);
+  }
+
+  private onBrokerUp(topic: string) {
+    this.down.delete(topic);
+    this.refreshTags();
+    for (const lane of this.lanes) {
+      if (lane.topic !== topic) continue;
+      lane.material.color.setHex(0xffffff);
+      lane.material.emissiveIntensity = 0;
+      lane.title.classList.remove("is-down");
+    }
+    this.pulse(topic, 0, COLORS.broker);
+  }
+
   /** The dark pill under the partitioner, with an optional tone. */
   private async showPill(text: string, tone = "") {
     this.hashLabel.textContent = text;
@@ -623,7 +831,8 @@ export class FactoryStage {
       for (const [off, b] of lane.boxes) {
         if (off < lane.viewStart) {
           lane.boxes.delete(off);
-          void this.tweens.to(b.scale, { x: 0.01, y: 0.01, z: 0.01 }, 260).then(() => this.scene.remove(b));
+          this.hideLabels(b);
+          void this.tweens.to(b.scale, { x: 0.01, y: 0.01, z: 0.01 }, 260).then(() => this.removeObject(b));
         } else {
           void this.tweens.to(b.position, { x: this.slotX(lane, off) }, 320, easeInOutCubic);
         }
@@ -637,6 +846,10 @@ export class FactoryStage {
     this.producer.scale.set(1.08, 0.9, 1.08);
     void this.tweens.to(this.producer.scale, { x: 1, y: 1, z: 1 }, 260, easeOutBack);
 
+    if (record.headers["x-control"]) {
+      await this.dropMarker(lane, record);
+      return;
+    }
     const copyFrom = record.headers["x-copy-from"];
     if (copyFrom) {
       // Replication: a follower fetches the record from the leader's conveyor

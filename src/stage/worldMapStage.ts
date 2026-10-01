@@ -165,6 +165,42 @@ export class WorldMapStage {
       for (const [x, z] of [[1.3, -0.8], [1.5, 0.9], [-0.4, -1.4]] as const) movers.push(await place("robot-arm-a", x, z, 0, 0.85));
       const b = await place("box-small", -0.6, 0.6, 0, 0.8);
       b.position.y = 0.42;
+    } else if (spec.id === 5) {
+      for (const [x, z] of [[-1.5, -0.6], [0, -1.1], [1.5, -0.6]] as const) await place("machine-window", x, z, 0, 0.75);
+      await place("screen-wide", 0, 1.2, 0, 0.8);
+      for (const x of [-1.2, 0, 1.2]) {
+        const b = await place("box-small", x, 0.25, 0, 0.7);
+        movers.push(b);
+      }
+    } else if (spec.id === 6) {
+      for (const z of [-0.7, 0.7]) for (let x = -1.5; x <= 1.5; x += 1) await place("conveyor-stripe-sides", x, z, 0, 0.85);
+      for (const [x, z, color] of [[-0.5, -0.7, 0x3f9f62], [1, 0.7, 0x3f9f62], [0.4, -0.7, 0xe5484d]] as const) {
+        const plate = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.09, 0.45), new THREE.MeshStandardMaterial({ color }));
+        plate.position.set(x, 0.42, z);
+        plate.castShadow = true;
+        group.add(plate);
+      }
+      for (const [x, z] of [[-1.2, -0.7], [0, 0.7]] as const) {
+        const b = await place("box-small", x, z, 0, 0.75);
+        b.position.y = 0.4;
+      }
+      movers.push(await place("robot-arm-a", 2.2, 0, 0, 0.75));
+    } else if (spec.id === 7) {
+      await place("hopper-high-square", -1.4, -0.5, 0, 0.8);
+      for (let x = -0.6; x <= 1.5; x += 1) await place("conveyor-stripe-sides", x, 0.6, 0, 0.85);
+      for (const [x, z] of [[0.8, -1], [1.3, -0.7], [1.05, -1.3]] as const) {
+        const b = await place("box-small", x, z, 0, 0.7);
+        b.traverse((o) => {
+          const mesh = o as THREE.Mesh;
+          if (mesh.isMesh) {
+            const mat = (mesh.material as THREE.MeshStandardMaterial).clone();
+            mat.color.lerp(new THREE.Color(0x7fb2ff), 0.55);
+            mesh.material = mat;
+          }
+        });
+      }
+      for (const x of [-0.3, 0.7]) movers.push(await place("box-small", x, 0.6, 0, 0.75));
+      movers.forEach((m) => (m.position.y = 0.42));
     } else {
       // Upcoming worlds: under construction
       await place("warning-orange", -0.8, 0.6, 0, 0.9);
@@ -276,7 +312,8 @@ export class WorldMapStage {
       isl.group.position.y += (target - isl.group.position.y) * 0.1;
       if (isl.spec.locked) continue;
       for (const [k, m] of isl.movers.entries()) {
-        if (isl.spec.id === 4) m.rotation.y = Math.sin(this.t * 1.5 + k) * 0.6;
+        if (isl.spec.id === 4 || isl.spec.id === 6) m.rotation.y = Math.sin(this.t * 1.5 + k) * 0.6;
+        else if (isl.spec.id === 5) m.position.y = 0.08 + Math.abs(Math.sin(this.t * 2 + k)) * 0.35;
         else {
           m.position.x += dt * 0.0006;
           if (m.position.x > 1.6) m.position.x = -0.9;

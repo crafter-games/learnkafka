@@ -3,6 +3,7 @@ import { ALL_LEVELS, buildCheck, starsFor } from ".";
 
 describe("levels", () => {
   it("every level has a brief first and a 4-question check", () => {
+    expect(ALL_LEVELS.length).toBeGreaterThan(20);
     for (const l of ALL_LEVELS) {
       expect(l.steps[0].kind).toBe("brief");
       expect(l.check).toHaveLength(4);

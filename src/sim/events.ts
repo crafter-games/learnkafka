@@ -3,6 +3,9 @@
 
 export type Headers = Record<string, string>;
 
+/** A log segment: offsets [start, end); only the last one (active) receives writes. */
+export type Segment = { index: number; start: number; end: number; active: boolean; remote: boolean };
+
 export type SimRecord = {
   topic: string;
   key: string | null;
@@ -28,6 +31,19 @@ export type SimEvent =
   /** Replication: a broker went down / a replica became leader. */
   | { type: "brokerDown"; topic: string }
   | { type: "leaderElected"; topic: string; lost: number }
+  | { type: "brokerUp"; topic: string }
+  | { type: "isrChanged"; isr: string[] }
+  | { type: "highWatermark"; topic: string; offset: number }
+  | { type: "produceRejected"; reason: "offline" | "notEnoughReplicas" }
+  | { type: "partitionOffline"; reason: "noQuorum" | "noIsr" }
+  | { type: "controllerDown"; name: string }
+  | { type: "controllerElected"; name: string | null }
+  /** Storage (World 7). */
+  | { type: "offsetOutOfRange"; group: string; topic: string; partition: number; from: number; to: number }
+  | { type: "segments"; topic: string; partition: number; segments: Segment[] }
+  | { type: "recordsRemoved"; topic: string; partition: number; offsets: number[]; reason: "retention" | "compaction" }
+  /** Transactions (World 6). `fenced` = a newer instance with the same transactional.id took over. */
+  | { type: "txn"; state: "begin" | "commit" | "abort" | "fenced"; id: number }
   /** Consumer groups (World 4). */
   | { type: "assignment"; group: string; topic: string; members: { id: string; partitions: number[]; color: string }[]; paused: number[] }
   | { type: "committed"; group: string; topic: string; partition: number; offset: number }

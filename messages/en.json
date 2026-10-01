@@ -81,7 +81,17 @@
     "batch": "P{p} {bar}",
     "ackLost": "ack lost → retry",
     "dupDropped": "seq {seq} already written → dropped",
-    "replica": "broker {n} · {role, select, leader {leader ★} follower {follower} other {down}}"
+    "replica": "broker {n} · {role, select, leader {leader ★} follower {in sync} lagging {out of sync} other {down}}",
+    "controller": "controller {n} · {role, select, active {active ★} standby {standby} other {down}}",
+    "rejected": {
+      "offline": "partition offline: no leader",
+      "notEnoughReplicas": "NotEnoughReplicas: rejected",
+      "noQuorum": "no controller quorum: no election",
+      "noIsr": "no in-sync replica to elect",
+      "fenced": "ProducerFenced: a newer instance took over",
+      "outOfRange": "OffsetOutOfRange → reset to log start"
+    },
+    "segment": "seg {index}{state, select, active { · active} remote { · remote} other {}}"
   },
   "level": {
     "map": "World map",
@@ -135,13 +145,30 @@
         "acks": "acks",
         "protocol": "protocol",
         "commit": "commit",
-        "maxPollRecords": "max.poll.records"
+        "maxPollRecords": "max.poll.records",
+        "minInsync": "min.insync.replicas",
+        "unclean": "unclean election",
+        "retainSegments": "segments kept"
       },
       "member": {
         "join": "Hire a robot ({n})",
         "leave": "A robot leaves",
         "crash": "Crash a robot"
-      }
+      },
+      "brokerName": "b{n}",
+      "brokerCrash": "Crash {n}",
+      "brokerSlow": "slow",
+      "brokerFix": "fix",
+      "brokerRevive": "bring back",
+      "controllerCrash": "Crash the active controller",
+      "txn": {
+        "begin": "Begin transaction",
+        "send": "Send order + invoice",
+        "commit": "Commit",
+        "abort": "Abort"
+      },
+      "clean": "Run the log cleaner",
+      "tombstone": "Delete {key} (tombstone)"
     },
     "delivered": "Delivered (in completion order)",
     "nothingYet": "Nothing delivered yet…",
@@ -153,7 +180,12 @@
       "lost": "lost",
       "lag": "lag"
     },
-    "restart": "Restart level"
+    "restart": "Restart level",
+    "isr": {
+      "hw": "High watermark: consumers can read offsets below {hw}.",
+      "offline": "No leader: the partition is offline."
+    },
+    "table": "State a consumer rebuilds (key → latest value)"
   },
   "map": {
     "home": "Home",
@@ -183,20 +215,30 @@
       "title": "Free dispatch",
       "body": "No goals, no quiz: just you, three conveyors and your customers."
     },
-    "w5": "Brokers & Replication",
+    "w5": {
+      "title": "Brokers & Replication",
+      "body": "How a cluster survives failures: replicas, leaders and followers, the ISR and high watermark, min.insync.replicas, and the KRaft controllers that run elections."
+    },
     "shift": {
       "title": "Morning shift",
       "empty": "Finish a level to get your first review.",
       "due": "{n, plural, one {# concept} other {# concepts}} ready for review",
       "clear": "All caught up. Practice anytime."
     },
-    "w6": "Delivery guarantees",
-    "w7": "Retention & Compaction",
+    "w6": {
+      "title": "Delivery guarantees",
+      "body": "At-most-once, at-least-once, exactly-once: diagnose real symptoms, then use transactions so a group of writes happens all together or not at all."
+    },
+    "w7": {
+      "title": "Retention & Compaction",
+      "body": "Where old data goes: log segments, retention that deletes whole segments, compaction that keeps the latest value per key, and tiered storage that moves history to cheap remote storage."
+    },
     "prev": "Previous world",
     "next": "Next world",
     "playLevel": "Play {id}",
     "worldLocked": "Finish World {n} to unlock",
-    "soonBody": "This island is still under construction. More Kafka is on the way."
+    "soonBody": "This island is still under construction. More Kafka is on the way.",
+    "w8": "Streams & Connect"
   },
   "levels": {
     "1-1": {
@@ -1311,6 +1353,720 @@
         "size": {
           "q": "Producers write {rate} records/s. One consumer handles {per} records/s. Minimum partitions (and consumers) to keep up?",
           "why": "{rate} ÷ {per} = {k}, so {k} partitions with {k} consumers."
+        }
+      }
+    },
+    "5-1": {
+      "title": "Copies everywhere",
+      "summary": "Replication factor, leaders and followers.",
+      "brief": {
+        "title": "One partition, three warehouses",
+        "body": "A Kafka <b>cluster</b> is a group of <b>brokers</b>. Each partition is stored on <code>replication.factor</code> of them. One replica is the <b>leader</b>: it takes every write (and serves reads by default). The others are <b>followers</b> that keep fetching from it.",
+        "breaks": "<code>default.replication.factor</code> is <b>1</b>, so a topic created without thinking has no copies at all. Production clusters use 3."
+      },
+      "map": {
+        "warehouse": "A warehouse",
+        "broker": "A broker",
+        "copies": "The same conveyor in 3 warehouses",
+        "replicas": "Replicas of one partition (RF=3)",
+        "star": "The ★ warehouse",
+        "leader": "The partition leader"
+      },
+      "copy": {
+        "title": "Followers fetch",
+        "body": "Three orders go to the leader. Watch the followers copy each parcel from the leader’s conveyor."
+      },
+      "where": {
+        "q": "Where does the producer send its writes?",
+        "leader": "To the partition leader",
+        "any": "To any replica",
+        "all": "To all three at once",
+        "why": "Producers only write to the leader. Followers fetch from it, just like consumers do."
+      },
+      "lose": {
+        "title": "Lose a warehouse, keep the data",
+        "body": "Send a couple of orders and wait for their ✓. Then crash <b>broker 1</b>, the leader.",
+        "success": "A follower took over as leader and every ✓ order is still there. That’s what replicas are for."
+      },
+      "rf": {
+        "q": "With replication.factor = 3, how many brokers can fail before an acknowledged record (acks=all) is at risk?",
+        "why": "Two. One copy must survive: RF − 1 failures."
+      },
+      "check": {
+        "default": {
+          "q": "What’s Kafka’s default.replication.factor?",
+          "one": "1",
+          "three": "3",
+          "two": "2",
+          "why": "1: no copies. Always set it explicitly (3 is typical)."
+        },
+        "writes": {
+          "q": "Which replica handles a partition’s writes?",
+          "leader": "The leader",
+          "any": "Any replica",
+          "all": "All replicas together",
+          "why": "All writes go through the leader."
+        },
+        "survive": {
+          "q": "replication.factor = {rf}. How many replica failures can a partition survive and still have a copy?",
+          "why": "{rf} − 1 = {n}."
+        },
+        "followers": {
+          "q": "How do followers get new records?",
+          "fetch": "They fetch them from the leader",
+          "producer": "The producer sends them directly",
+          "zk": "ZooKeeper copies them",
+          "why": "Followers replicate by fetching from the leader."
+        }
+      }
+    },
+    "5-2": {
+      "title": "Keeping up",
+      "summary": "The ISR and the high watermark.",
+      "brief": {
+        "title": "In sync or out",
+        "body": "Replicas that keep up with the leader form the <b>ISR</b> (in-sync replicas). One that falls behind for longer than <code>replica.lag.time.max.ms</code> is dropped from it. A record is <b>committed</b> once every ISR member has it, and the <b>high watermark</b> (HW) marks that point: consumers only read below it.",
+        "breaks": "the real lag limit is 30 seconds. Here it’s about 2.5 so you don’t have to wait."
+      },
+      "map": {
+        "pace": "Copies keeping pace",
+        "isr": "The ISR",
+        "hw": "The green HW flag",
+        "hwK": "High watermark (end of committed data)"
+      },
+      "slow": {
+        "title": "Slow down a follower",
+        "body": "Orders keep arriving. Press <b>slow</b> on broker 3 and watch it fall out of the ISR (orange tag). Then press <b>fix</b> and watch it catch up and rejoin.",
+        "success": "Out, then back in. The ISR changes all the time in real clusters, and the HW only moves as fast as the slowest in-sync replica."
+      },
+      "wait": {
+        "q": "While broker 3 was out of the ISR, did acks=all writes wait for it?",
+        "no": "No: acks=all waits for the ISR, and it wasn’t in it",
+        "yes": "Yes, they waited for all 3 replicas",
+        "rejected": "They were rejected",
+        "why": "“All” means all <b>in-sync</b> replicas. Dropping a slow follower keeps writes fast."
+      },
+      "read": {
+        "q": "A consumer can read records…",
+        "hw": "Up to the high watermark",
+        "leader": "Up to the end of the leader’s log",
+        "slowest": "Up to the slowest replica, in sync or not",
+        "why": "Only committed records (below the HW) are visible, so a consumer never sees something that a failover could undo."
+      },
+      "check": {
+        "isr": {
+          "q": "The ISR is…",
+          "caught": "The replicas currently caught up with the leader",
+          "all": "All replicas",
+          "leaders": "The leaders of all partitions",
+          "why": "In-sync replicas: the ones eligible to become leader without data loss."
+        },
+        "hw": {
+          "q": "The high watermark marks…",
+          "committed": "The end of committed data (every ISR replica has it)",
+          "end": "The end of the leader’s log",
+          "oldest": "The oldest record kept",
+          "why": "Consumers read up to the HW."
+        },
+        "lag": {
+          "q": "What’s the default replica.lag.time.max.ms?",
+          "thirty": "30 seconds",
+          "one": "1 second",
+          "five": "5 minutes",
+          "why": "30 000 ms: a follower that hasn’t caught up in 30 s leaves the ISR."
+        },
+        "calc": {
+          "q": "The leader has {leader} records, follower A has {a}, follower B has {b}, and both are in the ISR. What’s the high watermark?",
+          "why": "The minimum across the ISR: {b}."
+        }
+      }
+    },
+    "5-3": {
+      "title": "Safety net",
+      "summary": "min.insync.replicas: refuse writes rather than risk them.",
+      "brief": {
+        "title": "How many copies are enough?",
+        "body": "<code>acks=all</code> waits for every <b>in-sync</b> replica. But if the ISR shrinks to just the leader, “all” means one copy. <code>min.insync.replicas</code> sets the floor: with fewer replicas in sync, <code>acks=all</code> writes are <b>rejected</b> (NotEnoughReplicas). You trade availability for durability.",
+        "breaks": "it only applies to producers using acks=all."
+      },
+      "alone": {
+        "title": "One copy left",
+        "body": "With the default <code>min.insync.replicas=1</code>, both followers crash and the producer keeps writing…"
+      },
+      "net": {
+        "title": "Set the safety net",
+        "body": "Set <code>min.insync.replicas=2</code> and send an order while only one replica is up: it should be refused (⊘). Then <b>bring back</b> a follower and send again until it’s accepted (✓). (Crash brokers again if you need to.)",
+        "success": "Refused while only one copy existed, accepted once two replicas were in sync. No more “saved” orders that live on a single broker."
+      },
+      "one": {
+        "q": "RF=3, min.insync.replicas=2, one broker down. acks=all writes…",
+        "ok": "Still succeed (2 replicas in sync)",
+        "rejected": "Are rejected",
+        "lost": "Are lost",
+        "why": "Two in-sync replicas meet the floor of 2, so writes go through."
+      },
+      "two": {
+        "q": "Same cluster, but two brokers down. acks=all writes…",
+        "rejected": "Are rejected with NotEnoughReplicas",
+        "ok": "Still succeed",
+        "lost": "Succeed and are later lost",
+        "why": "Only the leader is in sync, below the floor of 2, so the producer gets an error instead of a fragile “saved”."
+      },
+      "check": {
+        "default": {
+          "q": "What’s the default min.insync.replicas?",
+          "one": "1",
+          "two": "2",
+          "three": "3",
+          "why": "1. With acks=all that can mean a single copy."
+        },
+        "when": {
+          "q": "When does an acks=all write get NotEnoughReplicas?",
+          "below": "When the ISR is smaller than min.insync.replicas",
+          "slow": "When the network is slow",
+          "always": "Always with RF=3",
+          "why": "The floor protects durability."
+        },
+        "prod": {
+          "q": "A common production setting is…",
+          "rf3min2": "RF=3 with min.insync.replicas=2",
+          "rf1min1": "RF=1 with min.insync.replicas=1",
+          "rf3min3": "RF=3 with min.insync.replicas=3",
+          "why": "It survives one broker loss for writes, and any acknowledged record exists on at least 2 brokers."
+        },
+        "acks1": {
+          "q": "With acks=1, min.insync.replicas…",
+          "ignored": "Doesn’t apply",
+          "rejected": "Rejects every write",
+          "waits": "Makes the producer wait for all replicas",
+          "why": "The floor is only checked for acks=all."
+        }
+      }
+    },
+    "5-4": {
+      "title": "Who’s in charge?",
+      "summary": "KRaft controllers, quorums and leader elections.",
+      "brief": {
+        "title": "The control tower",
+        "body": "Someone has to decide who leads each partition. In Kafka 4.x that’s the <b>KRaft controller quorum</b>: a few controller nodes that keep the cluster’s metadata in a Raft log (<code>__cluster_metadata</code>). One is <b>active</b>, and it runs leader elections. A majority must be alive to do anything.",
+        "breaks": "ZooKeeper used to do this job. It was removed in Kafka 4.0."
+      },
+      "map": {
+        "tower": "The control tower screens",
+        "quorum": "The controller quorum",
+        "star": "The ★ screen",
+        "active": "The active controller",
+        "logbook": "The tower’s logbook",
+        "metadata": "The metadata log"
+      },
+      "lose": {
+        "title": "Lose a controller",
+        "body": "Crash the active controller and watch another take over. Then crash a broker that leads a partition: the new active controller should still run the election.",
+        "success": "The quorum survived one loss (2 of 3 alive) and kept running elections."
+      },
+      "noquorum": {
+        "q": "Two of three controllers are down, and then the partition leader dies. What happens?",
+        "offline": "No election: the partition stays offline until a majority is back",
+        "elected": "A new leader is elected anyway",
+        "zk": "ZooKeeper takes over",
+        "why": "A single controller is not a majority, so it can’t commit metadata changes and elections stall. That’s why you run 3 (or 5) controllers."
+      },
+      "unclean": {
+        "title": "Unclean elections",
+        "body": "What if no in-sync replica is alive? By default Kafka waits (the partition is offline). With <code>unclean.leader.election.enable=true</code>, an out-of-sync replica may become leader: the partition is available sooner, but records it never copied are <b>lost</b>. Since Kafka 4.1, Eligible Leader Replicas (ELR) make the safe choice smarter."
+      },
+      "choose": {
+        "q": "For orders you can’t afford to lose, unclean.leader.election.enable should be…",
+        "false": "false (the default)",
+        "true": "true",
+        "why": "Waiting for an in-sync replica protects durability. Turn unclean election on only where availability matters more than every record."
+      },
+      "check": {
+        "zk": {
+          "q": "In Kafka 4.x, ZooKeeper is…",
+          "removed": "Removed: KRaft manages metadata",
+          "required": "Required",
+          "optional": "Optional",
+          "why": "Kafka 4.0 removed ZooKeeper completely."
+        },
+        "job": {
+          "q": "The KRaft controllers mainly…",
+          "metadata": "Manage cluster metadata and run leader elections",
+          "data": "Store all the records",
+          "consumers": "Deliver records to consumers",
+          "why": "They handle the control plane. Brokers serve data."
+        },
+        "quorum": {
+          "q": "A quorum has {n} controllers. How many can fail while it still works?",
+          "why": "It needs a majority ({m} of {n}), so {f} can fail."
+        },
+        "unclean": {
+          "q": "Turning on unclean leader election can cause…",
+          "loss": "Data loss, in exchange for availability",
+          "faster": "Faster consumers",
+          "nothing": "Nothing at all",
+          "why": "An out-of-sync leader doesn’t have the latest records."
+        }
+      }
+    },
+    "6-1": {
+      "title": "Diagnose the symptom",
+      "summary": "At-most, at-least, exactly-once: match each symptom to its cause.",
+      "brief": {
+        "title": "Three promises",
+        "body": "Every pipeline makes one of three promises. <b>At-most-once</b>: never twice, but maybe never. <b>At-least-once</b>: never lost, but maybe twice. <b>Exactly-once</b>: once, period, which needs extra machinery. Now you’ll play support engineer: each ticket describes a symptom. Which mechanism caused it?",
+        "breaks": "the mechanisms come from Worlds 3 and 4. They’re mixed on purpose: telling look-alikes apart is what makes the knowledge stick."
+      },
+      "map": {
+        "atmost": "Delivered 0 or 1 times",
+        "atmostK": "At-most-once",
+        "atleast": "Delivered 1 or more times",
+        "atleastK": "At-least-once",
+        "exactly": "Delivered exactly once",
+        "exactlyK": "Exactly-once"
+      },
+      "s1": {
+        "q": "Ticket: after a short network glitch, some orders appear TWICE in the topic, at different offsets. Cause?",
+        "retry": "Producer retries after a lost ack, without idempotence",
+        "commitBefore": "The consumer committed before processing",
+        "acks1": "acks=1 and a leader crash",
+        "why": "Two copies on the log means the producer wrote twice: a retry whose first attempt actually succeeded. <code>enable.idempotence=true</code> fixes it."
+      },
+      "s2": {
+        "q": "Ticket: the producer got a success for order #42, but after a broker died, #42 is nowhere in the topic. Cause?",
+        "acks1": "acks=1: only the leader had it when it died",
+        "retry": "Producer retries",
+        "rebalance": "A consumer rebalance",
+        "why": "An acknowledged record vanished in a failover, the classic acks=1 loss. Use <code>acks=all</code> (and min.insync.replicas=2)."
+      },
+      "s3": {
+        "q": "Ticket: after a consumer crash, a few orders were never billed, but they ARE in the topic. Cause?",
+        "commitBefore": "The consumer committed before processing them",
+        "autoCommit": "Auto-commit reprocessing",
+        "idempotence": "Idempotence was off",
+        "why": "The records exist, but the group’s bookmark moved past them before they were handled: at-most-once. Commit after processing."
+      },
+      "s4": {
+        "q": "Ticket: after a consumer restart, some customers got TWO invoices for one order (the order is in the topic once). Cause?",
+        "autoCommit": "The consumer processed records but crashed before committing (auto-commit)",
+        "acks1": "acks=1",
+        "compaction": "Log compaction",
+        "why": "One copy on the log but processed twice means consumer-side reprocessing: at-least-once. Make processing idempotent (e.g. dedupe by order id) or use transactions."
+      },
+      "s5": {
+        "q": "Ticket: we use Kafka transactions end to end, but customers still sometimes get two confirmation EMAILS. Cause?",
+        "sideEffect": "Emails are a side effect outside Kafka; transactions can’t roll them back",
+        "retry": "Producer retries",
+        "lag": "Consumer lag",
+        "why": "Exactly-once covers reads and writes <b>inside Kafka</b>. An email sent during processing can’t be undone if the transaction aborts and re-runs."
+      },
+      "check": {
+        "atmost": {
+          "q": "At-most-once delivery risks…",
+          "loss": "Losing records",
+          "dups": "Duplicates",
+          "neither": "Neither",
+          "why": "Never twice, maybe never."
+        },
+        "atleast": {
+          "q": "At-least-once delivery risks…",
+          "dups": "Duplicates",
+          "loss": "Losing records",
+          "neither": "Neither",
+          "why": "Never lost, maybe twice."
+        },
+        "default": {
+          "q": "A typical consumer that commits after processing gives you…",
+          "atleast": "At-least-once",
+          "atmost": "At-most-once",
+          "exactly": "Exactly-once",
+          "why": "A crash between processing and committing replays records."
+        },
+        "idem": {
+          "q": "The usual way to make at-least-once safe is to…",
+          "process": "Make processing idempotent (dedupe by id)",
+          "store": "Store records twice",
+          "nothing": "Do nothing, duplicates are harmless",
+          "why": "If handling a record twice has the same effect as once, duplicates don’t matter."
+        }
+      }
+    },
+    "6-2": {
+      "title": "All or nothing",
+      "summary": "Transactions: markers, read_committed and the last stable offset.",
+      "brief": {
+        "title": "An order and its invoice",
+        "body": "Some writes belong together: an order in <code>orders</code> and its invoice in <code>invoices</code>. A <b>transaction</b> makes them atomic: both become visible, or neither does. The coordinator finishes it by dropping a <b>COMMIT</b> or <b>ABORT</b> marker into every partition it touched. Two readers watch <code>orders</code>: Billing reads <code>read_committed</code>, Audit reads <code>read_uncommitted</code> (the default)."
+      },
+      "map": {
+        "pending": "Boxes tagged ⧗",
+        "pendingK": "Records of an open transaction",
+        "plate": "Green/red plates",
+        "marker": "COMMIT / ABORT markers",
+        "readers": "Two robot readers",
+        "isolation": "isolation.level"
+      },
+      "abort": {
+        "title": "Change of plans: abort",
+        "body": "Begin a transaction, send an order + invoice, then <b>abort</b> it. Compare what Billing and Audit saw.",
+        "success": "Audit (read_uncommitted) saw the aborted order. Billing (read_committed) never did: aborted records are filtered out."
+      },
+      "stuck": {
+        "q": "A transaction is open and not finished yet. What does Billing (read_committed) do at that point in the log?",
+        "waits": "Waits: it can’t read past the first open record (the LSO)",
+        "skips": "Skips the open records and keeps reading",
+        "reads": "Reads them anyway",
+        "why": "read_committed stops at the <b>last stable offset</b> until the transaction commits or aborts. A long-open transaction stalls these consumers."
+      },
+      "commit": {
+        "title": "Now commit",
+        "body": "Begin, send an order + invoice, <b>watch Billing wait</b>, then commit. Do it until Billing has received 2 orders.",
+        "success": "COMMIT dropped in, the LSO moved and Billing caught up. Both topics show the writes together."
+      },
+      "check": {
+        "atomic": {
+          "q": "A transaction that writes to two topics guarantees…",
+          "all": "Both writes become visible, or neither does",
+          "some": "At least one write succeeds",
+          "order": "The topics stay in the same order",
+          "why": "Atomic visibility across partitions and topics."
+        },
+        "default": {
+          "q": "What’s the consumer’s default isolation.level?",
+          "uncommitted": "read_uncommitted",
+          "committed": "read_committed",
+          "why": "The default returns everything, aborted data included. Set read_committed for transactional pipelines."
+        },
+        "lso": {
+          "q": "The last stable offset (LSO) is…",
+          "open": "The first offset of a still-open transaction",
+          "end": "The log end",
+          "hw": "Always equal to the high watermark",
+          "why": "read_committed consumers can’t read past it."
+        },
+        "markers": {
+          "q": "How does Kafka record that a transaction committed or aborted?",
+          "markers": "Control markers written into each partition it touched",
+          "deleted": "It deletes aborted records",
+          "zk": "It notes it in ZooKeeper",
+          "why": "Records are immutable. Markers tell readers how to treat them."
+        }
+      }
+    },
+    "6-3": {
+      "title": "Exactly once, and zombies",
+      "summary": "Read-process-write with transactions, and fencing of zombie producers.",
+      "brief": {
+        "title": "The exactly-once recipe",
+        "body": "A processor reads <code>orders</code> and writes <code>invoices</code>. For exactly-once, the invoice writes <b>and</b> the consumer’s offset commit go into the <b>same transaction</b> (<code>sendOffsetsToTransaction</code>). If the processor dies mid-way, the transaction aborts, so neither the invoice nor the offset “happened”, and the retry starts clean. Readers use read_committed."
+      },
+      "crash": {
+        "title": "Crash mid-transaction",
+        "body": "The processor writes invoice #1 inside a transaction and then crashes. A replacement starts with the same <code>transactional.id</code>, fences the old instance, aborts its open transaction and redoes the work. Watch Billing (read_committed) on <code>invoices</code>."
+      },
+      "count": {
+        "q": "How many copies of invoice #1 did Billing receive?",
+        "why": "One. The first attempt was aborted and filtered out, the retry committed. The log holds both, but read_committed sees one."
+      },
+      "zombie": {
+        "q": "The old processor wakes up (a “zombie”) and tries to commit its transaction. What happens?",
+        "fenced": "It’s fenced: the broker rejects it because a newer epoch owns that transactional.id",
+        "duplicate": "Its invoice is added, a duplicate",
+        "both": "Both instances commit",
+        "why": "Each new instance bumps the producer epoch for its transactional.id. Requests from older epochs fail with ProducerFenced (strengthened by KIP-890 in 4.0)."
+      },
+      "email": {
+        "q": "The processor also sends the customer an email when it creates an invoice. With this exactly-once setup, can a customer get two emails?",
+        "maybe": "Yes: the email isn’t part of the Kafka transaction",
+        "never": "Never, exactly-once covers it",
+        "always": "Always",
+        "why": "Side effects outside Kafka aren’t rolled back. Make them idempotent (dedupe by invoice id) or move them downstream of committed data."
+      },
+      "check": {
+        "recipe": {
+          "q": "Exactly-once for read-process-write in Kafka uses…",
+          "txn": "An idempotent transactional producer + offsets committed in the transaction + read_committed readers",
+          "acks": "acks=all alone",
+          "retries": "More retries",
+          "why": "All three pieces are needed."
+        },
+        "offsets": {
+          "q": "In an exactly-once processor, the consumer offsets are committed…",
+          "inside": "Inside the same transaction as the output",
+          "after": "After the transaction, separately",
+          "before": "Before processing",
+          "why": "sendOffsetsToTransaction ties progress and output together."
+        },
+        "zombie": {
+          "q": "How does Kafka stop a zombie producer from committing stale work?",
+          "epoch": "Epoch fencing on the transactional.id",
+          "timeout": "It waits for a timeout",
+          "nothing": "It can’t",
+          "why": "Newer instance, higher epoch: older epochs are rejected."
+        },
+        "limits": {
+          "q": "Kafka exactly-once does NOT cover…",
+          "external": "Side effects outside Kafka (databases, emails, APIs)",
+          "kafka": "Writes to Kafka topics",
+          "never": "Anything, it covers everything",
+          "why": "Only Kafka reads and writes are inside the transaction."
+        }
+      }
+    },
+    "7-1": {
+      "title": "Segments",
+      "summary": "A partition is a chain of segment files; only the last one is written.",
+      "brief": {
+        "title": "A partition is a stack of files",
+        "body": "On disk, a partition isn’t one endless file. It’s a chain of <b>segments</b>. New records always go to the last one, the <b>active segment</b>. When it reaches <code>segment.bytes</code> (1 GiB) or <code>segment.ms</code> (7 days), it’s closed and a new one starts (a “roll”).",
+        "breaks": "here a segment holds just 4 parcels so you can watch it roll."
+      },
+      "map": {
+        "chapter": "A finished chapter",
+        "segment": "A closed segment",
+        "current": "The chapter being written",
+        "active": "The active segment"
+      },
+      "fill": {
+        "title": "Fill the log",
+        "body": "Ten orders arrive. Watch the dividers: every 4 parcels the active segment closes and a new one opens."
+      },
+      "count": {
+        "q": "Segments hold 4 records. After 13 records, how many segments does the partition have?",
+        "why": "Offsets 0–3, 4–7, 8–11 and 12: four segments. The last one is active."
+      },
+      "where": {
+        "q": "Which segment receives new records?",
+        "active": "Only the active (last) one",
+        "oldest": "The oldest one",
+        "any": "Any segment with free space",
+        "why": "Segments are append-only files, and only the active one is open for writing."
+      },
+      "roll": {
+        "title": "Roll a new segment",
+        "body": "Send orders until a fourth segment appears.",
+        "success": "Rolled! The full segment closed, and from now on only retention or compaction will touch it."
+      },
+      "check": {
+        "count": {
+          "q": "Segments hold {size} records. After {n} records, how many segments are there?",
+          "why": "⌈{n} ÷ {size}⌉ = {segs}."
+        },
+        "write": {
+          "q": "Kafka appends new records to…",
+          "active": "The active segment",
+          "oldest": "The oldest segment",
+          "any": "Any segment",
+          "why": "Only the newest segment is open for writes."
+        },
+        "roll": {
+          "q": "By default a segment rolls at…",
+          "gib": "1 GiB (segment.bytes) or 7 days (segment.ms)",
+          "mb": "1 MB",
+          "records": "1000 records",
+          "why": "Whichever comes first."
+        },
+        "unit": {
+          "q": "Retention deletes data in units of…",
+          "segments": "Whole closed segments",
+          "records": "Single records",
+          "keys": "Keys",
+          "why": "That’s why a record can outlive its retention time: its segment must close and expire first."
+        }
+      }
+    },
+    "7-2": {
+      "title": "Out with the old",
+      "summary": "Retention deletes whole segments; offsets are never reused.",
+      "brief": {
+        "title": "Nothing lasts forever",
+        "body": "With <code>cleanup.policy=delete</code>, Kafka deletes <b>whole closed segments</b> once they’re older than <code>retention.ms</code> (7 days by default) or the partition exceeds <code>retention.bytes</code>. The first offset still on disk, the <b>log start offset</b>, moves forward. Offsets are never reused."
+      },
+      "map": {
+        "shred": "Shredding the oldest chapters",
+        "delete": "Deleting old segments",
+        "firstPage": "The first page still kept",
+        "logStart": "Log start offset"
+      },
+      "fill": {
+        "title": "A busy week",
+        "body": "Eleven orders arrive. Audit read one of the first ones and then went on holiday…"
+      },
+      "room": {
+        "title": "Make room",
+        "body": "Lower how many segments are kept and watch whole segments disappear. Then send a couple more orders.",
+        "success": "Whole segments vanished at once, and new orders kept counting up from where the log ended."
+      },
+      "next": {
+        "q": "After the deletion, what offset will the next order get?",
+        "why": "{end}: offsets keep counting. Deleted numbers are never handed out again."
+      },
+      "audit": {
+        "q": "Audit comes back. Its position points at an offset that was deleted. What happens on its next fetch?",
+        "reset": "OffsetOutOfRange, so it resets according to auto.offset.reset",
+        "crash": "The consumer crashes forever",
+        "old": "It reads the deleted records",
+        "why": "Its position is below the log start. The reset policy decides where it lands (here earliest = the new log start). It silently skipped history: monitor lag before data expires!"
+      },
+      "check": {
+        "whole": {
+          "q": "Retention (cleanup.policy=delete) removes…",
+          "whole": "Whole closed segments",
+          "each": "Each record exactly at its deadline",
+          "keys": "Old versions of each key",
+          "why": "Deletion works per segment, never on the active one."
+        },
+        "reuse": {
+          "q": "A partition’s log ended at offset {end} before retention deleted its first segments. What offset does the next record get?",
+          "why": "{end}: offsets are never reused."
+        },
+        "default": {
+          "q": "What’s the default retention.ms?",
+          "week": "7 days",
+          "day": "1 day",
+          "forever": "Forever",
+          "why": "604 800 000 ms = 7 days."
+        },
+        "oor": {
+          "q": "A consumer’s position is below the log start offset. Then…",
+          "reset": "OffsetOutOfRange: it resets via auto.offset.reset",
+          "crash": "Kafka deletes the consumer",
+          "waits": "It waits until the data comes back",
+          "why": "The data is gone. The reset policy picks a new position."
+        }
+      }
+    },
+    "7-3": {
+      "title": "Latest only",
+      "summary": "Compaction keeps the latest value per key; tombstones delete keys.",
+      "brief": {
+        "title": "An address book, not a diary",
+        "body": "Some topics hold <b>state</b>: each customer’s current profile. With <code>cleanup.policy=compact</code>, a background <b>cleaner</b> removes records that a newer record with the same key has replaced. A consumer reading from the start still rebuilds the same final state, from far fewer records.",
+        "breaks": "the cleaner never touches the active segment, and offsets never change: compaction leaves gaps."
+      },
+      "map": {
+        "book": "An address book",
+        "topic": "A compacted topic",
+        "cross": "Crossing out old entries",
+        "compaction": "Compaction",
+        "stamp": "A “deleted” stamp",
+        "tombstone": "Tombstone (key + null value)"
+      },
+      "updates": {
+        "title": "Profile updates",
+        "body": "Customers keep updating their profiles: alice three times, bob twice. The table shows the state a consumer would rebuild."
+      },
+      "survive": {
+        "q": "The cleaner runs. Which of alice’s records survive?",
+        "three": "Only #3, the latest",
+        "one": "Only #1, the original",
+        "all": "All three",
+        "why": "For each key only the newest record is needed to rebuild state. Older versions in closed segments are removed."
+      },
+      "offsets": {
+        "q": "After compaction, are the remaining records renumbered?",
+        "gaps": "No: offsets stay the same, leaving gaps",
+        "renumber": "Yes, they’re renumbered from 0",
+        "why": "Records are immutable and keep their offsets. Consumers just skip the gaps."
+      },
+      "forget": {
+        "title": "Forget carol",
+        "body": "carol asked to be deleted. Write a <b>tombstone</b> for her (key + null value), send a few more updates so it lands in a closed segment, then run the cleaner.",
+        "success": "carol is gone from the rebuilt state, and her old records were removed. The tombstone itself stays for a while (delete.retention.ms, 1 day) so every consumer sees the deletion."
+      },
+      "check": {
+        "keeps": {
+          "q": "Log compaction guarantees to keep…",
+          "latest": "At least the latest record for each key",
+          "first": "The first record for each key",
+          "all": "All records",
+          "why": "Older versions of a key can be removed."
+        },
+        "tomb": {
+          "q": "How do you delete a key from a compacted topic?",
+          "null": "Write a record with that key and a null value (a tombstone)",
+          "delete": "Call a delete API on the offset",
+          "header": "Add a delete header",
+          "why": "Tombstones delete the key; they’re cleaned up after delete.retention.ms."
+        },
+        "active": {
+          "q": "Is the active segment compacted?",
+          "never": "Never",
+          "first": "Only the first time",
+          "always": "Always first",
+          "why": "Only closed segments are cleaned."
+        },
+        "offsets": {
+          "q": "After compaction, offsets…",
+          "gaps": "Stay the same, with gaps",
+          "renumber": "Are renumbered",
+          "reset": "Restart from 0",
+          "why": "An offset identifies a record forever."
+        }
+      }
+    },
+    "7-4": {
+      "title": "Cold storage",
+      "summary": "Tiered storage: old segments move to cheap remote storage and stay readable.",
+      "brief": {
+        "title": "The warehouse in the cloud",
+        "body": "Keeping a year of data on broker disks is expensive. <b>Tiered storage</b> (production-ready since Kafka 3.9) copies closed segments to remote object storage (like S3) and keeps only recent ones on local disk. Consumers don’t notice: the broker fetches old data from remote storage for them."
+      },
+      "map": {
+        "cold": "The cold warehouse",
+        "remote": "Remote storage (object store)",
+        "shelf": "The shelf on the floor",
+        "local": "Local disk (recent segments)"
+      },
+      "offload": {
+        "title": "Offloading",
+        "body": "Ten orders arrive. Only the newest closed segment stays local; older ones turn blue: they now live in remote storage."
+      },
+      "read": {
+        "q": "Archive wants to read offset 0, which is now in remote storage. What happens?",
+        "broker": "The broker fetches it from remote storage and serves it",
+        "gone": "The data is gone",
+        "s3": "Archive must read from S3 itself",
+        "why": "Remote segments are still part of the log. The broker serves them (recent reads still come from local disk)."
+      },
+      "archive": {
+        "title": "Read the archive",
+        "body": "Let Archive read the first 4 orders, all from remote segments.",
+        "success": "Old data, served transparently. Cheap long retention without big broker disks."
+      },
+      "compact": {
+        "q": "Can a compacted topic use tiered storage?",
+        "no": "No, not supported",
+        "yes": "Yes, always",
+        "why": "Tiered storage works with delete-policy topics. Compacted topics stay on local disks."
+      },
+      "check": {
+        "what": {
+          "q": "Tiered storage…",
+          "offload": "Moves closed segments to remote object storage while keeping them readable",
+          "delete": "Deletes old segments faster",
+          "compress": "Compresses segments on local disk",
+          "why": "Long retention at lower cost."
+        },
+        "serve": {
+          "q": "Who serves reads of remote segments to consumers?",
+          "broker": "The broker",
+          "s3": "Consumers read S3 directly",
+          "never": "Nobody, they’re archived offline",
+          "why": "Consumers keep talking to brokers only."
+        },
+        "which": {
+          "q": "Which segments can be offloaded?",
+          "closed": "Closed segments",
+          "active": "The active segment",
+          "all": "All of them immediately",
+          "why": "The active segment is still being written."
+        },
+        "compact": {
+          "q": "Do compacted topics support tiered storage?",
+          "no": "No",
+          "yes": "Yes",
+          "why": "Not supported: use cleanup.policy=delete topics."
         }
       }
     }

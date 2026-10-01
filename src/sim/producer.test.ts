@@ -63,7 +63,7 @@ describe("ReplicaSet", () => {
 
   it("acks=all only acknowledges once every in-sync replica has the record", () => {
     const c = mk();
-    const rs = new ReplicaSet(c, ["b1", "b2", "b3"], "all", 100);
+    const rs = new ReplicaSet(c, ["b1", "b2", "b3"], { acks: "all", copyMs: 100 });
     rs.start();
     rs.send("k", 1);
     expect(rs.receipts[0].status).toBe("pending");
@@ -72,5 +72,76 @@ describe("ReplicaSet", () => {
     rs.crashLeader();
     expect(rs.receipts.filter((r) => r.status === "lost")).toHaveLength(0);
     rs.stop();
+  });
+});
+
+describe("ReplicaSet (World 5)", () => {
+  const mk = () => new Cluster(["b1", "b2", "b3"].map((name) => ({ name, partitions: 1 })));
+
+  it("a slow follower drops out of the ISR and the high watermark stalls", () => {
+    let t = 0;
+    const c = mk();
+    const rs = new ReplicaSet(c, ["b1", "b2", "b3"], { acks: "all", isrLagMs: 1000 }, () => t);
+    rs.slow.add("b3");
+    rs.send("k", 1);
+    t = 500;
+    rs.tick();
+    expect(rs.isr.has("b3")).toBe(true);
+    t = 1600;
+    rs.tick();
+    expect(rs.isr.has("b3")).toBe(false);
+    expect(rs.receipts[0].status).toBe("acked"); // acks=all only waits for the ISR
+  });
+
+  it("min.insync.replicas rejects acks=all writes when the ISR is too small", () => {
+    const c = mk();
+    const rs = new ReplicaSet(c, ["b1", "b2", "b3"], { acks: "all", minInsync: 2 });
+    rs.crash("b2");
+    rs.crash("b3");
+    rs.send("k", 1);
+    expect(rs.receipts[0].status).toBe("rejected");
+  });
+
+  it("without an in-sync candidate the partition goes offline unless unclean election is on", () => {
+    let t = 0;
+    const c = mk();
+    const rs = new ReplicaSet(c, ["b1", "b2", "b3"], { acks: "1", isrLagMs: 100 }, () => t);
+    rs.slow.add("b2");
+    rs.slow.add("b3");
+    rs.send("k", 1);
+    t = 200;
+    rs.tick();
+    rs.crashLeader();
+    expect(rs.leader).toBeNull();
+    rs.unclean = true;
+    rs.revive("b1");
+    expect(rs.leader).not.toBeNull();
+  });
+
+  it("no controller quorum, no election", () => {
+    const c = mk();
+    const rs = new ReplicaSet(c, ["b1", "b2", "b3"], { acks: "all", controllers: ["c1", "c2", "c3"] });
+    rs.crashController("c1");
+    expect(rs.activeController).toBe("c2");
+    rs.crashController("c2");
+    expect(rs.hasQuorum).toBe(false);
+    rs.crashLeader();
+    expect(rs.leader).toBeNull();
+  });
+});
+
+describe("ReplicaSet recovery", () => {
+  it("the last in-sync replica coming back brings the partition online", () => {
+    const c = new Cluster(["b1", "b2", "b3"].map((name) => ({ name, partitions: 1 })));
+    const rs = new ReplicaSet(c, ["b1", "b2", "b3"], { acks: "all" });
+    rs.crash("b2");
+    rs.crash("b3");
+    rs.send("k", 1);
+    rs.crash("b1");
+    expect(rs.leader).toBeNull();
+    rs.revive("b2");
+    expect(rs.leader).toBeNull(); // b2 is behind: electing it would lose #1
+    rs.revive("b1");
+    expect(rs.leader).toBe("b1");
   });
 });

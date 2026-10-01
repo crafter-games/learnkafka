@@ -61,6 +61,8 @@ class Music {
     const Tone = await import("tone");
     this.tone = Tone;
     await Tone.start();
+    // A little more scheduling headroom so a busy main thread (3D scenes) doesn't collapse note times
+    Tone.getContext().lookAhead = 0.2;
 
     const bus = new Tone.Volume(-60).toDestination();
     const limiter = new Tone.Limiter(-3).connect(bus);
@@ -114,8 +116,23 @@ class Music {
 
     // One 32-step (4-bar) sequencer drives every part so they stay locked together
     const steps = Array.from({ length: 32 }, (_, i) => i);
+    let lastTime = 0;
     new Tone.Sequence(
       (time, step) => {
+        // Under heavy load two steps can land on the same time; monophonic synths reject that
+        if (time <= lastTime) return;
+        lastTime = time;
+        try {
+          playStep(time, step);
+        } catch {
+          // A dropped note is better than a crashed music loop
+        }
+      },
+      steps,
+      "8n",
+    ).start(0);
+
+    function playStep(time: number, step: number) {
         const bar = Math.floor(step / 8);
         const s8 = step % 8;
         const chord = CHORDS[bar];
@@ -132,10 +149,7 @@ class Music {
           lead.triggerAttackRelease(note, "16n", time, 0.7);
           if (s8 % 4 === 0) glock.triggerAttackRelease(Tone.Frequency(note).transpose(12).toNote(), "16n", time, 0.5);
         }
-      },
-      steps,
-      "8n",
-    ).start(0);
+    }
 
     transport.start("+0.05");
     this.layers = { bus, duck, groove, melody: melodyVol, sparkle: sparkleVol };

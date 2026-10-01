@@ -16,7 +16,7 @@ import { Text } from "./level/parts";
 import { gameButtonClass } from "./ui/GameButton";
 import { Logo } from "./ui/Logo";
 
-const UPCOMING = [5, 6, 7] as const;
+const UPCOMING = [8] as const;
 const noop = () => () => {};
 
 type WorldEntry = { id: number; levels: Level[] };

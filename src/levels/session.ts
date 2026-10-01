@@ -2,10 +2,12 @@ import { Cluster } from "@/sim/cluster";
 import { BatchingProducer, RetryingProducer } from "@/sim/producer";
 import { ReplicaSet } from "@/sim/replication";
 import { DEFAULT_GROUP, GroupSim } from "@/sim/group";
+import { IsolatedReader, TxnProducer } from "@/sim/transactions";
+import { LogManager, TOMBSTONE } from "@/sim/storage";
 import type { Headers, SimRecord } from "@/sim/events";
 import { seeded, type Level, type LevelCtx, type SimRecordLike, type TaskStats } from "./types";
 
-const ZERO: TaskStats = { produced: 0, nullKeys: 0, routedOk: 0, routedWrong: 0, calm: 0, partitionsAdded: 0, lostAcked: 0, dups: 0, rejected: 0, processed: 0, groupDups: 0, groupLost: 0, members: 0, crashes: 0 };
+const ZERO: TaskStats = { produced: 0, nullKeys: 0, routedOk: 0, routedWrong: 0, calm: 0, partitionsAdded: 0, lostAcked: 0, dups: 0, rejected: 0, processed: 0, groupDups: 0, groupLost: 0, members: 0, crashes: 0, isrDrops: 0, isrJoins: 0 };
 const AUTO_KEYS = ["alice", "bob", "carol", "dave", "erin", "frank", "grace", "heidi", "ivan", "judy", "mallory", "niaj", "olivia", "peggy", "rupert", "sybil", "trent", "victor", "walter"];
 
 export const newSeed = () => Math.floor(Math.random() * 0xffffff);
@@ -28,15 +30,28 @@ export class LevelSession {
     const pc = level.producer;
     const batching = pc?.batching ? new BatchingProducer(this.cluster, { ...pc.batching }) : undefined;
     const retrying = pc?.retrying ? new RetryingProducer(this.cluster, pc.retrying.idempotent, pc.retrying.ackLoss, rng) : undefined;
-    const replicas = pc?.replicas ? new ReplicaSet(this.cluster, pc.replicas.names, pc.replicas.acks) : undefined;
+    const replicas = pc?.replicas ? new ReplicaSet(this.cluster, pc.replicas.names, { ...pc.replicas }) : undefined;
     replicas?.start();
+    // Count ISR shrinks/expands for World 5 tasks
+    let lastIsr = replicas?.isr.size ?? 0;
+    this.cluster.events.on((e) => {
+      if (e.type !== "isrChanged") return;
+      if (e.isr.length < lastIsr) this.stats.isrDrops++;
+      if (e.isr.length > lastIsr) this.stats.isrJoins++;
+      lastIsr = e.isr.length;
+    });
     const gc = level.group;
     const group = gc ? new GroupSim(this.cluster, gc.name, gc.topic, { ...DEFAULT_GROUP, ...gc.options }) : undefined;
     for (let i = 0; i < (gc?.members ?? 0); i++) group?.join();
+    const log = level.storage ? new LogManager(this.cluster, level.storage.topic, level.storage.options) : undefined;
+    const txn = level.txn ? new TxnProducer(this.cluster) : undefined;
+    const readers = level.txn?.readers.map((r) => new IsolatedReader(this.cluster, txn!, r.group, r.isolation)) ?? [];
+    const readerTimer = readers.length ? setInterval(() => level.txn!.readers.forEach((r, i) => readers[i].tick(r.topic)), 800) : null;
     this.cleanup = () => {
       batching?.stop();
       replicas?.stop();
       group?.stop();
+      if (readerTimer) clearInterval(readerTimer);
     };
     this.ctx = {
       cluster: this.cluster,
@@ -47,6 +62,9 @@ export class LevelSession {
       retrying,
       replicas,
       group,
+      txn,
+      readers,
+      log,
       wait: (ms) => new Promise((r) => setTimeout(r, ms)),
       produce: (topic, key, value = `order-${this.stats.produced + 1}`, partition) => {
         const r = this.produce(topic, key, value, {}, false, partition);
@@ -76,6 +94,7 @@ export class LevelSession {
           this.every(1000, () => {
             this.stats.calm = ok() ? this.stats.calm + 1 : 0;
           }),
+        every: (ms, fn) => this.every(ms, fn),
         autoSend: (topic, perSecond) =>
           this.every(1000 / perSecond, () => {
             batching?.send(topic, AUTO_KEYS[Math.floor(rng() * AUTO_KEYS.length)], `order-${++this.stats.produced}`);
@@ -109,6 +128,37 @@ export class LevelSession {
     this.cluster.addPartitions(topic, 1);
     this.stats.partitionsAdded++;
     if (this.ctx.group?.topic === topic) this.ctx.group.grow();
+  }
+
+  broker(action: "crash" | "slow" | "revive", name: string) {
+    const rs = this.ctx.replicas;
+    if (!rs) return;
+    if (action === "crash") rs.crash(name);
+    else if (action === "revive") rs.revive(name);
+    else if (rs.slow.has(name)) rs.slow.delete(name);
+    else rs.slow.add(name);
+  }
+
+  tombstone(topic: string, key: string) {
+    this.cluster.produce(topic, key, "", { [TOMBSTONE]: "1" });
+    this.stats.produced++;
+  }
+
+  /** Transaction tool actions. */
+  txnAction(action: "begin" | "send" | "commit" | "abort") {
+    const txn = this.ctx.txn;
+    if (!txn) return;
+    if (action === "begin") txn.begin();
+    else if (action === "send") {
+      const n = ++this.stats.produced;
+      const key = ["alice", "bob", "carol", "dave"][n % 4];
+      txn.send("orders", key, `#${n}`);
+      txn.send("invoices", key, `inv#${n}`);
+    } else txn.finish(action === "commit");
+  }
+
+  crashController() {
+    this.ctx.replicas?.crashController();
   }
 
   member(action: "join" | "leave" | "crash") {
@@ -166,6 +216,9 @@ export class LevelSession {
     if (group && (field === "protocol" || field === "commit")) (group.opts as Record<string, unknown>)[field] = value;
     else if (group && field === "maxPollRecords") group.opts.maxPollRecords = Number(value);
     else if (field === "acks" && replicas) replicas.acks = value as typeof replicas.acks;
+    else if (field === "minInsync" && replicas) replicas.minInsync = Number(value);
+    else if (field === "retainSegments" && this.ctx.log) this.ctx.log.setRetention(value === "all" ? Infinity : Number(value));
+    else if (field === "unclean" && replicas) replicas.unclean = Boolean(value);
     else if (field === "idempotent" && retrying) retrying.idempotent = Boolean(value);
     else if (batching && (field === "lingerMs" || field === "batchSize")) batching.config[field] = Number(value);
     else if (batching && field === "codec") batching.config.codec = value as typeof batching.config.codec;

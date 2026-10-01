@@ -16,7 +16,7 @@ import { AudioDirector } from "../AudioDirector";
 import { FactoryCanvas } from "../FactoryCanvas";
 import { Hud } from "../Hud";
 import { gameButtonClass } from "../ui/GameButton";
-import { AnswerInput, Breaks, CodeBlock, Deliveries, Feedback, GroupStats, KeyMoves, MappingCard, Meter, Receipts, Text } from "./parts";
+import { AnswerInput, Breaks, CodeBlock, Deliveries, Feedback, GroupStats, IsrPanel, SeenBy, StateTable, KeyMoves, MappingCard, Meter, Receipts, Text } from "./parts";
 import { RecallQuiz } from "./RecallQuiz";
 import { useInsets } from "../useInsets";
 import { ToolDock, type ToolHandlers } from "./ToolDock";
@@ -151,6 +151,9 @@ export function LevelPlayer({ level, onRestart }: { level: Level; onRestart: () 
     setting: (field) => {
       if (field === "protocol" || field === "commit" || field === "maxPollRecords") return ctx.group?.opts[field];
       if (field === "acks") return ctx.replicas?.acks;
+      if (field === "minInsync") return ctx.replicas?.minInsync;
+      if (field === "retainSegments") return ctx.log ? (Number.isFinite(ctx.log.opts.retainSegments) ? ctx.log.opts.retainSegments : "all") : undefined;
+      if (field === "unclean") return ctx.replicas?.unclean;
       if (field === "idempotent") return ctx.retrying?.idempotent;
       return ctx.batching?.config[field];
     },
@@ -165,6 +168,32 @@ export function LevelPlayer({ level, onRestart }: { level: Level; onRestart: () 
       setTick((n) => n + 1);
     },
     members: () => ctx.group?.alive.length ?? 0,
+    broker: (action, name) => {
+      audioBus().play(action === "revive" ? "unlock" : action === "crash" ? "wrong" : "click", { bus: "ui", rate: action === "crash" ? 0.7 : 1 });
+      session.broker(action, name);
+      setTick((n) => n + 1);
+    },
+    brokers: () => ctx.replicas ? ctx.replicas.replicas.map((r) => ({ name: r, down: ctx.replicas!.down.has(r), slow: ctx.replicas!.slow.has(r), leader: ctx.replicas!.leader === r })) : [],
+    txn: (action) => {
+      audioBus().play(action === "commit" ? "unlock" : action === "abort" ? "wrong" : "click", { bus: "ui", rate: 1 });
+      session.txnAction(action);
+      setTick((n) => n + 1);
+    },
+    txnOpen: () => !!ctx.txn?.open,
+    clean: () => {
+      audioBus().play("unlock", { bus: "ui", rate: 0.9 });
+      ctx.log?.clean();
+      setTick((n) => n + 1);
+    },
+    tombstone: (topic, key) => {
+      session.tombstone(topic, key);
+      setTick((n) => n + 1);
+    },
+    crashController: () => {
+      audioBus().play("wrong", { bus: "ui", rate: 0.8 });
+      session.crashController();
+      setTick((n) => n + 1);
+    },
     crash: () => {
       audioBus().play("wrong", { bus: "ui", rate: 0.7 });
       ctx.replicas?.crashLeader();
@@ -220,7 +249,10 @@ export function LevelPlayer({ level, onRestart }: { level: Level; onRestart: () 
       batch: (p: number, count: number, size: number) => ts("batch", { p, bar: "▮".repeat(count) + "▯".repeat(Math.max(0, size - count)) }),
       ackLost: ts("ackLost"),
       dupDropped: (seq: number) => ts("dupDropped", { seq }),
-      replica: (name: string, role: "leader" | "follower" | "down") => ts("replica", { n: name.replace(/\D/g, ""), role }),
+      replica: (name: string, role: "leader" | "follower" | "lagging" | "down") => ts("replica", { n: name.replace(/\D/g, ""), role }),
+      controller: (name: string, role: "active" | "standby" | "down") => ts("controller", { n: name.replace(/\D/g, ""), role }),
+      rejected: (reason: string) => ts(`rejected.${reason}`),
+      segment: (index: number, state: "active" | "closed" | "remote") => ts("segment", { index, state }),
     }),
     [ts],
   );
@@ -243,6 +275,9 @@ export function LevelPlayer({ level, onRestart }: { level: Level; onRestart: () 
             consumers={level.consumers}
             replicas={level.producer?.replicas?.names}
             memberArms={!!level.group}
+            controllers={level.producer?.replicas?.controllers}
+            consumersOverride={level.txn?.readers.map((r) => ({ group: r.group, label: r.label, color: r.color }))}
+            segmentSize={level.storage?.options.segmentSize}
             insets={insets}
             onLanded={onLanded}
           />
@@ -342,6 +377,11 @@ export function LevelPlayer({ level, onRestart }: { level: Level; onRestart: () 
               )}
 
               {step.kind === "task" && step.meters?.(ctx).map((m, i) => <Meter key={i} {...m} />)}
+              {(step.kind === "task" || step.kind === "watch") && step.isr && ctx.replicas && <IsrPanel rs={ctx.replicas} />}
+              {(step.kind === "task" || step.kind === "watch") && step.table && ctx.log && <StateTable table={ctx.log.table()} />}
+              {(step.kind === "task" || step.kind === "watch") && step.seen && ctx.readers && level.txn && (
+                <SeenBy readers={ctx.readers.map((r, i) => ({ label: level.txn!.readers[i].label, color: level.txn!.readers[i].color, isolation: r.isolation, seen: r.seen }))} />
+              )}
               {(step.kind === "task" || step.kind === "watch") && step.receipts && ctx.replicas && <Receipts receipts={ctx.replicas.receipts} />}
               {(step.kind === "task" || step.kind === "watch") && step.groupStats && ctx.group && (
                 <GroupStats processed={ctx.group.processedCount} duplicates={ctx.group.duplicates} lost={ctx.group.lost()} lag={ctx.group.lag()} />

@@ -3,12 +3,18 @@ import { WORLD1 } from "./world1";
 import { WORLD2 } from "./world2";
 import { WORLD3 } from "./world3";
 import { WORLD4 } from "./world4";
+import { WORLD5 } from "./world5";
+import { WORLD6 } from "./world6";
+import { WORLD7 } from "./world7";
 
 export const WORLDS = [
   { id: 1, levels: WORLD1 },
   { id: 2, levels: WORLD2 },
   { id: 3, levels: WORLD3 },
   { id: 4, levels: WORLD4 },
+  { id: 5, levels: WORLD5 },
+  { id: 6, levels: WORLD6 },
+  { id: 7, levels: WORLD7 },
 ] as const;
 export const ALL_LEVELS: Level[] = WORLDS.flatMap((w) => w.levels);
 

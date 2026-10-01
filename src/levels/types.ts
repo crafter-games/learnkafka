@@ -2,6 +2,8 @@ import type { Cluster, TopicSpec } from "@/sim/cluster";
 import type { BatchConfig, BatchingProducer, RetryingProducer } from "@/sim/producer";
 import type { Acks, ReplicaSet } from "@/sim/replication";
 import type { GroupOptions, GroupSim } from "@/sim/group";
+import type { IsolatedReader, Isolation, TxnProducer } from "@/sim/transactions";
+import type { LogManager, StorageOptions } from "@/sim/storage";
 import type { ConsumerSpec } from "@/stage/factoryStage";
 
 /** A translatable message: a key under the `levels` namespace plus ICU values. */
@@ -12,7 +14,10 @@ export type Concept =
   | "record" | "reading" | "immutability" | "offset" | "position" | "topic" | "ordering"
   | "parallelism" | "key-ordering" | "sticky" | "repartition"
   | "batching" | "compression" | "acks" | "idempotence"
-  | "poll" | "groups" | "rebalance" | "commits" | "lag";
+  | "poll" | "groups" | "rebalance" | "commits" | "lag"
+  | "replication" | "isr" | "min-insync" | "kraft"
+  | "semantics" | "transactions" | "eos"
+  | "segments" | "retention" | "compaction" | "tiered";
 
 export type Choice = { id: string; label: Msg };
 
@@ -41,11 +46,16 @@ export type LevelCtx = {
     watch: (ok: () => boolean) => void;
     /** Send `perSecond` records through the batching producer. */
     autoSend: (topic: string, perSecond: number) => void;
+    /** Run `fn` every `ms` until the step changes. */
+    every: (ms: number, fn: () => void) => void;
   };
   batching?: BatchingProducer;
   retrying?: RetryingProducer;
   replicas?: ReplicaSet;
   group?: GroupSim;
+  txn?: TxnProducer;
+  readers?: IsolatedReader[];
+  log?: LogManager;
   /** Records in the order workers finished them. */
   delivered: SimRecordLike[];
 };
@@ -67,6 +77,9 @@ export type TaskStats = {
   groupLost: number;
   members: number;
   crashes: number;
+  /** ISR shrink / expand events (World 5). */
+  isrDrops: number;
+  isrJoins: number;
   dups: number;
   rejected: number;
 };
@@ -100,9 +113,17 @@ export type Tool =
   /** A segmented control bound to a producer/replica/group setting. */
   | {
       type: "setting";
-      field: "lingerMs" | "batchSize" | "codec" | "idempotent" | "acks" | "protocol" | "commit" | "maxPollRecords";
+      field: "lingerMs" | "batchSize" | "codec" | "idempotent" | "acks" | "protocol" | "commit" | "maxPollRecords" | "minInsync" | "unclean" | "retainSegments";
       options: (string | number | boolean)[];
     }
+  /** Per-broker controls: crash it, slow its replication down, bring it back. */
+  | { type: "brokers"; actions: ("crash" | "slow" | "revive")[] }
+  | { type: "controller" }
+  /** Storage: run the log cleaner; write tombstones for keys. */
+  | { type: "clean" }
+  | { type: "tombstone"; topic: string; keys: string[] }
+  /** Transaction controls: begin, send an order + invoice, commit, abort. */
+  | { type: "txn" }
   /** Consumer group membership controls. */
   | { type: "members"; actions: ("join" | "leave" | "crash")[]; max: number }
   | { type: "crash" }
@@ -111,7 +132,7 @@ export type Tool =
 
 export type Step =
   | { kind: "brief"; title: Msg; body: Msg; mapping?: { icon: string; thing: Msg; kafka: Msg }[]; breaks?: Msg; code?: string }
-  | { kind: "watch"; title: Msg; body: Msg; script: (ctx: LevelCtx) => Promise<void>; deliveries?: boolean; receipts?: boolean; groupStats?: boolean }
+  | { kind: "watch"; title: Msg; body: Msg; script: (ctx: LevelCtx) => Promise<void>; deliveries?: boolean; receipts?: boolean; groupStats?: boolean; isr?: boolean; seen?: boolean; table?: boolean }
   | { kind: "predict"; build: (ctx: LevelCtx) => Prediction }
   | {
       kind: "task";
@@ -128,6 +149,12 @@ export type Step =
       receipts?: boolean;
       /** Show the group's processed / duplicates / lost counters. */
       groupStats?: boolean;
+      /** Show the ISR and high watermark. */
+      isr?: boolean;
+      /** Show what each isolated reader has seen. */
+      seen?: boolean;
+      /** Show the state a consumer would rebuild from the log (key → latest value). */
+      table?: boolean;
       /** Show the delivery log (completion order) on the step card. */
       deliveries?: boolean;
       /** Show where each key went before vs. now (after adding partitions). */
@@ -144,7 +171,15 @@ export type Level = {
   id: string;
   world: number;
   /** World 3 machinery, created fresh for every run. */
-  producer?: { batching?: BatchConfig; retrying?: { idempotent: boolean; ackLoss: number }; replicas?: { names: string[]; acks: Acks } };
+  producer?: {
+    batching?: BatchConfig;
+    retrying?: { idempotent: boolean; ackLoss: number };
+    replicas?: { names: string[]; acks: Acks; minInsync?: number; unclean?: boolean; isrLagMs?: number; copyMs?: number; controllers?: string[] };
+  };
+  /** World 7: segments, retention, compaction and tiered storage on one topic. */
+  storage?: { topic: string; options: Partial<StorageOptions> };
+  /** World 6: a transactional producer and readers with different isolation levels. */
+  txn?: { readers: { group: string; label: string; color: string; isolation: Isolation; topic: string }[] };
   /** World 4: a consumer group on one topic, with members as robot arms. */
   group?: { name: string; topic: string; options: Partial<GroupOptions>; members: number };
   title: Msg;

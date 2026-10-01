@@ -21,6 +21,13 @@ export type ToolHandlers = {
   setSetting: (field: Extract<Tool, { type: "setting" }>["field"], value: SettingValue) => void;
   crash: () => void;
   member: (action: "join" | "leave" | "crash") => void;
+  broker: (action: "crash" | "slow" | "revive", name: string) => void;
+  brokers: () => { name: string; down: boolean; slow: boolean; leader: boolean }[];
+  crashController: () => void;
+  txn: (action: "begin" | "send" | "commit" | "abort") => void;
+  clean: () => void;
+  tombstone: (topic: string, key: string) => void;
+  txnOpen: () => boolean;
   members: () => number;
   produce: (topic: string, key: string | null, value: string, headers: Headers, roundRobin?: boolean) => void;
   addPartition: (topic: string) => void;
@@ -212,6 +219,38 @@ function MembersTool({ tool, on }: { tool: Extract<Tool, { type: "members" }>; o
   );
 }
 
+/** One mini control panel per broker: crash, slow replication, bring back. */
+function BrokersTool({ tool, on }: { tool: Extract<Tool, { type: "brokers" }>; on: ToolHandlers }) {
+  const t = useTranslations("level.tools");
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {on.brokers().map((b) => (
+        <div key={b.name} className={`flex items-center gap-1 rounded-xl border px-1.5 py-1 ${b.down ? "border-line bg-ink/5" : b.leader ? "border-broker/40 bg-broker/10" : "border-line bg-paper-2"}`}>
+          <span className="px-1.5 font-mono text-sm font-bold">
+            {t("brokerName", { n: b.name.replace(/\D/g, "") })}
+            {b.leader && " ★"}
+          </span>
+          {tool.actions.includes("crash") && !b.down && (
+            <button type="button" data-broker={`crash:${b.name}`} onClick={() => on.broker("crash", b.name)} className={`${gameButtonClass({ size: "sm" })} h-8 px-2 text-danger`} aria-label={t("brokerCrash", { n: b.name })}>
+              <Lightning weight="fill" />
+            </button>
+          )}
+          {tool.actions.includes("slow") && !b.down && !b.leader && (
+            <button type="button" data-broker={`slow:${b.name}`} aria-pressed={b.slow} onClick={() => on.broker("slow", b.name)} className={`${gameButtonClass({ size: "sm" })} h-8 px-2 ${b.slow ? "bg-producer text-white" : ""}`}>
+              {b.slow ? t("brokerFix") : t("brokerSlow")}
+            </button>
+          )}
+          {tool.actions.includes("revive") && b.down && (
+            <button type="button" data-broker={`revive:${b.name}`} onClick={() => on.broker("revive", b.name)} className={`${gameButtonClass({ size: "sm" })} h-8 px-2 text-broker`}>
+              {t("brokerRevive")}
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function CrashTool({ on }: { on: ToolHandlers }) {
   const t = useTranslations("level.tools");
   return (
@@ -220,6 +259,56 @@ function CrashTool({ on }: { on: ToolHandlers }) {
       {t("crash")}
     </button>
   );
+}
+
+function CleanTool({ on }: { on: ToolHandlers }) {
+  const t = useTranslations("level.tools");
+  return (
+    <button type="button" data-clean onClick={on.clean} className={gameButtonClass({ variant: "accent", size: "md" })}>
+      {t("clean")}
+    </button>
+  );
+}
+
+function TombstoneTool({ tool, on }: { tool: Extract<Tool, { type: "tombstone" }>; on: ToolHandlers }) {
+  const t = useTranslations("level.tools");
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {tool.keys.map((k) => (
+        <button key={k} type="button" data-tombstone={k} onClick={() => on.tombstone(tool.topic, k)} className={`${gameButtonClass({ size: "sm" })} text-ink-2`}>
+          <Prohibit size={16} weight="bold" />
+          {t("tombstone", { key: k })}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function TxnTool({ on }: { on: ToolHandlers }) {
+  const t = useTranslations("level.tools.txn");
+  const open = on.txnOpen();
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <button type="button" data-txn="begin" disabled={open} onClick={() => on.txn("begin")} className={gameButtonClass({ variant: "accent", size: "md" })}>
+        {t("begin")}
+      </button>
+      <button type="button" data-txn="send" disabled={!open} onClick={() => on.txn("send")} className={gameButtonClass({ size: "md" })}>
+        <PaperPlaneTilt weight="fill" />
+        {t("send")}
+      </button>
+      <button type="button" data-txn="commit" disabled={!open} onClick={() => on.txn("commit")} className={`${gameButtonClass({ size: "md" })} text-broker`}>
+        ✓ {t("commit")}
+      </button>
+      <button type="button" data-txn="abort" disabled={!open} onClick={() => on.txn("abort")} className={`${gameButtonClass({ size: "md" })} text-danger`}>
+        ✗ {t("abort")}
+      </button>
+    </div>
+  );
+}
+
+function ControllerLabel() {
+  const t = useTranslations("level.tools");
+  return <>{t("controllerCrash")}</>;
 }
 
 type RouteEvent = { kind: "order" | "payment"; key: string; text: string };
@@ -299,6 +388,19 @@ export function ToolDock({ tools, consumers, partitions, on }: { tools: Tool[]; 
           <CrashTool key={i} on={on} />
         ) : tool.type === "members" ? (
           <MembersTool key={i} tool={tool} on={on} />
+        ) : tool.type === "brokers" ? (
+          <BrokersTool key={i} tool={tool} on={on} />
+        ) : tool.type === "clean" ? (
+          <CleanTool key={i} on={on} />
+        ) : tool.type === "tombstone" ? (
+          <TombstoneTool key={i} tool={tool} on={on} />
+        ) : tool.type === "txn" ? (
+          <TxnTool key={i} on={on} />
+        ) : tool.type === "controller" ? (
+          <button key={i} type="button" onClick={on.crashController} className={`${gameButtonClass({ size: "md" })} text-danger`}>
+            <Lightning weight="fill" />
+            <ControllerLabel />
+          </button>
         ) : (
           <RouteTool key={i} tool={tool} on={on} />
         ),

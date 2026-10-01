@@ -12,6 +12,11 @@ type Props = {
   consumers?: ConsumerSpec[];
   replicas?: string[];
   memberArms?: boolean;
+  controllers?: string[];
+  /** Consumer arms when the level has no `consumers` (e.g. transaction readers). */
+  consumersOverride?: ConsumerSpec[];
+  /** World 7: show segment boundaries (records per segment). */
+  segmentSize?: number;
   /** Floating UI covering the canvas (px), so the factory is framed in the free area. */
   insets?: { top?: number; right?: number; bottom?: number; left?: number };
   onLanded?: (record: SimRecord) => void;
@@ -20,16 +25,17 @@ type Props = {
 };
 
 /** Mounts the Three.js factory diorama for a cluster; the sim drives it through events. */
-export function FactoryCanvas({ cluster, labels, slots, consumers, replicas, memberArms, insets, onLanded, onReady, className = "absolute inset-0" }: Props) {
+export function FactoryCanvas({ cluster, labels, slots, consumers: consumersProp, consumersOverride, segmentSize, replicas, memberArms, controllers, insets, onLanded, onReady, className = "absolute inset-0" }: Props) {
+  const consumers = consumersProp ?? consumersOverride;
   const host = useRef<HTMLDivElement>(null);
   const stageRef = useRef<FactoryStage | null>(null);
   const insetKey = JSON.stringify(insets ?? {});
   useEffect(() => {
     stageRef.current?.setInsets(JSON.parse(insetKey));
   }, [insetKey]);
-  const latest = useRef({ labels, onLanded, onReady, slots, consumers, replicas, memberArms, insets });
+  const latest = useRef({ labels, onLanded, onReady, slots, consumers, replicas, memberArms, controllers, insets, segmentSize });
   useEffect(() => {
-    latest.current = { labels, onLanded, onReady, slots, consumers, replicas, memberArms, insets };
+    latest.current = { labels, onLanded, onReady, slots, consumers, replicas, memberArms, controllers, insets, segmentSize };
   });
 
   useEffect(() => {
@@ -42,8 +48,8 @@ export function FactoryCanvas({ cluster, labels, slots, consumers, replicas, mem
     // three.js is client-only and heavy: load it after first paint
     void import("@/stage/factoryStage").then(({ FactoryStage }) => {
       if (cancelled) return;
-      const { labels, slots, consumers, replicas, memberArms } = latest.current;
-      const s = new FactoryStage(el, cluster, labels, { slots, consumers, replicas, memberArms, onLanded: (r) => latest.current.onLanded?.(r) });
+      const { labels, slots, consumers, replicas, memberArms, controllers, segmentSize } = latest.current;
+      const s = new FactoryStage(el, cluster, labels, { slots, consumers, replicas, memberArms, controllers, segmentSize, onLanded: (r) => latest.current.onLanded?.(r) });
       stage = s;
       stageRef.current = s;
       s.setInsets(JSON.parse(JSON.stringify(latest.current.insets ?? {})));

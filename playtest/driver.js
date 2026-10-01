@@ -15,7 +15,8 @@
     } else document.querySelector(`[data-value="${q.answer}"]`).click();
   };
   const log = [];
-  for (let g = 0; g < 400 && T().phase() !== "result"; g++) {
+  const deadline = Date.now() + 170000;
+  for (let g = 0; g < 400 && T().phase() !== "result" && Date.now() < deadline; g++) {
     if (stop !== undefined && T().phase() === "steps" && T().step().index === stop) return { stopped: stop, log };
     if (T().phase() === "check") {
       if (!document.querySelector("[role=status]")) {
@@ -42,7 +43,7 @@
     }
     if (s.kind === "task") {
       // Settings first: pick the "right" option for each dial if it isn't selected yet
-      const want = ["acks=all", "idempotent=true", "codec=zstd", "batchSize=4", "lingerMs=1000", "maxPollRecords=5", "protocol=cooperative", "commit=after"];
+      const want = ["acks=all", "idempotent=true", "codec=zstd", "batchSize=4", "lingerMs=1000", "maxPollRecords=5", "protocol=cooperative", "commit=after", "minInsync=2", "retainSegments=2"];
       const setting = want.map((w) => document.querySelector(`[data-setting="${w}"]`)).find((b) => b && b.getAttribute("aria-checked") !== "true");
       if (setting) {
         setting.click();
@@ -54,6 +55,51 @@
       const acked = (document.body.innerText.match(/#\d+ ✓/g) || []).length;
       if (crash && acked >= 5) {
         crash.click();
+        await sleep(2500);
+        continue;
+      }
+      // World 6: transactions — begin, send, then abort (abort task) or commit after a pause
+      const txnBegin = document.querySelector('[data-txn="begin"]');
+      if (txnBegin) {
+        const wantAbort = /abort|abortar/i.test(document.querySelector("aside h2")?.textContent || "");
+        if (!txnBegin.disabled) {
+          txnBegin.click();
+          await sleep(400);
+          document.querySelector('[data-txn="send"]')?.click();
+          await sleep(2200);
+          document.querySelector(`[data-txn="${wantAbort ? "abort" : "commit"}"]`)?.click();
+          await sleep(2500);
+        } else await sleep(500);
+        continue;
+      }
+      // World 5: careful broker handling
+      window.__w5 = window.__w5 || {};
+      const k = `${s.index}`;
+      const ctrl = btn(/Crash the active controller|Tumbar al controlador activo/);
+      if (ctrl && !window.__w5["ctrl" + k]) {
+        ctrl.click();
+        window.__w5["ctrl" + k] = true;
+        await sleep(1500);
+        continue;
+      }
+      const slow3 = document.querySelector('[data-broker="slow:broker-3"]');
+      if (slow3 && !window.__w5["fixed" + k]) {
+        if (slow3.getAttribute("aria-pressed") !== "true") {
+          slow3.click();
+          await sleep(5000);
+        } else {
+          slow3.click();
+          window.__w5["fixed" + k] = true;
+          await sleep(4000);
+        }
+        continue;
+      }
+      const crash1 = document.querySelector('[data-broker="crash:broker-1"]');
+      const ackedNow = (document.body.innerText.match(/#\d+ ✓/g) || []).length;
+      if (crash1 && /\/(5-1|5-4)$/.test(location.pathname) && (ctrl === undefined || window.__w5["ctrl" + k]) && (ackedNow >= 2 || window.__w5["ctrl" + k]) && !window.__w5["c1" + k]) {
+        await sleep(1500);
+        crash1.click();
+        window.__w5["c1" + k] = true;
         await sleep(2500);
         continue;
       }
@@ -72,7 +118,7 @@
         await sleep(450);
         continue;
       }
-      const dock = [...document.querySelectorAll("[data-dock] button")].filter((b) => !b.disabled && b.type !== "submit" && !b.dataset.setting && !/Crash|Tumbar/.test(b.textContent));
+      const dock = [...document.querySelectorAll("[data-dock] button")].filter((b) => !b.disabled && b.type !== "submit" && !b.dataset.setting && !/Crash|Tumbar/.test(b.textContent) && !/^(crash|slow):/.test(b.dataset.broker || "") && !(/^revive:/.test(b.dataset.broker || "") && !/#\d+ ⊘/.test(document.body.innerText)) && !(b.dataset.tombstone && document.body.innerText.includes(" ∅")));
       if (!dock.length) {
         await sleep(600);
         continue;

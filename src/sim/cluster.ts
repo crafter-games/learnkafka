@@ -60,7 +60,15 @@ export class Cluster {
   /** Read the next record for a group in one partition, or null when caught up. */
   fetch(group: string, topic: string, partition: number, member?: string): SimRecord | null {
     const positions = this.pos(group, topic);
-    const record = this.topic(topic).partitions[partition][positions[partition]];
+    const t = this.topic(topic);
+    // Position below the log start: OffsetOutOfRange → reset (auto.offset.reset=earliest here)
+    if (positions[partition] < t.logStart[partition]) {
+      this.events.emit({ type: "offsetOutOfRange", group, topic, partition, from: positions[partition], to: t.logStart[partition] });
+      positions[partition] = t.logStart[partition];
+    }
+    // Compaction gaps: skip offsets that no longer exist
+    while (t.removed[partition].has(positions[partition])) positions[partition]++;
+    const record = t.partitions[partition][positions[partition]];
     if (!record) return null;
     positions[partition]++;
     this.events.emit({ type: "fetched", topic, group, record, position: positions[partition], member });

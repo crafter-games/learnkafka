@@ -5,7 +5,12 @@ import { partitionForKey } from "./murmur2";
 export const STICKY_BATCH_RECORDS = 4;
 
 export class Topic {
+  /** Full history indexed by offset; deleted/compacted records are tracked, never re-indexed (offsets are forever). */
   readonly partitions: SimRecord[][];
+  /** First offset still on disk per partition (retention moves it forward). */
+  readonly logStart: number[];
+  /** Offsets removed by compaction (gaps), per partition. */
+  readonly removed: Set<number>[];
   private stickyPartition = 0;
   private stickyCount = 0;
 
@@ -16,6 +21,13 @@ export class Topic {
     private now: () => number = () => Date.now(),
   ) {
     this.partitions = Array.from({ length: numPartitions }, () => []);
+    this.logStart = Array(numPartitions).fill(0);
+    this.removed = Array.from({ length: numPartitions }, () => new Set());
+  }
+
+  /** Is this offset no longer on disk (deleted by retention or removed by compaction)? */
+  isGone(partition: number, offset: number) {
+    return offset < this.logStart[partition] || this.removed[partition].has(offset);
   }
 
   get numPartitions() {
@@ -39,7 +51,11 @@ export class Topic {
 
   /** Kafka can only ever ADD partitions; keyed records hash with the new count from now on. */
   addPartitions(count: number) {
-    for (let i = 0; i < count; i++) this.partitions.push([]);
+    for (let i = 0; i < count; i++) {
+      this.partitions.push([]);
+      this.logStart.push(0);
+      this.removed.push(new Set());
+    }
     this.events.emit({ type: "partitionsAdded", topic: this.name, total: this.numPartitions });
   }
 
