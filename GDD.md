@@ -155,3 +155,4 @@ Players come back for the **Morning Shift**, a daily 3–5 card spaced review of
 ## Changelog
 
 - 2026-10-01: GDD created after research and a design interview (all recommendations accepted).
+- 2026-10-01: M1 done — dispatch desk (murmur2 keyed + sticky null-key partitioning, 3 belts, SFX, EN/ES), deployed to learnkafka.crafter.run. Camera fits content bounds instead of the full 1280×720 (better on phones).
