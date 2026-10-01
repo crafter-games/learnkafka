@@ -201,6 +201,17 @@ export class WorldMapStage {
       }
       for (const x of [-0.3, 0.7]) movers.push(await place("box-small", x, 0.6, 0, 0.75));
       movers.forEach((m) => (m.position.y = 0.42));
+    } else if (spec.id === 8) {
+      // Connect pipes data in from a "database" hopper; Streams crunches it at a screen
+      await place("hopper-high-square", -1.6, -0.6, 0, 0.75);
+      for (let x = -0.7; x <= 1.4; x += 1) await place("conveyor-stripe-sides", x, -0.6, 0, 0.85);
+      await place("screen-wide", 0.4, 1.1, 0, 0.8);
+      movers.push(await place("robot-arm-a", 1.6, 0.7, 0, 0.75));
+      for (const x of [-0.4, 0.7]) {
+        const b = await place("box-small", x, -0.6, 0, 0.75);
+        b.position.y = 0.42;
+        movers.push(b);
+      }
     } else {
       // Upcoming worlds: under construction
       await place("warning-orange", -0.8, 0.6, 0, 0.9);

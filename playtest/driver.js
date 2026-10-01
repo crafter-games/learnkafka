@@ -50,7 +50,7 @@
     }
     if (s.kind === "task") {
       // Settings first: pick the "right" option for each dial if it isn't selected yet
-      const want = ["acks=all", "idempotent=true", "codec=zstd", "batchSize=4", "lingerMs=1000", "maxPollRecords=5", "protocol=cooperative", "commit=after", "minInsync=2", "retainSegments=2"];
+      const want = ["acks=all", "idempotent=true", "codec=zstd", "batchSize=4", "lingerMs=1000", "maxPollRecords=5", "protocol=cooperative", "commit=after", "minInsync=2", "retainSegments=2", "grace=5"];
       const setting = want.map((w) => document.querySelector(`[data-setting="${w}"]`)).find((b) => b && b.getAttribute("aria-checked") !== "true");
       if (setting) {
         setting.click();
@@ -107,6 +107,40 @@
         await sleep(1500);
         crash1.click();
         window.__w5["c1" + k] = true;
+        await sleep(2500);
+        continue;
+      }
+      // World 8: crash the connector between flushes, then restart; crash and restore the Streams app
+      window.__w8 = window.__w8 || {};
+      const act = (id) => document.querySelector(`[data-action="${id}"]:not([disabled])`);
+      if (act("connectorCrash") && !window.__w8.conn) {
+        for (let i = 0; i < 3; i++) {
+          act("dbInsert")?.click();
+          await sleep(200);
+        }
+        await sleep(1300);
+        act("connectorCrash")?.click();
+        window.__w8.conn = true;
+        await sleep(800);
+        continue;
+      }
+      if (act("connectorRestart")) {
+        act("connectorRestart").click();
+        await sleep(1500);
+        continue;
+      }
+      if (window.__w8.conn && act("dbInsert")) {
+        await sleep(600); // let the connector catch up
+        continue;
+      }
+      if (act("appCrash") && !window.__w8.app) {
+        act("appCrash").click();
+        window.__w8.app = true;
+        await sleep(800);
+        continue;
+      }
+      if (act("appRestart")) {
+        act("appRestart").click();
         await sleep(2500);
         continue;
       }

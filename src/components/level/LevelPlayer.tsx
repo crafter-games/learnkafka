@@ -16,7 +16,7 @@ import { AudioDirector } from "../AudioDirector";
 import { FactoryCanvas } from "../FactoryCanvas";
 import { Hud } from "../Hud";
 import { gameButtonClass } from "../ui/GameButton";
-import { AnswerInput, Breaks, CodeBlock, Deliveries, GroupStats, IsrPanel, SeenBy, StateTable, KeyMoves, MappingCard, Meter, Receipts, Text } from "./parts";
+import { AnswerInput, Breaks, CodeBlock, Deliveries, StreamsView, GroupStats, IsrPanel, SeenBy, StateTable, KeyMoves, MappingCard, Meter, Receipts, Text } from "./parts";
 import { DialogueBox, Rich, usePages, type Page } from "./dialogue";
 import { RecallQuiz } from "./RecallQuiz";
 import { useInsets } from "../useInsets";
@@ -204,13 +204,14 @@ export function LevelPlayer({ level, onRestart }: { level: Level; onRestart: () 
         {step.receipts && ctx.replicas && <Receipts receipts={ctx.replicas.receipts} />}
         {step.groupStats && ctx.group && <GroupStats processed={ctx.group.processedCount} duplicates={ctx.group.duplicates} lost={ctx.group.lost()} lag={ctx.group.lag()} />}
         {step.kind === "task" && step.keyMoves && <KeyMoves cluster={cluster} topic={step.keyMoves.topic} keys={step.keyMoves.keys} />}
+        {step.streams && <StreamsView kind={step.streams} ctx={ctx} topic={level.topics[0].name} />}
         {step.deliveries && <Deliveries items={ctx.delivered} />}
       </>
     ) : null;
   const hasLivePanels =
     !!livePanels &&
-    ((step.kind === "task" && !!(step.meters || step.isr || step.table || step.seen || step.receipts || step.groupStats || step.keyMoves || step.deliveries)) ||
-      (step.kind === "watch" && !!(step.isr || step.table || step.seen || step.receipts || step.groupStats || step.deliveries)));
+    ((step.kind === "task" && !!(step.meters || step.isr || step.table || step.seen || step.receipts || step.groupStats || step.keyMoves || step.deliveries || step.streams)) ||
+      (step.kind === "watch" && !!(step.isr || step.table || step.seen || step.receipts || step.groupStats || step.deliveries || step.streams)));
 
   const startCheck = useCallback(
     (s: number) => {
@@ -252,6 +253,19 @@ export function LevelPlayer({ level, onRestart }: { level: Level; onRestart: () 
   };
 
   const handlers: ToolHandlers = {
+    action: (id) => {
+      audioBus().play(/Crash/.test(id) ? "wrong" : /Restart/.test(id) ? "unlock" : "click", { bus: "ui", rate: id === "eventLate15" ? 0.8 : 1 });
+      session.action(id);
+      setTick((n) => n + 1);
+    },
+    actionEnabled: (id) => {
+      const { connector, app } = ctx;
+      if (id === "connectorCrash") return !!connector?.running;
+      if (id === "connectorRestart") return !!connector && !connector.running;
+      if (id === "appCrash") return !!app?.running;
+      if (id === "appRestart") return !!app && !app.running && !app.restoring;
+      return true;
+    },
     send: (via, key, topic = "orders") => {
       session.send(via, key, topic);
       setTick((n) => n + 1);
@@ -262,6 +276,7 @@ export function LevelPlayer({ level, onRestart }: { level: Level; onRestart: () 
       if (field === "minInsync") return ctx.replicas?.minInsync;
       if (field === "retainSegments") return ctx.log ? (Number.isFinite(ctx.log.opts.retainSegments) ? ctx.log.opts.retainSegments : "all") : undefined;
       if (field === "unclean") return ctx.replicas?.unclean;
+      if (field === "grace") return ctx.windows?.grace;
       if (field === "idempotent") return ctx.retrying?.idempotent;
       return ctx.batching?.config[field];
     },

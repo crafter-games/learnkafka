@@ -4,6 +4,7 @@ import type { Acks, ReplicaSet } from "@/sim/replication";
 import type { GroupOptions, GroupSim } from "@/sim/group";
 import type { IsolatedReader, Isolation, TxnProducer } from "@/sim/transactions";
 import type { LogManager, StorageOptions } from "@/sim/storage";
+import type { CountingApp, Row, SourceConnector, WindowedCounter } from "@/sim/streams";
 import type { ConsumerSpec } from "@/stage/factoryStage";
 
 /** A translatable message: a key under the `levels` namespace plus ICU values. */
@@ -17,7 +18,8 @@ export type Concept =
   | "poll" | "groups" | "rebalance" | "commits" | "lag"
   | "replication" | "isr" | "min-insync" | "kraft"
   | "semantics" | "transactions" | "eos"
-  | "segments" | "retention" | "compaction" | "tiered";
+  | "segments" | "retention" | "compaction" | "tiered"
+  | "connect" | "ktable" | "state" | "windows";
 
 export type Choice = { id: string; label: Msg };
 
@@ -56,6 +58,10 @@ export type LevelCtx = {
   txn?: TxnProducer;
   readers?: IsolatedReader[];
   log?: LogManager;
+  /** World 8: a source connector, a counting Streams app, a windowed counter. */
+  connector?: SourceConnector;
+  app?: CountingApp;
+  windows?: WindowedCounter;
   /** Records in the order workers finished them. */
   delivered: SimRecordLike[];
 };
@@ -104,6 +110,8 @@ export type Tool =
       headers?: boolean;
       /** Number each key's records (#1, #2…) to make ordering visible. */
       sequence?: boolean;
+      /** Cycle through these values instead of order numbers (e.g. cities for a KTable). */
+      values?: string[];
       /** Ignore keys and spread records round-robin across partitions. */
       roundRobin?: boolean;
     }
@@ -113,7 +121,7 @@ export type Tool =
   /** A segmented control bound to a producer/replica/group setting. */
   | {
       type: "setting";
-      field: "lingerMs" | "batchSize" | "codec" | "idempotent" | "acks" | "protocol" | "commit" | "maxPollRecords" | "minInsync" | "unclean" | "retainSegments";
+      field: "lingerMs" | "batchSize" | "codec" | "idempotent" | "acks" | "protocol" | "commit" | "maxPollRecords" | "minInsync" | "unclean" | "retainSegments" | "grace";
       options: (string | number | boolean)[];
     }
   /** Per-broker controls: crash it, slow its replication down, bring it back. */
@@ -127,12 +135,19 @@ export type Tool =
   /** Consumer group membership controls. */
   | { type: "members"; actions: ("join" | "leave" | "crash")[]; max: number }
   | { type: "crash" }
+  /** World 8 one-shot buttons (labels: level.tools.actions.<id>). */
+  | { type: "actions"; ids: ActionId[] }
   | { type: "fetch"; topic: string; partition: number; groups: string[] }
   | { type: "route"; topics: string[]; count: number };
 
+export type ActionId = "dbInsert" | "connectorCrash" | "connectorRestart" | "appCrash" | "appRestart" | "eventNow" | "eventLate5" | "eventLate15";
+
+/** Which World 8 live panel a step shows. */
+export type StreamsPanel = "connect" | "table" | "store" | "windows";
+
 export type Step =
   | { kind: "brief"; title: Msg; body: Msg; mapping?: { icon: string; thing: Msg; kafka: Msg }[]; breaks?: Msg; code?: string }
-  | { kind: "watch"; title: Msg; body: Msg; script: (ctx: LevelCtx) => Promise<void>; deliveries?: boolean; receipts?: boolean; groupStats?: boolean; isr?: boolean; seen?: boolean; table?: boolean }
+  | { kind: "watch"; title: Msg; body: Msg; script: (ctx: LevelCtx) => Promise<void>; streams?: StreamsPanel; deliveries?: boolean; receipts?: boolean; groupStats?: boolean; isr?: boolean; seen?: boolean; table?: boolean }
   | { kind: "predict"; build: (ctx: LevelCtx) => Prediction }
   | {
       kind: "task";
@@ -155,6 +170,8 @@ export type Step =
       seen?: boolean;
       /** Show the state a consumer would rebuild from the log (key → latest value). */
       table?: boolean;
+      /** World 8 live panel. */
+      streams?: StreamsPanel;
       /** Show the delivery log (completion order) on the step card. */
       deliveries?: boolean;
       /** Show where each key went before vs. now (after adding partitions). */
@@ -180,6 +197,12 @@ export type Level = {
   storage?: { topic: string; options: Partial<StorageOptions> };
   /** World 6: a transactional producer and readers with different isolation levels. */
   txn?: { readers: { group: string; label: string; color: string; isolation: Isolation; topic: string }[] };
+  /** World 8: Connect / Streams machinery. */
+  streams?: {
+    connector?: { name: string; topic: string; offsetsTopic: string; flushEvery: number; rows: Row[] };
+    app?: { appId: string; input: string; changelog: string };
+    windows?: { topic: string; size: number; grace: number };
+  };
   /** World 4: a consumer group on one topic, with members as robot arms. */
   group?: { name: string; topic: string; options: Partial<GroupOptions>; members: number };
   title: Msg;

@@ -4,7 +4,7 @@
     "description": "Un juego visual que enseña Apache Kafka: enruta paquetes, opera particiones y mantén fluyendo los eventos de la ciudad."
   },
   "landing": {
-    "kicker": "Kafka Express · logística de eventos",
+    "kicker": "Logística de eventos · Apache Kafka",
     "title": "Kafka Express",
     "tagline": "Eres el nuevo despachador. Lleva cada pedido a la cinta correcta y descubre cómo funciona de verdad Apache Kafka: particiones, offsets, consumidores y más.",
     "start": "Empezar turno",
@@ -148,7 +148,8 @@
         "maxPollRecords": "max.poll.records",
         "minInsync": "min.insync.replicas",
         "unclean": "elección unclean",
-        "retainSegments": "segmentos a conservar"
+        "retainSegments": "segmentos a conservar",
+        "grace": "grace (s)"
       },
       "member": {
         "join": "Contratar robot ({n})",
@@ -168,7 +169,17 @@
         "abort": "Abortar"
       },
       "clean": "Pasar el limpiador del log",
-      "tombstone": "Borrar {key} (tombstone)"
+      "tombstone": "Borrar {key} (tombstone)",
+      "actions": {
+        "dbInsert": "Fila nueva en la base de datos",
+        "connectorCrash": "Tumbar la task",
+        "connectorRestart": "Reiniciar la task",
+        "appCrash": "Tumbar la app",
+        "appRestart": "Arrancar instancia nueva",
+        "eventNow": "Clic ahora",
+        "eventLate5": "Clic 5 s tarde",
+        "eventLate15": "Clic 15 s tarde"
+      }
     },
     "delivered": "Entregados (en orden de llegada)",
     "nothingYet": "Aún no se entrega nada…",
@@ -192,7 +203,25 @@
     "taskDone": "¡Hecho!",
     "answerWas": "La respuesta era {answer}.",
     "letsGo": "¡A jugar!",
-    "watching": "Mirando…"
+    "watching": "Mirando…",
+    "streams": {
+      "source": "tabla customers (base de datos)",
+      "running": "en marcha",
+      "crashed": "caída",
+      "copied": "copiada",
+      "flushed": "Posición guardada en connect-offsets: tras la fila {n}",
+      "duplicates": "{n, plural, =0 {Sin duplicados} one {# fila copiada dos veces} other {# filas copiadas dos veces}}",
+      "empty": "vacía",
+      "store": "state store \"counts\"",
+      "restoring": "restaurando {done}/{total}",
+      "storeEmpty": "Vacío: el store se perdió con la máquina.",
+      "windows": "ventanas (10 s)",
+      "streamTime": "stream time {s} s · grace {grace} s",
+      "count": "{n, plural, one {# clic} other {# clics}}",
+      "open": "abierta",
+      "closed": "cerrada",
+      "dropped": "{n, plural, =0 {Nada descartado} one {# clic tardío descartado} other {# clics tardíos descartados}}"
+    }
   },
   "map": {
     "home": "Inicio",
@@ -245,7 +274,11 @@
     "playLevel": "Jugar {id}",
     "worldLocked": "Termina el Mundo {n} para desbloquear",
     "soonBody": "Esta isla aún está en construcción. Viene más Kafka en camino.",
-    "w8": "Streams y Connect"
+    "w8": {
+      "title": "Streams y Connect",
+      "body": "Kafka más allá de los brokers: Connect mete y saca datos por tuberías, y Kafka Streams convierte topics en tablas, cuentas que sobreviven a caídas y ventanas de tiempo."
+    },
+    "w9": "Colas y rendimiento"
   },
   "levels": {
     "1-1": {
@@ -2074,6 +2107,261 @@
           "no": "No",
           "yes": "Sí",
           "why": "No está soportado: usa topics con cleanup.policy=delete."
+        }
+      }
+    },
+    "8-1": {
+      "title": "Tuberías desde la base de datos",
+      "summary": "Kafka Connect copia una tabla de base de datos a un topic y recuerda dónde se quedó.",
+      "brief": {
+        "title": "Sin código, solo una tubería",
+        "body": "Tus clientes viven en una base de datos y la tienda los quiere en Kafka. Podrías escribir un producer, o conectar <b>Kafka Connect</b>: un framework que ejecuta <b>conectores</b> ya hechos. Un conector <b>source</b> copia un sistema externo a topics. Un conector <b>sink</b> copia topics hacia otro sistema. Los workers ejecutan cada conector como una o más <b>tasks</b>."
+      },
+      "map": {
+        "db": "La base de datos de clientes",
+        "source": "Sistema origen (lo lee un conector source)",
+        "pipe": "La tubería hacia el centro",
+        "connector": "Conector + task",
+        "bookmark": "Su marcapáginas",
+        "offsets": "El topic connect-offsets"
+      },
+      "copy": {
+        "title": "Las filas se vuelven registros",
+        "body": "La task copia cada fila a <code>db-customers</code>, con su id como key. Cada 3 filas escribe su posición en <code>connect-offsets</code>: Connect guarda su propio marcapáginas en un topic de Kafka."
+      },
+      "resume": {
+        "q": "La task copió 5 filas, pero solo guardó su posición tras la fila 3. Se cae. ¿Dónde empieza la task nueva?",
+        "flushed": "Tras la fila 3, la última posición guardada",
+        "where": "Tras la fila 5, donde estaba de verdad la task vieja",
+        "start": "En la fila 1, desde cero",
+        "why": "La task nueva solo sabe lo que hay en <code>connect-offsets</code>. Las filas 4 y 5 se copian otra vez: Connect es at-least-once por defecto. En Kafka real el guardado ocurre cada <code>offset.flush.interval.ms</code> (60 s por defecto)."
+      },
+      "crash": {
+        "title": "Rompe la tubería",
+        "body": "Añade filas a la base de datos y tumba la task <b>antes</b> de que guarde su posición (mira la línea en la tabla). Reiníciala y mira cómo copia algunas filas dos veces.",
+        "success": "Duplicados, tal como predijiste. El marcapáginas vive en Kafka, así que no se pierde nada, pero algunas filas pueden llegar dos veces."
+      },
+      "fix": {
+        "q": "¿Cómo haces que esas filas repetidas no hagan daño más adelante?",
+        "upsert": "Usar el id de la fila como key y tratarlos como upserts",
+        "partitions": "Añadir más particiones",
+        "never": "No se puede; los duplicados siempre rompen algo",
+        "why": "Cada registro lleva el id de la fila como key, así que una segunda copia de customer-4 dice lo mismo otra vez. Leído como tabla (upsert por key) o con un sink idempotente, el duplicado no hace daño. Kafka moderno también permite conectores source exactly-once (KIP-618)."
+      },
+      "check": {
+        "where": {
+          "q": "¿Dónde guarda su posición un conector source en modo distribuido?",
+          "topic": "En un topic de Kafka (offset.storage.topic)",
+          "memory": "Solo en la memoria de la task",
+          "db": "En la base de datos de origen",
+          "why": "Connect guarda los offsets de origen en un topic de Kafka, a menudo llamado connect-offsets, para que cualquier worker pueda retomar la task."
+        },
+        "sink": {
+          "q": "Un conector sink lee topics usando…",
+          "group": "Un consumer group",
+          "broker": "Una API especial del broker",
+          "leader": "El disco del líder directamente",
+          "why": "Las tasks sink son consumers de un grupo: reciben particiones y hacen commit de offsets como cualquier consumer."
+        },
+        "what": {
+          "q": "Kafka Connect es…",
+          "framework": "Un framework que ejecuta conectores en procesos worker",
+          "plugin": "Un plugin que se carga dentro de los brokers",
+          "database": "Una base de datos que habla Kafka",
+          "why": "Los workers corren aparte de los brokers. Los conectores son plugins de Connect, no del broker."
+        },
+        "dups": {
+          "q": "Una task guarda su posición cada {flush} filas. Copió {copied} filas y el último guardado fue tras la fila {flushed}. Se cae y reinicia. ¿Cuántas filas se copian dos veces?",
+          "why": "Reinicia desde la fila {flushed}, así que las filas {flushed}+1 a {copied} se envían otra vez: {extra}."
+        }
+      }
+    },
+    "8-2": {
+      "title": "¿Stream o tabla?",
+      "summary": "El mismo topic leído de dos formas: cada evento (KStream) o el último valor por key (KTable).",
+      "brief": {
+        "title": "Un diario y una agenda",
+        "body": "<b>Kafka Streams</b> es una librería Java que metes dentro de tu propia app. Puede leer un topic de dos formas. Un <b>KStream</b> es cada evento, como un diario: \"alice se mudó a Lima\", \"alice se mudó a Madrid\". Una <b>KTable</b> guarda solo el último valor por key, como una agenda. Un registro nuevo para una key reemplaza al anterior (un upsert).",
+        "breaks": "es una librería, no un clúster. Tu app la ejecuta, y escalas arrancando más copias de tu app."
+      },
+      "map": {
+        "diary": "El diario de mudanzas",
+        "stream": "KStream: cada registro",
+        "book": "La agenda",
+        "table": "KTable: último valor por key"
+      },
+      "moves": {
+        "title": "La gente se muda",
+        "body": "Llegan cinco mudanzas. El KStream lista las cinco. La KTable guarda una fila por persona."
+      },
+      "rows": {
+        "q": "Se mudaron alice, bob, alice, carol y bob. ¿Cuántas filas tiene la KTable?",
+        "why": "Tres personas: alice, bob y carol. La KTable guarda una fila por key."
+      },
+      "again": {
+        "q": "alice se muda otra vez, a Porto. ¿Qué muestra la KTable para alice?",
+        "porto": "Porto, y nada más",
+        "both": "Madrid y Porto",
+        "lima": "Lima, la primera dirección",
+        "why": "Un upsert: el registro nuevo reemplaza la fila de alice. El KStream sigue teniendo todas sus mudanzas."
+      },
+      "delete": {
+        "title": "Borra una fila",
+        "body": "Envía un <b>tombstone</b> (valor null) para bob o carol y mira cómo desaparece la fila de la KTable. Luego añade a dave o erin.",
+        "success": "Un valor null significa \"borra esta key\" para una tabla, pero el stream conserva todos los eventos, tombstone incluido."
+      },
+      "check": {
+        "upsert": {
+          "q": "Un registro nuevo para una key existente en una KTable…",
+          "upsert": "Reemplaza el valor anterior (upsert)",
+          "append": "Se añade como segunda fila",
+          "ignore": "Se ignora",
+          "why": "Una KTable es una vista de cambios: último valor por key."
+        },
+        "null": {
+          "q": "En una KTable, un registro con valor null…",
+          "delete": "Borra la key",
+          "store": "Guarda null como valor",
+          "error": "Lanza un error",
+          "why": "Un valor null es un tombstone: la key se quita de la tabla."
+        },
+        "rows": {
+          "q": "Un topic tiene {events} registros repartidos en {keys} keys distintas, sin borrados. ¿Cuántas filas tiene su KTable?",
+          "why": "Una fila por key: {keys}. El KStream tendría los {events}."
+        },
+        "library": {
+          "q": "Para usar Kafka Streams…",
+          "library": "Añades la librería a tu app y ejecutas tu app",
+          "cluster": "Despliegas un clúster de Streams aparte",
+          "broker": "Lo activas en los brokers",
+          "why": "Kafka Streams es una librería cliente. Escala ejecutando más instancias de tu app."
+        }
+      }
+    },
+    "8-3": {
+      "title": "Estado que sobrevive",
+      "summary": "Una app que cuenta guarda su estado en un store local respaldado por un topic changelog, y lo recupera tras una caída.",
+      "brief": {
+        "title": "La libreta y su copia en carbón",
+        "body": "Contar clics por usuario necesita <b>estado</b>: la cuenta hasta ahora. Kafka Streams lo guarda en un <b>state store</b> local (una libreta en el disco de la propia app). Cada cambio también se escribe en un <b>topic changelog</b>, una copia en carbón dentro de Kafka. Si la máquina muere, una instancia nueva reproduce el changelog y recupera la libreta."
+      },
+      "map": {
+        "notebook": "La libreta",
+        "store": "State store local (RocksDB)",
+        "copy": "Su copia en carbón",
+        "changelog": "Topic changelog (compactado)"
+      },
+      "count": {
+        "title": "Contando clics",
+        "body": "Llegan clics. Cada uno actualiza la cuenta en el store, y la cuenta nueva va a <code>click-counter-counts-changelog</code>."
+      },
+      "crash": {
+        "q": "La máquina muere, con disco y todo. Arranca una instancia nueva. ¿Cuál es la cuenta de alice?",
+        "same": "La misma de antes: se reconstruye desde el changelog",
+        "zero": "0, el store empezó vacío",
+        "never": "La app no puede arrancar sin el disco viejo",
+        "why": "El topic changelog tiene cada actualización, así que reproducirlo reconstruye el store antes de procesar clics nuevos."
+      },
+      "restore": {
+        "title": "Tumba y restaura",
+        "body": "Tumba la app (su store se borra), reiníciala y mira cómo se restaura desde el changelog. Luego envía un par de clics más: las cuentas deben seguir cuadrando.",
+        "success": "Las mismas cuentas, y luego a por los clics nuevos. Velocidad local, con Kafka como respaldo."
+      },
+      "compact": {
+        "q": "¿Por qué un topic changelog es compactado?",
+        "latest": "Para restaurar solo hace falta el último valor por key",
+        "money": "La compactación abarata los brokers",
+        "order": "Para mantener los registros en orden",
+        "why": "El store solo necesita la última cuenta de alice, no cada paso. La compactación mantiene el changelog pequeño y las restauraciones rápidas."
+      },
+      "check": {
+        "where": {
+          "q": "¿Dónde guarda una cuenta una app de Kafka Streams?",
+          "both": "En un state store local, respaldado por un topic changelog",
+          "broker": "Solo en los brokers",
+          "memory": "Solo en memoria, se pierde al reiniciar",
+          "why": "Local por velocidad, changelog por seguridad."
+        },
+        "group": {
+          "q": "¿Qué group id usa una app de Kafka Streams?",
+          "appid": "Su application.id",
+          "random": "Uno aleatorio por instancia",
+          "topic": "El nombre del topic de entrada",
+          "why": "application.id da nombre al grupo, a los topics internos y a los changelogs."
+        },
+        "compact": {
+          "q": "Un changelog compactado recibió {updates} actualizaciones para {keys} keys. Tras compactar, ¿cuántos registros necesita como mínimo una restauración?",
+          "why": "La compactación guarda el último por key: {keys} (de {updates})."
+        },
+        "restore": {
+          "q": "Para reconstruir un state store perdido, Kafka Streams reproduce…",
+          "changelog": "El topic changelog del store",
+          "input": "El topic de entrada desde el principio",
+          "db": "Un snapshot de base de datos",
+          "why": "El changelog ya contiene lo que había en el store, compactado al último valor por key."
+        }
+      }
+    },
+    "8-4": {
+      "title": "Ventanas de tiempo",
+      "summary": "Cuenta por ventanas de 10 segundos según el tiempo del evento, y decide cuánto esperar a los registros tardíos.",
+      "brief": {
+        "title": "Turnos con reloj",
+        "body": "\"Clics por minuto\" necesita <b>ventanas</b>. Una <b>ventana tumbling</b> tiene tamaño fijo y las ventanas nunca se solapan: [0–10), [10–20)… Cada registro va a una ventana según su <b>tiempo de evento</b> (su timestamp), no según cuándo llega. Los registros pueden llegar tarde, así que una ventana espera un <b>periodo de gracia</b> antes de cerrarse. Lo que llegue más tarde se descarta."
+      },
+      "map": {
+        "shift": "Un turno de 10 segundos",
+        "window": "Una ventana tumbling",
+        "stamp": "La hora impresa en el ticket",
+        "eventTime": "Tiempo de evento (timestamp del registro)",
+        "late": "Cuánto rato sigue abierta la puerta",
+        "grace": "Periodo de gracia (grace)"
+      },
+      "fill": {
+        "title": "Llenando ventanas",
+        "body": "Hay clics a los 3 s, 6 s, 9 s y 12 s. El <b>stream time</b> es el timestamp más nuevo visto. Con grace 0, la ventana [0–10) se cierra cuando el stream time llega a 10."
+      },
+      "late": {
+        "q": "El stream time es 12 s y el grace es 0. Llega ahora un clic que ocurrió a los 7 s. ¿Qué pasa?",
+        "dropped": "Se descarta: la ventana [0–10) ya está cerrada",
+        "first": "Se cuenta en [0–10)",
+        "second": "Se cuenta en [10–20)",
+        "why": "7 s pertenece a [0–10), que cerró en 10 + 0 de grace. Los registros tardíos de una ventana cerrada se descartan (Kafka Streams los registra y los cuenta)."
+      },
+      "grace": {
+        "title": "Aguanta la puerta",
+        "body": "Elige un periodo de gracia para que los clics que llegan <b>5 s tarde</b> sí cuenten, y luego envía uno <b>15 s tarde</b> y mira cómo se descarta.",
+        "success": "El grace es un equilibrio: cuenta más datos tardíos, pero los resultados finales llegan más tarde."
+      },
+      "hour": {
+        "q": "¿Por qué no poner simplemente una hora de grace?",
+        "wait": "Las ventanas siguen abiertas más tiempo: el resultado final llega más tarde y se guarda más estado",
+        "forbidden": "Kafka no lo permite",
+        "drops": "Descarta más registros",
+        "why": "Un grace largo atrapa más datos tardíos, pero cada ventana tarda eso en ser definitiva, y su estado se guarda todo ese tiempo."
+      },
+      "check": {
+        "kind": {
+          "q": "Las ventanas de tamaño fijo que nunca se solapan son…",
+          "tumbling": "Ventanas tumbling",
+          "hopping": "Ventanas hopping",
+          "session": "Ventanas de sesión",
+          "why": "Las hopping se solapan (avanzan menos que su tamaño). Las de sesión crecen con la actividad."
+        },
+        "start": {
+          "q": "Ventanas tumbling de {size} s. Un registro tiene tiempo de evento {ts} s. ¿En qué segundo empieza su ventana?",
+          "why": "{ts} cae en [{start}–{end})."
+        },
+        "close": {
+          "q": "La ventana [{start}–{end}) tiene {grace} s de grace. ¿Con qué stream time se cierra?",
+          "why": "Fin + grace: {end} + {grace} = {close}. Lo que llegue para ella después se descarta."
+        },
+        "time": {
+          "q": "¿Qué tiempo decide la ventana de un registro?",
+          "event": "Su tiempo de evento (el timestamp del registro)",
+          "arrival": "Cuándo lo recibió el broker",
+          "reader": "El reloj de quien lo lee",
+          "why": "Las ventanas usan tiempo de evento; por eso pueden llegar registros tarde y hace falta un grace."
         }
       }
     }

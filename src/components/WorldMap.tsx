@@ -17,7 +17,7 @@ import { gameButtonClass } from "./ui/GameButton";
 import { Logo } from "./ui/Logo";
 import { UnlockCode } from "./UnlockCode";
 
-const UPCOMING = [8] as const;
+const UPCOMING = [9] as const;
 const noop = () => () => {};
 
 type WorldEntry = { id: number; levels: Level[] };
@@ -137,6 +137,8 @@ export function WorldMap() {
       }}
     >
       <AudioDirector intensity={1} />
+      {/* The map opens from a closed iris (pairs with the landing's wipe) */}
+      <div aria-hidden className="iris-open pointer-events-none fixed inset-0 z-50 bg-ink" />
       <div ref={host} className="absolute inset-0" data-testid="world-map" />
 
       <header ref={headerRef} className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-2 px-3 pt-3 sm:px-5">

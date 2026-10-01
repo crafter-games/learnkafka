@@ -1,0 +1,1 @@
+{"name":"m9-landing-phone","path":"/es","viewport":[390,844],"steps":[{"wait":4000},{"screenshot":"landing","full":true},{"eval":"document.getElementById('start-shift').click()"},{"wait":350},{"screenshot":"iris-mid"},{"wait":1500},{"expect":"location.pathname.endsWith('/world')"},{"wait":200},{"screenshot":"map-opening"},{"wait":2500},{"screenshot":"map"}]}

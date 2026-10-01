@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "motion/react";
-import { CreditCard, Lightning, PaperPlaneTilt, Plus, Prohibit, Receipt, Scan } from "@phosphor-icons/react";
+import { ArrowClockwise, CreditCard, Lightning, PaperPlaneTilt, Plus, Prohibit, Receipt, Scan } from "@phosphor-icons/react";
 import type { Headers } from "@/sim/events";
-import type { Tool } from "@/levels/types";
+import type { ActionId, Tool } from "@/levels/types";
 import { randInt, seeded } from "@/levels/types";
 import { newSeed } from "@/levels/session";
 import type { ConsumerSpec } from "@/stage/factoryStage";
@@ -33,7 +33,33 @@ export type ToolHandlers = {
   addPartition: (topic: string) => void;
   fetch: (group: string, topic: string, partition: number) => void;
   route: (ok: boolean, topic: string, key: string, value: string) => void;
+  action: (id: ActionId) => void;
+  actionEnabled: (id: ActionId) => boolean;
 };
+
+const ACTION_STYLE: Partial<Record<ActionId, "danger" | "accent">> = { connectorCrash: "danger", appCrash: "danger", connectorRestart: "accent", appRestart: "accent", eventLate15: "danger" };
+
+/** World 8: one-shot buttons (insert a row, crash/restart a task, send an on-time or late event). */
+function ActionsTool({ tool, on }: { tool: Extract<Tool, { type: "actions" }>; on: ToolHandlers }) {
+  const t = useTranslations("level.tools.actions");
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {tool.ids.map((id) => (
+        <button
+          key={id}
+          type="button"
+          data-action={id}
+          disabled={!on.actionEnabled(id)}
+          onClick={() => on.action(id)}
+          className={`${gameButtonClass({ variant: ACTION_STYLE[id] === "accent" ? "accent" : "secondary", size: "md" })} ${ACTION_STYLE[id] === "danger" ? "border-danger/40 text-danger" : ""}`}
+        >
+          {/Crash/.test(id) ? <Lightning weight="fill" /> : /Restart/.test(id) ? <ArrowClockwise weight="bold" /> : null}
+          {t(id)}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 function ProduceTool({ tool, on }: { tool: Extract<Tool, { type: "produce" }>; on: ToolHandlers }) {
   const t = useTranslations("level.tools");
@@ -43,7 +69,7 @@ function ProduceTool({ tool, on }: { tool: Extract<Tool, { type: "produce" }>; o
   const [last, setLast] = useState<string | null | undefined>(undefined);
   const [seq, setSeq] = useState<Record<string, number>>({});
   const headers: Headers = withHeaders ? { source: "web" } : {};
-  const value = `{"order":${1040 + n}}`;
+  const value = tool.values ? tool.values[n % tool.values.length] : `{"order":${1040 + n}}`;
   const send = (key: string | null) => {
     // In sequence mode each customer's orders are numbered #1, #2… so ordering is visible
     const k = key ?? "∅";
@@ -401,6 +427,8 @@ export function ToolDock({ tools, consumers, partitions, on }: { tools: Tool[]; 
             <Lightning weight="fill" />
             <ControllerLabel />
           </button>
+        ) : tool.type === "actions" ? (
+          <ActionsTool key={i} tool={tool} on={on} />
         ) : (
           <RouteTool key={i} tool={tool} on={on} />
         ),

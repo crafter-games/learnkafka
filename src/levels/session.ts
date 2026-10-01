@@ -4,8 +4,9 @@ import { ReplicaSet } from "@/sim/replication";
 import { DEFAULT_GROUP, GroupSim } from "@/sim/group";
 import { IsolatedReader, TxnProducer } from "@/sim/transactions";
 import { LogManager, TOMBSTONE } from "@/sim/storage";
+import { CountingApp, SourceConnector, WindowedCounter } from "@/sim/streams";
 import type { Headers, SimRecord } from "@/sim/events";
-import { seeded, type Level, type LevelCtx, type SimRecordLike, type TaskStats } from "./types";
+import { seeded, type ActionId, type Level, type LevelCtx, type SimRecordLike, type TaskStats } from "./types";
 
 const ZERO: TaskStats = { produced: 0, nullKeys: 0, routedOk: 0, routedWrong: 0, calm: 0, partitionsAdded: 0, lostAcked: 0, dups: 0, rejected: 0, processed: 0, groupDups: 0, groupLost: 0, members: 0, crashes: 0, isrDrops: 0, isrJoins: 0 };
 const AUTO_KEYS = ["alice", "bob", "carol", "dave", "erin", "frank", "grace", "heidi", "ivan", "judy", "mallory", "niaj", "olivia", "peggy", "rupert", "sybil", "trent", "victor", "walter"];
@@ -47,7 +48,16 @@ export class LevelSession {
     const txn = level.txn ? new TxnProducer(this.cluster) : undefined;
     const readers = level.txn?.readers.map((r) => new IsolatedReader(this.cluster, txn!, r.group, r.isolation)) ?? [];
     const readerTimer = readers.length ? setInterval(() => level.txn!.readers.forEach((r, i) => readers[i].tick(r.topic)), 800) : null;
+    const sc = level.streams;
+    const connector = sc?.connector ? new SourceConnector(this.cluster, sc.connector.name, sc.connector.topic, sc.connector.offsetsTopic, sc.connector.flushEvery, sc.connector.rows) : undefined;
+    const app = sc?.app ? new CountingApp(this.cluster, sc.app.appId, sc.app.input, sc.app.changelog) : undefined;
+    const windows = sc?.windows ? new WindowedCounter(this.cluster, sc.windows.topic, sc.windows.size) : undefined;
+    if (windows) windows.grace = sc!.windows!.grace;
+    // The connector starts stopped; the level's first watch step switches it on
+    if (connector) connector.running = false;
+    const streamTimers = [connector && setInterval(() => connector.tick(), 900), app && setInterval(() => app.tick(), 600)].filter(Boolean) as ReturnType<typeof setInterval>[];
     this.cleanup = () => {
+      streamTimers.forEach(clearInterval);
       batching?.stop();
       replicas?.stop();
       group?.stop();
@@ -65,6 +75,9 @@ export class LevelSession {
       txn,
       readers,
       log,
+      connector,
+      app,
+      windows,
       wait: (ms) => new Promise((r) => setTimeout(r, ms)),
       produce: (topic, key, value = `order-${this.stats.produced + 1}`, partition) => {
         const r = this.produce(topic, key, value, {}, false, partition);
@@ -210,6 +223,21 @@ export class LevelSession {
     else this.ctx.replicas?.send(key, n);
   }
 
+  /** World 8 one-shot buttons. */
+  action(id: ActionId) {
+    const { connector, app, windows } = this.ctx;
+    const key = ["alice", "bob", "carol"][this.stats.produced % 3];
+    if (id === "dbInsert" && connector) connector.insert({ id: `customer-${connector.table.length + 1}`, value: ["Lima", "Quito", "Bogotá", "Madrid", "Austin"][connector.table.length % 5] });
+    else if (id === "connectorCrash") connector?.crash();
+    else if (id === "connectorRestart") connector?.restart();
+    else if (id === "appCrash") app?.crash();
+    else if (id === "appRestart") app?.restart();
+    else if (windows && id.startsWith("event")) {
+      this.stats.produced++;
+      windows.send(key, id === "eventNow" ? 0 : id === "eventLate5" ? 5 : 15);
+    }
+  }
+
   /** Tool settings land on the World 3 machinery (kept out of React so the lint stays happy). */
   setSetting(field: string, value: string | number | boolean) {
     const { batching, retrying, replicas, group } = this.ctx;
@@ -218,6 +246,7 @@ export class LevelSession {
     else if (field === "acks" && replicas) replicas.acks = value as typeof replicas.acks;
     else if (field === "minInsync" && replicas) replicas.minInsync = Number(value);
     else if (field === "retainSegments" && this.ctx.log) this.ctx.log.setRetention(value === "all" ? Infinity : Number(value));
+    else if (field === "grace" && this.ctx.windows) this.ctx.windows.grace = Number(value);
     else if (field === "unclean" && replicas) replicas.unclean = Boolean(value);
     else if (field === "idempotent" && retrying) retrying.idempotent = Boolean(value);
     else if (batching && (field === "lingerMs" || field === "batchSize")) batching.config[field] = Number(value);

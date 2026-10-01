@@ -4,16 +4,18 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { motion } from "motion/react";
 import {
-  ArrowLineRight, Check, Clock, Factory, FileText, Flag, Hash, ListNumbers, Note, Package, Robot, Rows, Scan, Signpost, Tag, X,
+  ArrowLineRight, Check, Clock, Database, Factory, FileText, Flag, Hash, Lightning, ListNumbers, Note, Package, Plug, Robot, Rows, Scan, Signpost, Table, Tag, Timer, X,
   type Icon,
 } from "@phosphor-icons/react";
-import type { Input, Msg } from "@/levels/types";
+import type { Input, LevelCtx, Msg, StreamsPanel } from "@/levels/types";
+import { streamView, tableView } from "@/sim/streams";
 import type { Cluster } from "@/sim/cluster";
 import { gameButtonClass } from "../ui/GameButton";
 
 const ICONS: Record<string, Icon> = {
   package: Package, tag: Tag, file: FileText, note: Note, clock: Clock, robot: Robot, scan: Scan, flag: Flag,
   hash: Hash, counter: ListNumbers, next: ArrowLineRight, factory: Factory, sign: Signpost, rows: Rows,
+  database: Database, plug: Plug, table: Table, timer: Timer,
 };
 
 /** Renders a level message with <b> and <code> rich tags. */
@@ -396,4 +398,124 @@ export function Feedback({ correct, explain }: { correct: boolean; explain: Msg 
       <Text m={explain} className="text-ink-2" />
     </motion.div>
   );
+}
+
+const panelTitle = "mb-1.5 font-display text-xs font-bold uppercase tracking-[0.14em] text-ink-2";
+
+function Status({ tone, children }: { tone: "ok" | "bad" | "busy"; children: React.ReactNode }) {
+  const cls = tone === "ok" ? "bg-broker/15 text-broker" : tone === "bad" ? "bg-danger/15 text-danger" : "bg-producer/15 text-producer-dark";
+  return <span className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-0.5 font-display text-xs font-bold ${cls}`}>{children}</span>;
+}
+
+/** World 8 live panels: the connector's source table, stream vs table, the state store, windows. */
+export function StreamsView({ kind, ctx, topic }: { kind: StreamsPanel; ctx: LevelCtx; topic: string }) {
+  const t = useTranslations("level.streams");
+  if (kind === "connect" && ctx.connector) {
+    const c = ctx.connector;
+    const committed = c.committed();
+    const first = Math.max(0, c.table.length - 8);
+    return (
+      <div className="mt-3">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <p className={panelTitle}>{t("source")}</p>
+          {c.running ? <Status tone="ok">{t("running")}</Status> : <Status tone="bad"><Lightning weight="fill" /> {t("crashed")}</Status>}
+        </div>
+        <ol className="overflow-hidden rounded-xl border border-line bg-paper-2 font-mono text-sm">
+          {c.table.slice(first).map((row, j) => {
+            const i = first + j;
+            return (
+              <li key={row.id} className={`flex items-center gap-2 px-3 py-1 ${i === committed && i > 0 ? "border-t-2 border-partition" : i > first ? "border-t border-line" : ""}`}>
+                <span className="shrink-0 font-bold">{row.id}</span>
+                <span className="flex-1 truncate text-ink-2">{row.value}</span>
+                {i < c.position ? <Check weight="bold" className="text-broker" aria-label={t("copied")} /> : <span className="text-ink/30">…</span>}
+              </li>
+            );
+          })}
+        </ol>
+        <p className="mt-2 text-sm leading-snug text-ink-2">{t("flushed", { n: committed })}</p>
+        <p className={`mt-1 text-sm font-bold ${c.duplicates ? "text-danger" : "text-ink-2"}`}>{t("duplicates", { n: c.duplicates })}</p>
+      </div>
+    );
+  }
+  if (kind === "table") {
+    const events = streamView(ctx.cluster, topic).slice(-7);
+    const table = tableView(ctx.cluster, topic);
+    return (
+      <div className="mt-3 grid grid-cols-2 gap-3">
+        <div>
+          <p className={panelTitle}>KStream</p>
+          <ol className="space-y-1 font-mono text-sm">
+            {events.map((r) => (
+              <li key={r.offset} className="truncate rounded-md bg-paper-2 px-2 py-0.5">
+                <b>{r.key}</b> <span className="text-ink-2">{r.value === "" ? "∅" : r.value}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+        <div>
+          <p className={panelTitle}>KTable</p>
+          {table.size === 0 ? (
+            <p className="text-sm text-ink-2">{t("empty")}</p>
+          ) : (
+            <ul className="space-y-1 font-mono text-sm">
+              {[...table].map(([k, v]) => (
+                <motion.li key={k} layout className="truncate rounded-md bg-partition/10 px-2 py-0.5">
+                  <b>{k}</b> <span className="text-partition-dark">{v}</span>
+                </motion.li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    );
+  }
+  if (kind === "store" && ctx.app) {
+    const a = ctx.app;
+    return (
+      <div className="mt-3">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <p className={panelTitle}>{t("store")}</p>
+          {a.restoring ? (
+            <Status tone="busy">{t("restoring", { done: a.restoring.done, total: a.restoring.total })}</Status>
+          ) : a.running ? (
+            <Status tone="ok">{t("running")}</Status>
+          ) : (
+            <Status tone="bad"><Lightning weight="fill" /> {t("crashed")}</Status>
+          )}
+        </div>
+        {a.store.size === 0 ? (
+          <p className="rounded-xl bg-paper-2 px-3 py-2 text-sm text-ink-2">{t("storeEmpty")}</p>
+        ) : (
+          <ul className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-0.5 rounded-xl bg-paper-2 px-3 py-2 font-mono text-sm">
+            {[...a.store].map(([k, v]) => (
+              <li key={k} className="contents">
+                <span className="font-bold">{k}</span>
+                <span className="text-right text-partition-dark">{v}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    );
+  }
+  if (kind === "windows" && ctx.windows) {
+    const w = ctx.windows;
+    return (
+      <div className="mt-3">
+        <p className={panelTitle}>{t("windows")}</p>
+        <p className="mb-2 font-mono text-sm text-ink-2">{t("streamTime", { s: w.streamTime, grace: w.grace })}</p>
+        <ul className="space-y-1.5">
+          {w.windows().slice(-4).map((win) => (
+            <li key={win.start} className={`flex items-center gap-2 rounded-xl border px-3 py-1.5 font-mono text-sm ${win.closed ? "border-line bg-paper-2 text-ink-2" : "border-partition/40 bg-partition/10"}`}>
+              <span className="w-20">[{win.start}–{win.end})</span>
+              <span className="flex-1 font-bold">{t("count", { n: win.count })}</span>
+              {win.closed ? <Status tone="bad">{t("closed")}</Status> : <Status tone="ok">{t("open")}</Status>}
+            </li>
+          ))}
+        </ul>
+        <p className={`mt-2 text-sm font-bold ${w.dropped ? "text-danger" : "text-ink-2"}`}>{t("dropped", { n: w.dropped })}</p>
+      </div>
+    );
+  }
+  return null;
 }

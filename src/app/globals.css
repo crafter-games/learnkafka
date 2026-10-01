@@ -271,3 +271,11 @@ button, a { touch-action: manipulation; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
+
+/* Scene transition: the map opens from a closed iris */
+@keyframes iris-open {
+  from { clip-path: circle(150vmax at 50% 50%); }
+  to { clip-path: circle(0 at 50% 50%); visibility: hidden; }
+}
+.iris-open { animation: iris-open 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both; }
+@media (prefers-reduced-motion: reduce) { .iris-open { display: none; } }

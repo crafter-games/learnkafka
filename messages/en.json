@@ -4,7 +4,7 @@
     "description": "A visual game that teaches Apache Kafka: route parcels, run partitions and keep the city's events flowing."
   },
   "landing": {
-    "kicker": "Kafka Express · event logistics",
+    "kicker": "Event logistics · Apache Kafka",
     "title": "Kafka Express",
     "tagline": "You're the new dispatcher. Route every order onto the right conveyor and discover how Apache Kafka really works — partitions, offsets, consumers and all.",
     "start": "Start shift",
@@ -148,7 +148,8 @@
         "maxPollRecords": "max.poll.records",
         "minInsync": "min.insync.replicas",
         "unclean": "unclean election",
-        "retainSegments": "segments kept"
+        "retainSegments": "segments kept",
+        "grace": "grace (s)"
       },
       "member": {
         "join": "Hire a robot ({n})",
@@ -168,7 +169,17 @@
         "abort": "Abort"
       },
       "clean": "Run the log cleaner",
-      "tombstone": "Delete {key} (tombstone)"
+      "tombstone": "Delete {key} (tombstone)",
+      "actions": {
+        "dbInsert": "New row in the database",
+        "connectorCrash": "Crash the task",
+        "connectorRestart": "Restart the task",
+        "appCrash": "Crash the app",
+        "appRestart": "Start a new instance",
+        "eventNow": "Click now",
+        "eventLate5": "Click 5 s late",
+        "eventLate15": "Click 15 s late"
+      }
     },
     "delivered": "Delivered (in completion order)",
     "nothingYet": "Nothing delivered yet…",
@@ -192,7 +203,25 @@
     "taskDone": "Done!",
     "answerWas": "The answer was {answer}.",
     "letsGo": "Let's go!",
-    "watching": "Watching…"
+    "watching": "Watching…",
+    "streams": {
+      "source": "customers table (database)",
+      "running": "running",
+      "crashed": "crashed",
+      "copied": "copied",
+      "flushed": "Position saved in connect-offsets: after row {n}",
+      "duplicates": "{n, plural, =0 {No duplicates} one {# row copied twice} other {# rows copied twice}}",
+      "empty": "empty",
+      "store": "state store \"counts\"",
+      "restoring": "restoring {done}/{total}",
+      "storeEmpty": "Empty: the store was lost with the machine.",
+      "windows": "windows (10 s)",
+      "streamTime": "stream time {s} s · grace {grace} s",
+      "count": "{n, plural, one {# click} other {# clicks}}",
+      "open": "open",
+      "closed": "closed",
+      "dropped": "{n, plural, =0 {Nothing dropped} one {# late click dropped} other {# late clicks dropped}}"
+    }
   },
   "map": {
     "home": "Home",
@@ -245,7 +274,11 @@
     "playLevel": "Play {id}",
     "worldLocked": "Finish World {n} to unlock",
     "soonBody": "This island is still under construction. More Kafka is on the way.",
-    "w8": "Streams & Connect"
+    "w8": {
+      "title": "Streams & Connect",
+      "body": "Kafka beyond the brokers: Connect pipes data in and out, and Kafka Streams turns topics into tables, counts that survive crashes, and time windows."
+    },
+    "w9": "Queues & Performance"
   },
   "levels": {
     "1-1": {
@@ -2074,6 +2107,261 @@
           "no": "No",
           "yes": "Yes",
           "why": "Not supported: use cleanup.policy=delete topics."
+        }
+      }
+    },
+    "8-1": {
+      "title": "Pipes from the database",
+      "summary": "Kafka Connect copies a database table into a topic and remembers where it stopped.",
+      "brief": {
+        "title": "No code, just a pipe",
+        "body": "Your customers live in a database, and the shop wants them in Kafka. You could write a producer, or plug in <b>Kafka Connect</b>: a framework that runs ready-made <b>connectors</b>. A <b>source</b> connector copies an outside system into topics. A <b>sink</b> connector copies topics out to another system. Workers run each connector as one or more <b>tasks</b>."
+      },
+      "map": {
+        "db": "The customer database",
+        "source": "Source system (read by a source connector)",
+        "pipe": "The pipe into the hub",
+        "connector": "Connector + task",
+        "bookmark": "Its bookmark",
+        "offsets": "The connect-offsets topic"
+      },
+      "copy": {
+        "title": "Rows become records",
+        "body": "The task copies each row into <code>db-customers</code>, keyed by its id. Every 3 rows it writes its position to <code>connect-offsets</code>: Connect keeps its own bookmark in a Kafka topic."
+      },
+      "resume": {
+        "q": "The task copied 5 rows but only flushed its position after row 3. It crashes. Where does the new task start?",
+        "flushed": "After row 3, the last flushed position",
+        "where": "After row 5, where the old task really was",
+        "start": "At row 1, from scratch",
+        "why": "A new task only knows what is in <code>connect-offsets</code>. Rows 4 and 5 get copied again: Connect is at-least-once by default. In real Kafka the flush runs every <code>offset.flush.interval.ms</code> (60 s by default)."
+      },
+      "crash": {
+        "title": "Crash the pipe",
+        "body": "Add rows to the database, then crash the task <b>before</b> it flushes (look at the line in the table). Restart it and watch it copy some rows twice.",
+        "success": "Duplicates, exactly as predicted. The bookmark lives in Kafka, so nothing is lost, but some rows may arrive twice."
+      },
+      "fix": {
+        "q": "How do you make those re-sent rows harmless downstream?",
+        "upsert": "Key the records by row id and treat them as upserts",
+        "partitions": "Add more partitions",
+        "never": "You can't; duplicates always break things",
+        "why": "Each record is keyed by the row id, so a second copy of customer-4 just says the same thing again. Read as a table (upsert by key) or with an idempotent sink, duplicates do no harm. Newer Kafka can also run source connectors exactly-once (KIP-618)."
+      },
+      "check": {
+        "where": {
+          "q": "Where does a source connector keep its position in distributed mode?",
+          "topic": "In a Kafka topic (offset.storage.topic)",
+          "memory": "Only in the task's memory",
+          "db": "In the source database",
+          "why": "Connect stores source offsets in a Kafka topic, often called connect-offsets, so any worker can pick the task up."
+        },
+        "sink": {
+          "q": "A sink connector reads topics using…",
+          "group": "A consumer group",
+          "broker": "A special broker API",
+          "leader": "The partition leader's disk directly",
+          "why": "Sink tasks are consumers in a group, so they get partitions assigned and commit offsets like any consumer."
+        },
+        "what": {
+          "q": "Kafka Connect is…",
+          "framework": "A framework that runs connectors in worker processes",
+          "plugin": "A plugin loaded inside the brokers",
+          "database": "A database that speaks Kafka",
+          "why": "Workers run separately from brokers. Connectors are plugins for Connect, not for the broker."
+        },
+        "dups": {
+          "q": "A task flushes its position every {flush} rows. It copied {copied} rows and the last flush was after row {flushed}. It crashes and restarts. How many rows get copied twice?",
+          "why": "It restarts from row {flushed}, so rows {flushed}+1 to {copied} go out again: {extra}."
+        }
+      }
+    },
+    "8-2": {
+      "title": "Stream or table?",
+      "summary": "The same topic read two ways: every event (KStream) or the latest value per key (KTable).",
+      "brief": {
+        "title": "A diary and an address book",
+        "body": "<b>Kafka Streams</b> is a Java library you put inside your own app. It can read a topic two ways. A <b>KStream</b> is every event, like a diary: \"alice moved to Lima\", \"alice moved to Madrid\". A <b>KTable</b> keeps only the latest value per key, like an address book. A new record for a key replaces the old one (an upsert).",
+        "breaks": "it is a library, not a cluster. Your app runs it, and you scale it by starting more copies of your app."
+      },
+      "map": {
+        "diary": "The diary of moves",
+        "stream": "KStream: every record",
+        "book": "The address book",
+        "table": "KTable: latest value per key"
+      },
+      "moves": {
+        "title": "People move",
+        "body": "Five moves arrive. The KStream lists all five. The KTable keeps one row per person."
+      },
+      "rows": {
+        "q": "alice, bob, alice, carol, bob moved. How many rows does the KTable have?",
+        "why": "Three people: alice, bob and carol. The KTable keeps one row per key."
+      },
+      "again": {
+        "q": "alice moves again, to Porto. What does the KTable show for alice?",
+        "porto": "Porto, and nothing else",
+        "both": "Madrid and Porto",
+        "lima": "Lima, the first address",
+        "why": "An upsert: the new record replaces alice's row. The KStream still has all her moves."
+      },
+      "delete": {
+        "title": "Delete a row",
+        "body": "Send a <b>tombstone</b> (a null value) for bob or carol and watch the row disappear from the KTable. Then add dave or erin.",
+        "success": "A null value means \"delete this key\" for a table, but the stream still has every event, the tombstone included."
+      },
+      "check": {
+        "upsert": {
+          "q": "A new record for an existing key in a KTable…",
+          "upsert": "Replaces the old value (upsert)",
+          "append": "Is added as a second row",
+          "ignore": "Is ignored",
+          "why": "A KTable is a changelog view: latest value per key."
+        },
+        "null": {
+          "q": "In a KTable, a record with a null value…",
+          "delete": "Deletes the key",
+          "store": "Stores null as the value",
+          "error": "Throws an error",
+          "why": "A null value is a tombstone: the key is removed from the table."
+        },
+        "rows": {
+          "q": "A topic has {events} records spread over {keys} different keys, with no deletes. How many rows does its KTable have?",
+          "why": "One row per key: {keys}. The KStream would have all {events}."
+        },
+        "library": {
+          "q": "To run Kafka Streams you…",
+          "library": "Add the library to your app and run your app",
+          "cluster": "Deploy a separate Streams cluster",
+          "broker": "Enable it on the brokers",
+          "why": "Kafka Streams is a client library. Scale it by running more instances of your app."
+        }
+      }
+    },
+    "8-3": {
+      "title": "State that survives",
+      "summary": "A counting app keeps its state in a local store backed by a changelog topic, and gets it back after a crash.",
+      "brief": {
+        "title": "The notebook and its carbon copy",
+        "body": "Counting clicks per user needs <b>state</b>: the count so far. Kafka Streams keeps it in a local <b>state store</b> (a notebook on the app's own disk). Every change is also written to a <b>changelog topic</b>, a carbon copy in Kafka. If the machine dies, a new instance replays the changelog and gets the notebook back."
+      },
+      "map": {
+        "notebook": "The notebook",
+        "store": "Local state store (RocksDB)",
+        "copy": "Its carbon copy",
+        "changelog": "Changelog topic (compacted)"
+      },
+      "count": {
+        "title": "Counting clicks",
+        "body": "Clicks arrive. Each one updates the count in the store, and the new count goes to <code>click-counter-counts-changelog</code>."
+      },
+      "crash": {
+        "q": "The machine dies, disk and all. A new instance starts. What is alice's count?",
+        "same": "The same as before: it's rebuilt from the changelog",
+        "zero": "0, the store started empty",
+        "never": "The app can't start without the old disk",
+        "why": "The changelog topic has every update, so replaying it rebuilds the store before the app processes new clicks."
+      },
+      "restore": {
+        "title": "Crash and restore",
+        "body": "Crash the app (its store is wiped), restart it and watch it restore from the changelog. Then send a couple more clicks: the counts must keep adding up.",
+        "success": "Back to the same counts, then on to new clicks. Local speed, with Kafka as the backup."
+      },
+      "compact": {
+        "q": "Why is a changelog topic compacted?",
+        "latest": "Restoring only needs the latest value per key",
+        "money": "Compaction makes brokers cheaper",
+        "order": "To keep the records in order",
+        "why": "The store only needs alice's latest count, not every step. Compaction keeps the changelog small, so restores are fast."
+      },
+      "check": {
+        "where": {
+          "q": "Where does a Kafka Streams app keep a count?",
+          "both": "In a local state store, backed by a changelog topic",
+          "broker": "Only on the brokers",
+          "memory": "Only in memory, lost on restart",
+          "why": "Local for speed, changelog for safety."
+        },
+        "group": {
+          "q": "A Kafka Streams app uses which consumer group id?",
+          "appid": "Its application.id",
+          "random": "A random one per instance",
+          "topic": "The input topic's name",
+          "why": "application.id names the group, the internal topics and the changelog topics."
+        },
+        "compact": {
+          "q": "A compacted changelog got {updates} updates for {keys} keys. After compaction, how many records does a restore need at least?",
+          "why": "Compaction keeps the latest per key: {keys} (of {updates})."
+        },
+        "restore": {
+          "q": "To rebuild a lost state store, Kafka Streams replays…",
+          "changelog": "The store's changelog topic",
+          "input": "The input topic from the beginning",
+          "db": "A database snapshot",
+          "why": "The changelog already holds the store's contents, compacted to the latest per key."
+        }
+      }
+    },
+    "8-4": {
+      "title": "Time windows",
+      "summary": "Count per 10-second window by event time, and decide how long to wait for late records.",
+      "brief": {
+        "title": "Shifts on the clock",
+        "body": "\"Clicks per minute\" needs <b>windows</b>. A <b>tumbling window</b> has a fixed size and windows never overlap: [0–10), [10–20)… Each record goes into a window by its <b>event time</b> (its timestamp), not by when it arrives. Records can arrive late, so a window waits a <b>grace period</b> before it closes. Anything later than that is dropped."
+      },
+      "map": {
+        "shift": "A 10-second shift",
+        "window": "A tumbling window",
+        "stamp": "The time printed on the ticket",
+        "eventTime": "Event time (the record timestamp)",
+        "late": "How long the door stays open",
+        "grace": "Grace period"
+      },
+      "fill": {
+        "title": "Filling windows",
+        "body": "Clicks happen at 3 s, 6 s, 9 s and 12 s. <b>Stream time</b> is the newest timestamp seen. With grace 0, window [0–10) closes once stream time reaches 10."
+      },
+      "late": {
+        "q": "Stream time is 12 s and grace is 0. A click that happened at 7 s arrives now. What happens?",
+        "dropped": "It's dropped: window [0–10) is already closed",
+        "first": "It's counted in [0–10)",
+        "second": "It's counted in [10–20)",
+        "why": "7 s belongs to [0–10), which closed at 10 + 0 grace. Late records for a closed window are dropped (Kafka Streams logs and counts them)."
+      },
+      "grace": {
+        "title": "Hold the door",
+        "body": "Pick a grace period so clicks <b>5 s late</b> still count, then send a click <b>15 s late</b> and see it dropped.",
+        "success": "Grace is a trade-off: more of the late data gets counted, but final results arrive later."
+      },
+      "hour": {
+        "q": "Why not just set the grace period to an hour?",
+        "wait": "Windows stay open longer: final results come later and more state is kept",
+        "forbidden": "Kafka doesn't allow it",
+        "drops": "It drops more records",
+        "why": "A long grace catches more late data, but every window waits that long to be final, and its state is kept the whole time."
+      },
+      "check": {
+        "kind": {
+          "q": "Windows of a fixed size that never overlap are…",
+          "tumbling": "Tumbling windows",
+          "hopping": "Hopping windows",
+          "session": "Session windows",
+          "why": "Hopping windows overlap (they advance by less than their size). Session windows grow with activity."
+        },
+        "start": {
+          "q": "Tumbling windows of {size} s. A record has event time {ts} s. At what second does its window start?",
+          "why": "{ts} falls in [{start}–{end})."
+        },
+        "close": {
+          "q": "Window [{start}–{end}) has a grace period of {grace} s. At what stream time does it close?",
+          "why": "End + grace: {end} + {grace} = {close}. Records for it after that are dropped."
+        },
+        "time": {
+          "q": "Which time decides a record's window?",
+          "event": "Its event time (the record timestamp)",
+          "arrival": "When the broker received it",
+          "reader": "The reader's wall clock",
+          "why": "Windows use event time, which is why late arrivals are possible and need a grace period."
         }
       }
     }
