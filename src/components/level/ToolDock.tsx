@@ -283,7 +283,7 @@ function RouteTool({ tool, on }: { tool: Extract<Tool, { type: "route" }>; on: T
 
 export function ToolDock({ tools, consumers, partitions, on }: { tools: Tool[]; consumers: ConsumerSpec[]; partitions: (topic: string) => number; on: ToolHandlers }) {
   return (
-    <div className="card mx-auto flex w-fit max-w-full flex-wrap items-center gap-3 px-3 py-2.5 sm:px-4">
+    <div data-dock className="card mx-auto flex w-fit max-w-full flex-wrap items-center gap-3 px-3 py-2.5 sm:px-4">
       {tools.map((tool, i) =>
         tool.type === "produce" ? (
           <ProduceTool key={i} tool={tool} on={on} />

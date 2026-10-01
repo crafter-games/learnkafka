@@ -1,15 +1,14 @@
 import * as THREE from "three";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { CSS2DObject, CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import type { Cluster } from "@/sim/cluster";
 import type { SimEvent, SimRecord } from "@/sim/events";
 import { CODECS, type Codec } from "@/sim/producer";
 import { keyColor } from "./keyColors";
+import { model } from "./models";
 import { COLORS } from "./theme";
 import { Tweens, easeInOutCubic, easeOutBack, easeOutCubic, wait } from "./tweens";
 
 // World layout in model units (1 conveyor tile = 1). Tune here.
-const MODELS = "/assets/models/factory-kit/";
 const LANE_GAP = 1.55;
 const TOPIC_GAP = 0.9; // extra space between topics
 const PRODUCER_X = -4.6;
@@ -62,26 +61,6 @@ type Lane = {
 };
 
 type Arm = { spec: ConsumerSpec; obj: THREE.Object3D };
-
-const loader = new GLTFLoader();
-const cache = new Map<string, Promise<THREE.Object3D>>();
-function model(name: string): Promise<THREE.Object3D> {
-  if (!cache.has(name)) {
-    cache.set(
-      name,
-      loader.loadAsync(`${MODELS}${name}.glb`).then((g) => {
-        g.scene.traverse((o) => {
-          if ((o as THREE.Mesh).isMesh) {
-            o.castShadow = true;
-            o.receiveShadow = true;
-          }
-        });
-        return g.scene;
-      }),
-    );
-  }
-  return cache.get(name)!.then((s) => s.clone(true));
-}
 
 /** CSS2D label: the renderer positions the outer element via transform, so styles and
  *  animations live on the inner element (a CSS animation on `transform` would override it). */
@@ -390,11 +369,21 @@ export class FactoryStage {
     if (!w || !h) return;
     this.renderer.setSize(w, h);
     this.labels2d.setSize(w, h);
-    this.fit(w / h);
+    this.fit();
   }
 
   /** Orthographic fit: project the platform bounds onto the camera plane. */
-  private fit(aspect: number) {
+  /** Screen area covered by floating UI (px); the factory is framed in what's left. */
+  private insets = { top: 0, right: 0, bottom: 0, left: 0 };
+
+  setInsets(insets: Partial<typeof this.insets>) {
+    this.insets = { ...this.insets, ...insets };
+    this.resize();
+  }
+
+  /** Orthographic fit: frame the platform in the free screen area (outside the floating UI). */
+  private fit() {
+    const { clientWidth: w, clientHeight: h } = this.host;
     const { minX, maxX, halfZ } = this.floor;
     const bounds = new THREE.Box3(new THREE.Vector3(minX - 0.2, -0.3, -halfZ - 0.2), new THREE.Vector3(maxX + 0.2, 1.6, halfZ + 0.2));
     const center = bounds.getCenter(new THREE.Vector3());
@@ -408,18 +397,20 @@ export class FactoryStage {
       x0 = Math.min(x0, c.x); x1 = Math.max(x1, c.x);
       y0 = Math.min(y0, c.y); y1 = Math.max(y1, c.y);
     }
-    const pad = 1.03;
-    let halfW = ((x1 - x0) / 2) * pad;
-    let halfH = ((y1 - y0) / 2) * pad;
-    if (halfW / halfH > aspect) halfH = halfW / aspect;
-    else halfW = halfH * aspect;
+    const { top, right, bottom, left } = this.insets;
+    const aw = Math.max(120, w - left - right);
+    const ah = Math.max(120, h - top - bottom);
+    // World units per pixel so the content fits the free area
+    const pad = 1.04;
+    const s = Math.max((x1 - x0) / aw, (y1 - y0) / ah) * pad;
     const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
-    Object.assign(this.camera, { left: cx - halfW, right: cx + halfW, top: cy + halfH, bottom: cy - halfH, near: 0.1, far: 80 });
+    const l = cx - (left + aw / 2) * s;
+    const t = cy + (top + ah / 2) * s;
+    Object.assign(this.camera, { left: l, right: l + w * s, top: t, bottom: t - h * s, near: 0.1, far: 80 });
     this.camera.updateProjectionMatrix();
     // Labels scale with the world so small screens don't drown in tags
-    const pxPerUnit = this.host.clientHeight / (halfH * 2);
-    const zoom = pxPerUnit / 58;
-    this.host.style.setProperty("--stage-zoom", String(Math.min(1.2, Math.max(0.72, zoom))));
+    const zoom = 1 / s / 58;
+    this.host.style.setProperty("--stage-zoom", String(Math.min(1.25, Math.max(0.72, zoom))));
     // Tiny stages (phones) keep only the essential labels
     this.host.toggleAttribute("data-compact", zoom < 0.62);
   }

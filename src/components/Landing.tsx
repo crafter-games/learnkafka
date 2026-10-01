@@ -102,6 +102,12 @@ export function Landing() {
               </li>
             ))}
           </ol>
+          <p className="mt-6 text-xs text-ink-2">
+            {t("credits")}{" "}
+            <a href="https://github.com/crafter-games/learnkafka/blob/main/CREDITS.md" target="_blank" rel="noreferrer" className="font-semibold underline underline-offset-2 hover:text-ink">
+              CREDITS.md
+            </a>
+          </p>
         </motion.div>
       </div>
     </main>

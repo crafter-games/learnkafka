@@ -12,17 +12,24 @@ type Props = {
   consumers?: ConsumerSpec[];
   replicas?: string[];
   memberArms?: boolean;
+  /** Floating UI covering the canvas (px), so the factory is framed in the free area. */
+  insets?: { top?: number; right?: number; bottom?: number; left?: number };
   onLanded?: (record: SimRecord) => void;
   onReady?: (stage: FactoryStage) => void;
   className?: string;
 };
 
 /** Mounts the Three.js factory diorama for a cluster; the sim drives it through events. */
-export function FactoryCanvas({ cluster, labels, slots, consumers, replicas, memberArms, onLanded, onReady, className = "absolute inset-0" }: Props) {
+export function FactoryCanvas({ cluster, labels, slots, consumers, replicas, memberArms, insets, onLanded, onReady, className = "absolute inset-0" }: Props) {
   const host = useRef<HTMLDivElement>(null);
-  const latest = useRef({ labels, onLanded, onReady, slots, consumers, replicas, memberArms });
+  const stageRef = useRef<FactoryStage | null>(null);
+  const insetKey = JSON.stringify(insets ?? {});
   useEffect(() => {
-    latest.current = { labels, onLanded, onReady, slots, consumers, replicas, memberArms };
+    stageRef.current?.setInsets(JSON.parse(insetKey));
+  }, [insetKey]);
+  const latest = useRef({ labels, onLanded, onReady, slots, consumers, replicas, memberArms, insets });
+  useEffect(() => {
+    latest.current = { labels, onLanded, onReady, slots, consumers, replicas, memberArms, insets };
   });
 
   useEffect(() => {
@@ -38,6 +45,8 @@ export function FactoryCanvas({ cluster, labels, slots, consumers, replicas, mem
       const { labels, slots, consumers, replicas, memberArms } = latest.current;
       const s = new FactoryStage(el, cluster, labels, { slots, consumers, replicas, memberArms, onLanded: (r) => latest.current.onLanded?.(r) });
       stage = s;
+      stageRef.current = s;
+      s.setInsets(JSON.parse(JSON.stringify(latest.current.insets ?? {})));
       unsubscribe = cluster.events.on((e) => void s.handle(e));
       void s.ready.then(() => {
         if (cancelled) return;

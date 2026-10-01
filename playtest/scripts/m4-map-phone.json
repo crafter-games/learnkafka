@@ -1,0 +1,18 @@
+{
+ "name": "m4-map-phone",
+ "path": "/es/world",
+ "canvas": "main",
+ "viewport": [
+  390,
+  844
+ ],
+ "steps": [
+  {
+   "wait": 4000
+  },
+  {
+   "screenshot": "phone",
+   "full": true
+  }
+ ]
+}

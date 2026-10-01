@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowCounterClockwise, ArrowLeft, ArrowRight, Brain, MapTrifold, Star } from "@phosphor-icons/react";
@@ -18,6 +18,7 @@ import { Hud } from "../Hud";
 import { gameButtonClass } from "../ui/GameButton";
 import { AnswerInput, Breaks, CodeBlock, Deliveries, Feedback, GroupStats, KeyMoves, MappingCard, Meter, Receipts, Text } from "./parts";
 import { RecallQuiz } from "./RecallQuiz";
+import { useInsets } from "../useInsets";
 import { ToolDock, type ToolHandlers } from "./ToolDock";
 
 type Phase = "steps" | "check" | "result";
@@ -28,7 +29,8 @@ declare global {
   }
 }
 
-export function LevelPlayer({ level }: { level: Level }) {
+/** `onRestart` remounts the player: a fresh cluster, new numbers, back to step 1. */
+export function LevelPlayer({ level, onRestart }: { level: Level; onRestart: () => void }) {
   const t = useTranslations("level");
   const tl = useTranslations("levels");
   const ts = useTranslations("stage");
@@ -53,6 +55,14 @@ export function LevelPlayer({ level }: { level: Level }) {
 
   const step = level.steps[stepIndex];
   const isLastStep = stepIndex === level.steps.length - 1;
+  const headerRef = useRef<HTMLElement>(null);
+  const sideRef = useRef<HTMLElement>(null);
+  const dockRef = useRef<HTMLDivElement>(null);
+  const insets = useInsets({ header: headerRef, side: sideRef, dock: dockRef }, [phase, stepIndex]);
+  const restart = () => {
+    audioBus().play("click", { bus: "ui", rate: 0.9 });
+    onRestart();
+  };
 
   useEffect(() => cluster.events.on(() => setTick((n) => n + 1)), [cluster]);
 
@@ -220,11 +230,27 @@ export function LevelPlayer({ level }: { level: Level }) {
   const upNext = nextLevel(level.id);
 
   return (
-    <main className="relative flex h-dvh flex-col overflow-hidden bg-ground">
+    <main className="relative h-dvh overflow-hidden bg-ground">
       <AudioDirector intensity={phase === "steps" && step.kind === "task" ? 1 : 0} />
 
-      <header className="relative z-10 flex items-center justify-between gap-3 px-3 pt-3 sm:px-5">
-        <div className="flex min-w-0 items-center gap-2.5">
+      {/* The factory fills the screen; UI floats on top and the camera frames the free area */}
+      {phase === "steps" && (
+        <section className="absolute inset-0" data-testid="stage">
+          <FactoryCanvas
+            cluster={cluster}
+            labels={labels}
+            slots={level.slots}
+            consumers={level.consumers}
+            replicas={level.producer?.replicas?.names}
+            memberArms={!!level.group}
+            insets={insets}
+            onLanded={onLanded}
+          />
+        </section>
+      )}
+
+      <header ref={headerRef} className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-3 px-3 pt-3 sm:px-5">
+        <div className="pointer-events-auto flex min-w-0 items-center gap-2.5">
           <Link href="/world" aria-label={t("map")} className={gameButtonClass({ size: "icon" })}>
             <ArrowLeft weight="bold" />
           </Link>
@@ -235,135 +261,143 @@ export function LevelPlayer({ level }: { level: Level }) {
             </h1>
           </div>
         </div>
-        <ol className="hidden items-center gap-1.5 md:flex" aria-label={t("progress")}>
+        <ol className="card pointer-events-auto hidden items-center gap-1.5 px-3 py-2 md:flex" aria-label={t("progress")}>
           {level.steps.map((_, i) => (
             <li
               key={i}
-              className={`h-2 rounded-full transition-all ${phase !== "steps" || i < stepIndex ? "w-2 bg-broker" : i === stepIndex ? "w-6 bg-partition" : "w-2 bg-ink/15"}`}
+              className={`h-2 rounded-full transition-all ${phase !== "steps" || i < stepIndex ? "w-2 bg-broker" : i === stepIndex ? "w-6 bg-partition" : "w-2 bg-ink/20"}`}
             />
           ))}
           <li className={`ml-1 grid size-5 place-items-center rounded-full ${phase === "steps" ? "bg-ink/10 text-ink-2" : "bg-producer text-white"}`}>
             <Brain size={12} weight="bold" />
           </li>
         </ol>
-        <Hud />
+        <div className="pointer-events-auto flex items-center gap-2">
+          <button type="button" onClick={restart} aria-label={t("restart")} title={t("restart")} className={gameButtonClass({ size: "icon" })}>
+            <ArrowCounterClockwise weight="bold" />
+          </button>
+          <Hud />
+        </div>
       </header>
 
       {phase === "steps" && (
-        <div className="relative flex min-h-0 flex-1 flex-col lg:flex-row">
-          {/* Step card */}
-          <aside className="z-10 order-2 max-h-[46vh] overflow-y-auto px-3 pb-2 lg:order-1 lg:max-h-none lg:w-[440px] lg:shrink-0 lg:py-3 lg:pl-5 lg:pr-0">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={stepIndex}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6, transition: { duration: 0.12 } }}
-                transition={{ duration: 0.22, ease: "easeOut" }}
-                className="card p-5"
-              >
-                <div className="flex items-center gap-2.5">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src="/assets/sprites/oopi.png" alt="" width={40} height={40} className="size-10 shrink-0" />
-                  <p className="font-display text-xs font-bold uppercase tracking-[0.14em] text-producer-dark">{t(`kind.${step.kind}`)}</p>
-                </div>
+        <aside
+          ref={sideRef}
+          className="absolute inset-x-3 bottom-3 z-10 flex max-h-[52dvh] flex-col gap-2 lg:bottom-auto lg:left-5 lg:right-auto lg:top-[84px] lg:max-h-[calc(100dvh-100px)] lg:w-[400px]"
+        >
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={stepIndex}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6, transition: { duration: 0.12 } }}
+              transition={{ duration: 0.22, ease: "easeOut" }}
+              className="card flex min-h-0 flex-col overflow-hidden"
+            >
+                <div className="min-h-0 overflow-y-auto px-5 pb-2 pt-4">
+              <div className="flex items-center gap-2.5">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/assets/sprites/oopi.png" alt="" width={36} height={36} className="size-9 shrink-0" />
+                <p className="font-display text-xs font-bold uppercase tracking-[0.14em] text-producer-dark">{t(`kind.${step.kind}`)}</p>
+              </div>
 
-                {step.kind === "brief" && (
-                  <>
-                    <h2 className="mt-3 font-display text-2xl font-extrabold leading-tight">
-                      <Text m={step.title} />
-                    </h2>
-                    <p className="mt-2 text-lg leading-relaxed text-ink-2">
-                      <Text m={step.body} />
-                    </p>
-                    {step.code && <div className="mt-3"><CodeBlock code={step.code} /></div>}
-                    {step.mapping ? <MappingCard items={step.mapping} breaks={step.breaks} /> : step.breaks && <Breaks m={step.breaks} />}
-                  </>
-                )}
+              {step.kind === "brief" && (
+                <>
+                  <h2 className="mt-2 font-display text-[1.375rem] font-extrabold leading-tight">
+                    <Text m={step.title} />
+                  </h2>
+                  <p className="mt-1.5 text-[1.0625rem] leading-relaxed text-ink-2">
+                    <Text m={step.body} />
+                  </p>
+                  {step.code && <div className="mt-3"><CodeBlock code={step.code} /></div>}
+                  {step.mapping ? <MappingCard items={step.mapping} breaks={step.breaks} /> : step.breaks && <Breaks m={step.breaks} />}
+                </>
+              )}
 
-                {(step.kind === "watch" || step.kind === "task") && (
-                  <>
-                    <h2 className="mt-3 font-display text-2xl font-extrabold leading-tight">
-                      <Text m={step.title} />
-                    </h2>
-                    <p className="mt-2 text-lg leading-relaxed text-ink-2">
-                      <Text m={step.body} />
-                    </p>
-                  </>
-                )}
+              {(step.kind === "watch" || step.kind === "task") && (
+                <>
+                  <h2 className="mt-2 font-display text-[1.375rem] font-extrabold leading-tight">
+                    <Text m={step.title} />
+                  </h2>
+                  <p className="mt-1.5 text-[1.0625rem] leading-relaxed text-ink-2">
+                    <Text m={step.body} />
+                  </p>
+                </>
+              )}
 
-                {step.kind === "task" && taskProgress && (
-                  <div className="mt-4">
-                    <div className="h-2 overflow-hidden rounded-full bg-paper-2">
-                      <motion.div className="h-full rounded-full bg-broker" animate={{ width: `${(Math.min(taskProgress.done, taskProgress.total) / taskProgress.total) * 100}%` }} />
-                    </div>
-                    <p className="mt-1.5 font-mono text-xs text-ink-2">
-                      {Math.min(taskProgress.done, taskProgress.total)}/{taskProgress.total}
-                    </p>
-                    {taskDone && (
-                      <motion.p initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="mt-2 rounded-xl bg-broker/10 px-3 py-2 text-sm font-semibold text-broker">
-                        <Text m={step.success} />
-                      </motion.p>
-                    )}
+              {step.kind === "task" && taskProgress && (
+                <div className="mt-4">
+                  <div className="h-2 overflow-hidden rounded-full bg-paper-2">
+                    <motion.div className="h-full rounded-full bg-broker" animate={{ width: `${(Math.min(taskProgress.done, taskProgress.total) / taskProgress.total) * 100}%` }} />
                   </div>
-                )}
+                  <p className="mt-1.5 font-mono text-xs text-ink-2">
+                    {Math.min(taskProgress.done, taskProgress.total)}/{taskProgress.total}
+                  </p>
+                  {taskDone && (
+                    <motion.p initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="mt-2 rounded-xl bg-broker/10 px-3 py-2 text-sm font-semibold text-broker">
+                      <Text m={step.success} />
+                    </motion.p>
+                  )}
+                </div>
+              )}
 
-                {step.kind === "task" && step.meters?.(ctx).map((m, i) => <Meter key={i} {...m} />)}
-                {(step.kind === "task" || step.kind === "watch") && step.receipts && ctx.replicas && <Receipts receipts={ctx.replicas.receipts} />}
-                {(step.kind === "task" || step.kind === "watch") && step.groupStats && ctx.group && (
-                  <GroupStats processed={ctx.group.processedCount} duplicates={ctx.group.duplicates} lost={ctx.group.lost()} lag={ctx.group.lag()} />
-                )}
-                {step.kind === "task" && step.keyMoves && <KeyMoves cluster={cluster} topic={step.keyMoves.topic} keys={step.keyMoves.keys} />}
-                {((step.kind === "task" || step.kind === "watch") && step.deliveries) && <Deliveries items={ctx.delivered} />}
+              {step.kind === "task" && step.meters?.(ctx).map((m, i) => <Meter key={i} {...m} />)}
+              {(step.kind === "task" || step.kind === "watch") && step.receipts && ctx.replicas && <Receipts receipts={ctx.replicas.receipts} />}
+              {(step.kind === "task" || step.kind === "watch") && step.groupStats && ctx.group && (
+                <GroupStats processed={ctx.group.processedCount} duplicates={ctx.group.duplicates} lost={ctx.group.lost()} lag={ctx.group.lag()} />
+              )}
+              {step.kind === "task" && step.keyMoves && <KeyMoves cluster={cluster} topic={step.keyMoves.topic} keys={step.keyMoves.keys} />}
+              {((step.kind === "task" || step.kind === "watch") && step.deliveries) && <Deliveries items={ctx.delivered} />}
 
-                {step.kind === "predict" && prediction && (
-                  <>
-                    <h2 className="mt-3 font-display text-xl font-extrabold leading-snug">
-                      <Text m={prediction.prompt} />
-                    </h2>
-                    {prediction.code && <div className="mt-3"><CodeBlock code={prediction.code} /></div>}
-                    <div className="mt-3">
-                      <AnswerInput
-                        key={stepIndex}
-                        input={prediction.input}
-                        partitions={prediction.input.type === "partition" ? cluster.topic(prediction.input.topic).numPartitions : undefined}
-                        disabled={picked !== undefined}
-                        picked={picked}
-                        answer={prediction.answer}
-                        onAnswer={(v) => void answerPrediction(v)}
-                      />
-                    </div>
-                    {picked !== undefined && !revealing && <Feedback correct={String(picked) === String(prediction.answer)} explain={prediction.explain} />}
-                    {revealing && <p className="mt-3 text-sm font-semibold text-partition">{t("watch")}</p>}
-                  </>
-                )}
+              {step.kind === "predict" && prediction && (
+                <>
+                  <h2 className="mt-2 font-display text-xl font-extrabold leading-snug">
+                    <Text m={prediction.prompt} />
+                  </h2>
+                  {prediction.code && <div className="mt-3"><CodeBlock code={prediction.code} /></div>}
+                  <div className="mt-3">
+                    <AnswerInput
+                      key={stepIndex}
+                      input={prediction.input}
+                      partitions={prediction.input.type === "partition" ? cluster.topic(prediction.input.topic).numPartitions : undefined}
+                      disabled={picked !== undefined}
+                      picked={picked}
+                      answer={prediction.answer}
+                      onAnswer={(v) => void answerPrediction(v)}
+                    />
+                  </div>
+                  {picked !== undefined && !revealing && <Feedback correct={String(picked) === String(prediction.answer)} explain={prediction.explain} />}
+                  {revealing && <p className="mt-3 text-sm font-semibold text-partition">{t("watch")}</p>}
+                </>
+              )}
 
-                <button type="button" onClick={advance} disabled={!canAdvance} className={`${gameButtonClass({ variant: "primary", size: "md" })} mt-5 w-full`}>
-                  {isLastStep ? t("toCheck") : t("next")}
-                  <ArrowRight weight="bold" />
-                </button>
-              </motion.div>
-            </AnimatePresence>
-          </aside>
+              </div>
+              <div className="border-t border-line px-5 py-3">
+              <button type="button" onClick={advance} disabled={!canAdvance} className={`${gameButtonClass({ variant: "primary", size: "md" })} w-full`}>
+                {isLastStep ? t("toCheck") : t("next")}
+                <ArrowRight weight="bold" />
+              </button>
+              </div>
+            </motion.div>
+          </AnimatePresence>
 
-          {/* Factory floor */}
-          <section className="relative order-1 min-h-[34vh] min-w-0 flex-1 lg:order-2" data-testid="stage">
-            <FactoryCanvas cluster={cluster} labels={labels} slots={level.slots} consumers={level.consumers} replicas={level.producer?.replicas?.names} memberArms={!!level.group} onLanded={onLanded} />
-          </section>
-        </div>
-      )}
-
-      {phase === "steps" && step.kind === "task" && (
-        <footer className="relative z-10 px-3 pb-3 sm:px-5">
-          <ToolDock tools={step.tools} consumers={level.consumers ?? []} partitions={(tp) => cluster.topic(tp).numPartitions} on={handlers} />
-        </footer>
+          {step.kind === "task" && (
+            <div ref={dockRef} className="lg:fixed lg:bottom-3 lg:left-[436px] lg:right-5">
+              <ToolDock tools={step.tools} consumers={level.consumers ?? []} partitions={(tp) => cluster.topic(tp).numPartitions} on={handlers} />
+            </div>
+          )}
+        </aside>
       )}
 
       {/* Recall check: the stage is hidden on purpose (testing effect) */}
-      {phase === "check" && questions.length > 0 && <RecallQuiz key={seed} questions={questions} title={t("checkTitle")} onFinish={finishCheck} />}
+      {phase === "check" && questions.length > 0 && (
+        <div className="absolute inset-0 flex flex-col pt-16">
+          <RecallQuiz key={seed} questions={questions} title={t("checkTitle")} onFinish={finishCheck} />
+        </div>
+      )}
 
       {phase === "result" && (
-        <div className="flex flex-1 items-center justify-center px-4 py-6">
+        <div className="absolute inset-0 flex items-center justify-center px-4 pb-6 pt-20">
           <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} className="card w-full max-w-md p-8 text-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/assets/sprites/oopi.png" alt="" width={88} height={88} className="mx-auto size-22" />

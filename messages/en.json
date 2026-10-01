@@ -13,7 +13,8 @@
       "predict": "Predict what happens, then see if you were right",
       "real": "Real Kafka 4.x behaviour, down to the hash function"
     },
-    "headline": "Learn Kafka by running the hub."
+    "headline": "Learn Kafka by running the hub.",
+    "credits": "3D art: Kenney Factory Kit (CC0). Music and sounds made in code. Full credits in"
   },
   "hud": {
     "musicOn": "Turn music on",
@@ -151,7 +152,8 @@
       "duplicates": "twice",
       "lost": "lost",
       "lag": "lag"
-    }
+    },
+    "restart": "Restart level"
   },
   "map": {
     "home": "Home",
@@ -189,7 +191,12 @@
       "clear": "All caught up. Practice anytime."
     },
     "w6": "Delivery guarantees",
-    "w7": "Retention & Compaction"
+    "w7": "Retention & Compaction",
+    "prev": "Previous world",
+    "next": "Next world",
+    "playLevel": "Play {id}",
+    "worldLocked": "Finish World {n} to unlock",
+    "soonBody": "This island is still under construction. More Kafka is on the way."
   },
   "levels": {
     "1-1": {

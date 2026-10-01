@@ -4,12 +4,12 @@
    so the UI and the 3D world read as one place. Role colours are semantic:
    producer = orange, partition = indigo, consumer = teal, broker = green. */
 :root {
-  --ground: #dcd8ea;
+  --ground: #d9d5ea;
   --ground-2: #cfcae2;
   --paper: #fbf8f3;
   --paper-2: #f2eee6;
   --ink: #2b2840;
-  --ink-2: #5d5a78;
+  --ink-2: #46435f;
   --line: rgba(43, 40, 64, 0.12);
   --producer: #f08a24;
   --producer-dark: #c2650c;
@@ -40,10 +40,6 @@
   --font-sans: var(--font-ui);
   --font-mono: var(--font-code);
 }
-
-/* Game-sized type: everything rem-based scales up from here */
-html { font-size: 106.25%; }
-@media (min-width: 1024px) { html { font-size: 112.5%; } }
 
 body {
   background: var(--ground);
@@ -193,6 +189,34 @@ button, a { touch-action: manipulation; }
 .stage-tag--consumer.is-idle { opacity: 0.7; }
 .stage-lane.is-paused::after { content: " ⏸"; }
 .stage-lane.is-paused { background: #8a84b8; box-shadow: 0 0.2em 0 #5b5680; }
+
+.island-tag {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  font: 800 calc(14px * var(--stage-zoom, 1)) var(--font-display);
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.4em 0.9em 0.4em 0.4em;
+  box-shadow: 0 3px 0 rgba(43, 40, 64, 0.15);
+  white-space: nowrap;
+  transition: transform 200ms ease, background-color 200ms ease;
+}
+.island-tag b {
+  display: grid;
+  place-items: center;
+  width: 1.7em;
+  height: 1.7em;
+  border-radius: 999px;
+  background: var(--partition);
+  color: #fff;
+}
+.island-tag.is-selected { background: var(--producer); color: #fff; border-color: var(--producer-dark); transform: scale(1.08); }
+.island-tag.is-selected b { background: #fff; color: var(--producer-dark); }
+.island-tag.is-locked { color: var(--ink-2); }
+.island-tag.is-locked b { background: #9a95b8; }
 
 [data-quiet] .stage-key, [data-quiet] .stage-cursor { display: none; }
 

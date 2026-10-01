@@ -41,8 +41,8 @@ export function CodeBlock({ code }: { code: string }) {
 export function MappingCard({ items, breaks }: { items: { icon: string; thing: Msg; kafka: Msg }[]; breaks?: Msg }) {
   const t = useTranslations("level");
   return (
-    <div className="mt-4">
-      <p className="mb-2 font-display text-xs font-bold uppercase tracking-[0.14em] text-ink-2">{t("mapping")}</p>
+    <div className="mt-3">
+      <p className="mb-1.5 font-display text-xs font-bold uppercase tracking-[0.14em] text-ink-2">{t("mapping")}</p>
       <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-paper-2/60">
         {items.map((it, i) => {
           const I = ICONS[it.icon] ?? Package;
@@ -52,7 +52,7 @@ export function MappingCard({ items, breaks }: { items: { icon: string; thing: M
               initial={{ opacity: 0, x: -6 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.05 * i }}
-              className="grid grid-cols-[22px_1fr_auto_1fr] items-center gap-2 px-3 py-2.5 text-base"
+              className="grid grid-cols-[20px_1fr_auto_1fr] items-center gap-2 px-3 py-1.5 text-[0.9375rem] leading-snug"
             >
               <I size={18} weight="duotone" className="text-producer-dark" />
               <Text m={it.thing} className="text-ink-2" />
@@ -115,7 +115,7 @@ export function AnswerInput({
             data-value={o.id}
             disabled={disabled}
             onClick={() => onAnswer(o.id)}
-            className={`${gameButtonClass({ size: "md" })} h-auto min-h-13 justify-start px-4 py-3 text-left font-sans text-lg font-semibold ${state(o.id)}`}
+            className={`${gameButtonClass({ size: "md" })} h-auto min-h-12 justify-start px-4 py-2.5 text-left font-sans text-[1.0625rem] font-semibold ${state(o.id)}`}
           >
             <span className="font-mono text-sm text-ink-2">{String.fromCharCode(65 + i)}</span>
             <Text m={o.label} />

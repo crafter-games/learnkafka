@@ -13,7 +13,8 @@
       "predict": "Predice qué pasará y comprueba si acertaste",
       "real": "Comportamiento real de Kafka 4.x, hasta la función hash"
     },
-    "headline": "Aprende Kafka operando el centro."
+    "headline": "Aprende Kafka operando el centro.",
+    "credits": "Arte 3D: Kenney Factory Kit (CC0). Música y sonidos generados en código. Créditos completos en"
   },
   "hud": {
     "musicOn": "Activar música",
@@ -151,7 +152,8 @@
       "duplicates": "dos veces",
       "lost": "perdidos",
       "lag": "lag"
-    }
+    },
+    "restart": "Reiniciar nivel"
   },
   "map": {
     "home": "Inicio",
@@ -189,7 +191,12 @@
       "clear": "Todo al día. Practica cuando quieras."
     },
     "w6": "Garantías de entrega",
-    "w7": "Retención y compactación"
+    "w7": "Retención y compactación",
+    "prev": "Mundo anterior",
+    "next": "Mundo siguiente",
+    "playLevel": "Jugar {id}",
+    "worldLocked": "Termina el Mundo {n} para desbloquear",
+    "soonBody": "Esta isla aún está en construcción. Viene más Kafka en camino."
   },
   "levels": {
     "1-1": {

@@ -72,7 +72,7 @@
         await sleep(450);
         continue;
       }
-      const dock = [...document.querySelectorAll("footer button")].filter((b) => !b.disabled && b.type !== "submit" && !b.dataset.setting && !/Crash|Tumbar/.test(b.textContent));
+      const dock = [...document.querySelectorAll("[data-dock] button")].filter((b) => !b.disabled && b.type !== "submit" && !b.dataset.setting && !/Crash|Tumbar/.test(b.textContent));
       if (!dock.length) {
         await sleep(600);
         continue;
