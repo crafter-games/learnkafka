@@ -220,6 +220,17 @@ export class WorldMapStage {
         const b = await place("box-small", x, z, 0, 0.72);
         b.position.y = 0.4;
       }
+    } else if (spec.id === 10) {
+      // A security checkpoint: scanner gate, a conveyor through it, warning signs, a control screen
+      await place("scanner-high", 0, 0, 0, 0.9);
+      for (let x = -1.6; x <= 1.6; x += 1) await place("conveyor-stripe-sides", x, 0, 0, 0.8);
+      await place("screen-wide", -0.8, -1.3, 0, 0.75);
+      for (const [x, z] of [[1.4, 1.2], [-1.5, 1.2]] as const) await place("warning-orange", x, z, 0, 0.85);
+      for (const x of [-1.2, 0.9]) {
+        const b = await place("box-small", x, 0, 0, 0.72);
+        b.position.y = 0.4;
+        movers.push(b);
+      }
     } else {
       // Upcoming worlds: under construction
       await place("warning-orange", -0.8, 0.6, 0, 0.9);

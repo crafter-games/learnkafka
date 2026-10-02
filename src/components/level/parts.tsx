@@ -532,6 +532,9 @@ export function StreamsView({ kind, ctx, topic }: { kind: StreamsPanel; ctx: Lev
     );
   }
   if (kind === "share" && ctx.share) return <ShareView ctx={ctx} />;
+  if (kind === "schema" && ctx.schemas) return <SchemaView ctx={ctx} />;
+  if (kind === "security" && ctx.security) return <SecurityView ctx={ctx} />;
+  if (kind === "acl" && ctx.auth) return <AclView ctx={ctx} />;
   if (kind === "windows" && ctx.windows) {
     const w = ctx.windows;
     return (
@@ -612,6 +615,108 @@ function ShareView({ ctx }: { ctx: LevelCtx }) {
         <span>{t("archived", { n: g.archived })}</span>
         {g.idle > 0 && <span className="text-danger">{t("idle", { n: g.idle })}</span>}
       </p>
+    </div>
+  );
+}
+
+/** World 10: the subject's versions, the last registration verdict and the serializer's counts. */
+function SchemaView({ ctx }: { ctx: LevelCtx }) {
+  const t = useTranslations("level.gov");
+  const sc = ctx.schemas!;
+  const versions = sc.registry.subjects.get(sc.subject) ?? [];
+  const last = sc.registry.last;
+  const lastChange = sc.history.at(-1);
+  return (
+    <div className="mt-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className={panelTitle}>{sc.subject}</p>
+        <Status tone="busy">{sc.registry.compatibility}</Status>
+      </div>
+      <ol className="space-y-1.5">
+        {versions.slice(-3).map((v) => (
+          <li key={v.id} className="rounded-xl border border-line bg-paper-2 px-3 py-1.5">
+            <span className="mr-2 font-mono text-xs font-bold text-partition-dark">
+              v{v.version} · id {v.id}
+            </span>
+            {v.fields.map((f) => (
+              <span key={f.name} className={`mr-1 inline-block rounded-md px-1.5 py-0.5 font-mono text-xs ${f.required ? "bg-ink text-paper" : "border border-dashed border-ink/30 text-ink-2"}`}>
+                {f.name}
+                {!f.required && "?"}
+              </span>
+            ))}
+          </li>
+        ))}
+      </ol>
+      {lastChange && last && (
+        <p className={`mt-2 rounded-xl px-3 py-1.5 text-sm font-bold ${last.ok ? "bg-broker/15 text-broker" : "bg-danger/15 text-danger"}`}>
+          {last.ok ? t("registered", { v: last.schema.version, id: last.schema.id }) : t(`incompatible.${last.reason}`)}
+        </p>
+      )}
+      <p className="mt-2 flex flex-wrap gap-x-3 text-xs font-bold text-ink-2">
+        <span className="text-broker">{t("sent", { n: sc.sent })}</span>
+        <span className={sc.refused ? "text-danger" : ""}>{t("refused", { n: sc.refused })}</span>
+      </p>
+      {sc.lastRefused && <p className="mt-1 rounded-lg bg-danger/10 px-2 py-1 font-mono text-xs text-danger">SerializationException: {t("missing")}</p>}
+    </div>
+  );
+}
+
+/** World 10: what an eavesdropper sees on the wire, and whether an impostor got in. */
+function SecurityView({ ctx }: { ctx: LevelCtx }) {
+  const t = useTranslations("level.gov");
+  const sec = ctx.security!;
+  const enc = sec.protocol === "SSL" || sec.protocol === "SASL_SSL";
+  const auth = sec.protocol === "SASL_PLAINTEXT" || sec.protocol === "SASL_SSL";
+  return (
+    <div className="mt-3">
+      <div className="mb-2 flex flex-wrap items-center gap-1.5">
+        <span className="font-mono text-sm font-bold">listener: {sec.protocol}</span>
+        <Status tone={enc ? "ok" : "bad"}>{enc ? t("encrypted") : t("plain")}</Status>
+        <Status tone={auth ? "ok" : "bad"}>{auth ? t("authenticated") : t("anyone")}</Status>
+      </div>
+      <p className={panelTitle}>{t("sniffer")}</p>
+      <ol className="space-y-1 rounded-xl bg-ink px-3 py-2 font-mono text-xs text-paper">
+        {sec.sniffed.length === 0 ? <li className="text-paper/60">…</li> : sec.sniffed.map((line, i) => <li key={i} className={enc ? "text-paper/50" : "text-[#ffd68a]"}>{line}</li>)}
+      </ol>
+      <p className="mt-2 flex flex-wrap gap-x-3 text-sm font-bold">
+        <span className={sec.admitted ? "text-danger" : "text-ink-2"}>{t("admitted", { n: sec.admitted })}</span>
+        <span className="text-broker">{t("rejected", { n: sec.rejected })}</span>
+      </p>
+    </div>
+  );
+}
+
+/** World 10: granted ACLs and the latest authorization decisions. */
+function AclView({ ctx }: { ctx: LevelCtx }) {
+  const t = useTranslations("level.gov");
+  const a = ctx.auth!;
+  const latest = new Map<string, (typeof a.log)[number]>();
+  for (const e of a.log) latest.set(`${e.principal} ${e.operation} ${e.resource}`, e);
+  return (
+    <div className="mt-3">
+      <p className={panelTitle}>{t("acls")}</p>
+      {a.acls.length === 0 ? (
+        <p className="rounded-xl bg-paper-2 px-3 py-2 text-sm text-ink-2">{t("noAcls")}</p>
+      ) : (
+        <ul className="space-y-1 font-mono text-xs">
+          {a.acls.map((acl) => (
+            <li key={`${acl.principal}${acl.operation}${acl.resource}`} className="rounded-md bg-broker/10 px-2 py-1">
+              ALLOW <b>User:{acl.principal}</b> {acl.operation} {acl.resource}
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className={`${panelTitle} mt-3`}>{t("attempts")}</p>
+      <ul className="space-y-1">
+        {[...latest.values()].map((e) => (
+          <li key={`${e.principal}${e.operation}${e.resource}`} className={`rounded-lg px-2 py-1 text-xs ${e.allowed ? "bg-broker/10 text-broker" : "bg-danger/10 text-danger"}`}>
+            <span className="font-mono font-bold">
+              {e.allowed ? "✓" : "✗"} {e.principal} {e.operation} {e.resource.replace("topic:", "")}
+            </span>
+            {!e.allowed && e.missing && <span className="block text-ink-2">{t("missingAcl", { acl: e.missing })}</span>}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

@@ -6,6 +6,7 @@ import type { IsolatedReader, Isolation, TxnProducer } from "@/sim/transactions"
 import type { LogManager, StorageOptions } from "@/sim/storage";
 import type { CountingApp, Row, SourceConnector, WindowedCounter } from "@/sim/streams";
 import type { GroupType, PerfSettings, ShareGroup, ShareOptions } from "@/sim/share";
+import type { Authorizer, Field, Protocol, SchemaRegistry } from "@/sim/governance";
 import type { ConsumerSpec } from "@/stage/factoryStage";
 
 /** A translatable message: a key under the `levels` namespace plus ICU values. */
@@ -21,7 +22,8 @@ export type Concept =
   | "semantics" | "transactions" | "eos"
   | "segments" | "retention" | "compaction" | "tiered"
   | "connect" | "ktable" | "state" | "windows"
-  | "share-groups" | "share-locks" | "performance" | "quotas";
+  | "share-groups" | "share-locks" | "performance" | "quotas"
+  | "schemas" | "evolution" | "security" | "acls";
 
 export type Choice = { id: string; label: Msg };
 
@@ -67,6 +69,10 @@ export type LevelCtx = {
   /** World 9: a share (or classic) group, and the performance / quota model. */
   share?: ShareGroup;
   perf?: { settings: PerfSettings; quota: number | "none" };
+  /** World 10: Schema Registry, a listener with a sniffer and an impostor, an ACL authorizer. */
+  schemas?: { registry: SchemaRegistry; subject: string; sent: number; refused: number; lastRefused: boolean; history: { change: ActionId; ok: boolean }[] };
+  security?: { protocol: Protocol; sniffed: string[]; admitted: number; rejected: number };
+  auth?: Authorizer;
   /** Records in the order workers finished them. */
   delivered: SimRecordLike[];
 };
@@ -126,7 +132,7 @@ export type Tool =
   /** A segmented control bound to a producer/replica/group setting. */
   | {
       type: "setting";
-      field: "lingerMs" | "batchSize" | "codec" | "idempotent" | "acks" | "protocol" | "commit" | "maxPollRecords" | "minInsync" | "unclean" | "retainSegments" | "grace" | "groupType" | "onFailure" | "sequential" | "zeroCopy" | "tls" | "batch" | "quota";
+      field: "lingerMs" | "batchSize" | "codec" | "idempotent" | "acks" | "protocol" | "commit" | "maxPollRecords" | "minInsync" | "unclean" | "retainSegments" | "grace" | "groupType" | "onFailure" | "sequential" | "zeroCopy" | "tls" | "batch" | "quota" | "compatibility" | "listener";
       options: (string | number | boolean)[];
     }
   /** Per-broker controls: crash it, slow its replication down, bring it back. */
@@ -145,10 +151,13 @@ export type Tool =
   | { type: "fetch"; topic: string; partition: number; groups: string[] }
   | { type: "route"; topics: string[]; count: number };
 
-export type ActionId = "shareJoin" | "shareCrash" | "dbInsert" | "connectorCrash" | "connectorRestart" | "appCrash" | "appRestart" | "eventNow" | "eventLate5" | "eventLate15";
+export type ActionId =
+  | "sendValid" | "sendInvalid" | "addOptional" | "addRequired" | "removeField"
+  | "aclReadOrders" | "aclReadGroup" | "aclWriteInvoices" | "aclWriteOrders"
+  | "shareJoin" | "shareCrash" | "dbInsert" | "connectorCrash" | "connectorRestart" | "appCrash" | "appRestart" | "eventNow" | "eventLate5" | "eventLate15";
 
 /** Which World 8 live panel a step shows. */
-export type StreamsPanel = "connect" | "table" | "store" | "windows" | "share";
+export type StreamsPanel = "connect" | "table" | "store" | "windows" | "share" | "schema" | "security" | "acl";
 
 export type Step =
   | { kind: "brief"; title: Msg; body: Msg; mapping?: { icon: string; thing: Msg; kafka: Msg }[]; breaks?: Msg; code?: string }
@@ -208,6 +217,8 @@ export type Level = {
     app?: { appId: string; input: string; changelog: string };
     windows?: { topic: string; size: number; grace: number };
   };
+  /** World 10 machinery. */
+  governance?: { schema?: { subject: string; fields: Field[] }; security?: boolean; acl?: boolean };
   /** World 9: a group of workers in classic or share mode; a performance / quota model. */
   share?: { topic: string; mode: GroupType; members: number; options: ShareOptions };
   perf?: boolean;

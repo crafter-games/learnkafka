@@ -50,7 +50,7 @@
     }
     if (s.kind === "task") {
       // Settings first: pick the "right" option for each dial if it isn't selected yet
-      const want = ["acks=all", "idempotent=true", "codec=zstd", "batchSize=4", "lingerMs=1000", "maxPollRecords=5", "protocol=cooperative", "commit=after", "minInsync=2", "retainSegments=2", "grace=5", "groupType=share", "onFailure=reject", "sequential=true", "batch=100", "zeroCopy=true", "quota=20"];
+      const want = ["acks=all", "idempotent=true", "codec=zstd", "batchSize=4", "lingerMs=1000", "maxPollRecords=5", "protocol=cooperative", "commit=after", "minInsync=2", "retainSegments=2", "grace=5", "groupType=share", "onFailure=reject", "sequential=true", "batch=100", "zeroCopy=true", "quota=20", "listener=SASL_SSL"];
       if (/TLS/.test(document.querySelector("[data-objective]")?.textContent || "")) want.unshift("tls=true");
       const setting = want.map((w) => document.querySelector(`[data-setting="${w}"]`)).find((b) => b && b.getAttribute("aria-checked") !== "true");
       if (setting) {
@@ -109,6 +109,17 @@
         crash1.click();
         window.__w5["c1" + k] = true;
         await sleep(2500);
+        continue;
+      }
+      // World 10: grant only the needed ACLs (never analytics Write orders)
+      const grant = ["aclReadOrders", "aclReadGroup", "aclWriteInvoices"].map((id) => document.querySelector(`[data-action="${id}"]`)).find((b) => b && b.getAttribute("aria-pressed") !== "true");
+      if (grant) {
+        grant.click();
+        await sleep(500);
+        continue;
+      }
+      if (document.querySelector('[data-action="aclWriteOrders"]')) {
+        await sleep(600);
         continue;
       }
       // World 8: crash the connector between flushes, then restart; crash and restore the Streams app

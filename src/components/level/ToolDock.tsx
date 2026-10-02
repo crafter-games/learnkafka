@@ -35,28 +35,45 @@ export type ToolHandlers = {
   route: (ok: boolean, topic: string, key: string, value: string) => void;
   action: (id: ActionId) => void;
   actionEnabled: (id: ActionId) => boolean;
+  /** Toggle-style actions (ACL grants): undefined when the action isn't a toggle. */
+  actionPressed: (id: ActionId) => boolean | undefined;
 };
 
-const ACTION_STYLE: Partial<Record<ActionId, "danger" | "accent">> = { shareJoin: "accent", shareCrash: "danger", connectorCrash: "danger", appCrash: "danger", connectorRestart: "accent", appRestart: "accent", eventLate15: "danger" };
+const ACTION_STYLE: Partial<Record<ActionId, "danger" | "accent">> = {
+  sendInvalid: "danger",
+  addRequired: "danger",
+  shareJoin: "accent",
+  shareCrash: "danger",
+  connectorCrash: "danger",
+  appCrash: "danger",
+  connectorRestart: "accent",
+  appRestart: "accent",
+  eventLate15: "danger",
+};
 
 /** World 8: one-shot buttons (insert a row, crash/restart a task, send an on-time or late event). */
 function ActionsTool({ tool, on }: { tool: Extract<Tool, { type: "actions" }>; on: ToolHandlers }) {
   const t = useTranslations("level.tools.actions");
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {tool.ids.map((id) => (
-        <button
-          key={id}
-          type="button"
-          data-action={id}
-          disabled={!on.actionEnabled(id)}
-          onClick={() => on.action(id)}
-          className={`${gameButtonClass({ variant: ACTION_STYLE[id] === "accent" ? "accent" : "secondary", size: "md" })} ${ACTION_STYLE[id] === "danger" ? "border-danger/40 text-danger" : ""}`}
-        >
-          {/Crash/.test(id) ? <Lightning weight="fill" /> : /Restart/.test(id) ? <ArrowClockwise weight="bold" /> : id === "shareJoin" ? <Plus weight="bold" /> : null}
-          {t(id)}
-        </button>
-      ))}
+      {tool.ids.map((id) => {
+        const pressed = on.actionPressed(id);
+        return (
+          <button
+            key={id}
+            type="button"
+            data-action={id}
+            aria-pressed={pressed}
+            disabled={!on.actionEnabled(id)}
+            onClick={() => on.action(id)}
+            className={`${gameButtonClass({ variant: pressed ? "accent" : ACTION_STYLE[id] === "accent" ? "accent" : "secondary", size: "md" })} ${ACTION_STYLE[id] === "danger" && !pressed ? "border-danger/40 text-danger" : ""}`}
+          >
+            {pressed !== undefined && <span aria-hidden>{pressed ? "✓" : "+"}</span>}
+            {/Crash/.test(id) ? <Lightning weight="fill" /> : /Restart/.test(id) ? <ArrowClockwise weight="bold" /> : id === "shareJoin" ? <Plus weight="bold" /> : null}
+            {t(id)}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -99,9 +116,8 @@ function ProduceTool({ tool, on }: { tool: Extract<Tool, { type: "produce" }>; o
     <div className="flex min-w-0 flex-wrap items-center gap-2">
       {tool.headers && (
         <div className="hidden rounded-xl border border-line bg-paper-2 px-3 py-2 font-mono text-xs leading-snug text-ink-2 md:block" aria-label={t("preview")}>
-          <span className="text-ink/40">{"{"}</span> key: <b className="text-partition-dark">{last === undefined ? "…" : JSON.stringify(last)}</b>, value:{" "}
-          <b className="text-ink">{value}</b>, headers: <b className="text-ink">{JSON.stringify(headers)}</b>, timestamp: <b className="text-ink">now</b>{" "}
-          <span className="text-ink/40">{"}"}</span>
+          <span className="text-ink/40">{"{"}</span> key: <b className="text-partition-dark">{last === undefined ? "…" : JSON.stringify(last)}</b>, value: <b className="text-ink">{value}</b>, headers:{" "}
+          <b className="text-ink">{JSON.stringify(headers)}</b>, timestamp: <b className="text-ink">now</b> <span className="text-ink/40">{"}"}</span>
         </div>
       )}
       {tool.keys.map((k, i) => (
@@ -251,18 +267,33 @@ function BrokersTool({ tool, on }: { tool: Extract<Tool, { type: "brokers" }>; o
   return (
     <div className="flex flex-wrap items-center gap-2">
       {on.brokers().map((b) => (
-        <div key={b.name} className={`flex items-center gap-1 rounded-xl border px-1.5 py-1 ${b.down ? "border-line bg-ink/5" : b.leader ? "border-broker/40 bg-broker/10" : "border-line bg-paper-2"}`}>
+        <div
+          key={b.name}
+          className={`flex items-center gap-1 rounded-xl border px-1.5 py-1 ${b.down ? "border-line bg-ink/5" : b.leader ? "border-broker/40 bg-broker/10" : "border-line bg-paper-2"}`}
+        >
           <span className="px-1.5 font-mono text-sm font-bold">
             {t("brokerName", { n: b.name.replace(/\D/g, "") })}
             {b.leader && " ★"}
           </span>
           {tool.actions.includes("crash") && !b.down && (
-            <button type="button" data-broker={`crash:${b.name}`} onClick={() => on.broker("crash", b.name)} className={`${gameButtonClass({ size: "sm" })} h-8 px-2 text-danger`} aria-label={t("brokerCrash", { n: b.name })}>
+            <button
+              type="button"
+              data-broker={`crash:${b.name}`}
+              onClick={() => on.broker("crash", b.name)}
+              className={`${gameButtonClass({ size: "sm" })} h-8 px-2 text-danger`}
+              aria-label={t("brokerCrash", { n: b.name })}
+            >
               <Lightning weight="fill" />
             </button>
           )}
           {tool.actions.includes("slow") && !b.down && !b.leader && (
-            <button type="button" data-broker={`slow:${b.name}`} aria-pressed={b.slow} onClick={() => on.broker("slow", b.name)} className={`${gameButtonClass({ size: "sm" })} h-8 px-2 ${b.slow ? "bg-producer text-white" : ""}`}>
+            <button
+              type="button"
+              data-broker={`slow:${b.name}`}
+              aria-pressed={b.slow}
+              onClick={() => on.broker("slow", b.name)}
+              className={`${gameButtonClass({ size: "sm" })} h-8 px-2 ${b.slow ? "bg-producer text-white" : ""}`}
+            >
               {b.slow ? t("brokerFix") : t("brokerSlow")}
             </button>
           )}

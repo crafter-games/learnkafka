@@ -158,7 +158,9 @@
         "zeroCopy": "zero-copy",
         "tls": "TLS",
         "batch": "registros / petición",
-        "quota": "cuota de analytics (MB/s)"
+        "quota": "cuota de analytics (MB/s)",
+        "compatibility": "compatibilidad",
+        "listener": "listener"
       },
       "member": {
         "join": "Contratar robot ({n})",
@@ -189,7 +191,16 @@
         "eventLate5": "Clic 5 s tarde",
         "eventLate15": "Clic 15 s tarde",
         "shareJoin": "Añadir un robot",
-        "shareCrash": "Tumbar un robot"
+        "shareCrash": "Tumbar un robot",
+        "sendValid": "Enviar un pedido válido",
+        "sendInvalid": "Enviar un pedido sin \"item\"",
+        "addOptional": "Añadir cupón opcional",
+        "removeField": "Quitar nota opcional",
+        "addRequired": "Añadir phone obligatorio",
+        "aclReadOrders": "analytics: Read topic orders",
+        "aclReadGroup": "analytics: Read group analytics",
+        "aclWriteInvoices": "billing: Write topic invoices",
+        "aclWriteOrders": "analytics: Write topic orders"
       }
     },
     "delivered": "Entregados (en orden de llegada)",
@@ -241,6 +252,27 @@
       "redelivered": "{n} reentregados",
       "archived": "{n} archivados",
       "idle": "{n, plural, one {# robot sin trabajo} other {# robots sin trabajo}}"
+    },
+    "gov": {
+      "registered": "✓ v{v} registrada (id {id})",
+      "incompatible": {
+        "addRequired": "✗ Incompatible: un campo obligatorio nuevo que los datos viejos no tienen",
+        "removeRequired": "✗ Incompatible: se quitó un campo que los lectores viejos exigen"
+      },
+      "sent": "{n} enviados",
+      "refused": "{n} rechazados",
+      "missing": "falta el campo obligatorio \"item\"",
+      "encrypted": "cifrado",
+      "plain": "legible",
+      "authenticated": "autenticado",
+      "anyone": "cualquiera puede conectarse",
+      "sniffer": "lo que ve un espía en la red",
+      "admitted": "{n} conexiones de impostor aceptadas",
+      "rejected": "{n} rechazadas",
+      "acls": "ACLs",
+      "noAcls": "Ninguna: todo se deniega.",
+      "attempts": "últimas peticiones",
+      "missingAcl": "falta: {acl}"
     }
   },
   "map": {
@@ -302,7 +334,10 @@
       "title": "Colas y rendimiento",
       "body": "Los share groups convierten Kafka en una cola de trabajo con candados y reintentos. Y después: por qué Kafka es tan rápido, lo que cuesta TLS y las cuotas que frenan a los clientes ruidosos."
     },
-    "w10": "Schemas y seguridad"
+    "w10": {
+      "title": "Schemas y seguridad",
+      "body": "El último tramo hacia producción: Schema Registry y la evolución segura de schemas, cifrado y autenticación con TLS y SASL, y ACLs que dan a cada servicio solo lo que necesita."
+    }
   },
   "levels": {
     "1-1": {
@@ -2655,6 +2690,250 @@
           "errors": "Recibe errores y registros saltados",
           "nothing": "No se ve afectado",
           "why": "Las respuestas de fetch se retrasan; todos los registros siguen ahí."
+        }
+      }
+    },
+    "10-1": {
+      "title": "Un idioma común",
+      "summary": "Schema Registry: producers y consumers acuerdan la forma de cada registro.",
+      "brief": {
+        "title": "Todos rellenan el mismo formulario",
+        "body": "Para Kafka un registro son solo bytes. Si la tienda envía <code>amount</code> y facturación espera <code>price</code>, algo se rompe más adelante. Un <b>Schema Registry</b> guarda la forma acordada (el schema) de cada <b>subject</b>, como <code>orders-value</code>. El serializer del producer valida cada registro contra él y escribe el <b>id</b> del schema delante de los bytes. Los consumers usan ese id para buscar el schema.",
+        "breaks": "Schema Registry no es parte de Apache Kafka. El más común es el de Confluent (hay otros, como Apicurio) y corre como un servicio aparte."
+      },
+      "map": {
+        "form": "El formulario oficial de pedido",
+        "schema": "Un schema (Avro, Protobuf o JSON Schema)",
+        "number": "El número de formulario impreso en cada paquete",
+        "id": "Schema id (magic byte + 4 bytes)"
+      },
+      "carry": {
+        "q": "¿Qué lleva cada registro para que los consumers sepan su schema?",
+        "id": "Un pequeño schema id delante de los bytes",
+        "schema": "El schema completo, cada vez",
+        "nothing": "Nada; los consumers adivinan",
+        "why": "Solo 5 bytes extra: un magic byte y un id de 4 bytes. El schema vive en el registry y los clientes lo guardan en caché."
+      },
+      "send": {
+        "title": "Envía según el formulario",
+        "body": "Envía 3 pedidos correctos (cada uno lleva el schema id). Luego intenta uno al que le falta un campo obligatorio y mira quién lo para.",
+        "success": "El registro malo nunca salió del producer: el serializer lo rechazó antes de llegar a Kafka."
+      },
+      "where": {
+        "q": "¿Quién rechazó el registro al que le faltaba un campo?",
+        "producer": "El serializer del producer, antes de enviar",
+        "broker": "El broker, al escribir",
+        "consumer": "El consumer, al leer",
+        "why": "La validación ocurre en el serializer del cliente. Los brokers solo guardan bytes."
+      },
+      "check": {
+        "carry": {
+          "q": "Un registro escrito con Schema Registry lleva…",
+          "id": "Un schema id",
+          "schema": "El schema completo",
+          "nothing": "Ninguna información de schema",
+          "why": "Un magic byte más un schema id de 4 bytes."
+        },
+        "part": {
+          "q": "Schema Registry es…",
+          "separate": "Un servicio aparte, junto a Kafka",
+          "broker": "Parte de cada broker",
+          "client": "Solo parte del cliente Java",
+          "why": "Es un servicio propio (el de Confluent u otra alternativa)."
+        },
+        "bad": {
+          "q": "¿Dónde se suele detectar un registro que no cumple su schema?",
+          "producer": "En el serializer del producer",
+          "broker": "En el broker",
+          "consumer": "Solo en el consumer",
+          "why": "El serializer valida antes de enviar."
+        },
+        "bytes": {
+          "q": "Cada registro lleva un magic byte y un schema id de 4 bytes. ¿Cuántos bytes extra suman {n} registros?",
+          "why": "5 bytes cada uno: 5 × {n} = {total}."
+        }
+      }
+    },
+    "10-2": {
+      "title": "Cambiar el formulario",
+      "summary": "Evolución de schemas: qué cambios acepta el registry con compatibilidad BACKWARD, y quién actualiza primero.",
+      "brief": {
+        "title": "Versión nueva, mismos paquetes",
+        "body": "Los formularios cambian: añades un código de cupón, quitas un campo de notas. Los registros viejos siguen en el topic, así que las versiones nuevas y viejas tienen que llevarse bien. El registry compara cada versión nueva con la anterior. La regla por defecto es <b>BACKWARD</b>: un consumer con el schema nuevo debe poder leer los datos escritos con el viejo. Así que puedes borrar campos y añadir campos <b>opcionales</b> (con valor por defecto), pero no añadir uno <b>obligatorio</b>."
+      },
+      "map": {
+        "reprint": "Un formulario reimpreso",
+        "version": "Una versión nueva del schema",
+        "rule": "La norma de la imprenta",
+        "compat": "Modo de compatibilidad"
+      },
+      "required": {
+        "q": "Con BACKWARD, añades un campo obligatorio \"phone\" sin valor por defecto. ¿Qué hace el registry?",
+        "rejected": "Lo rechaza: los registros viejos no tienen phone que leer",
+        "accepted": "Lo acepta",
+        "breaks": "Lo acepta y borra los registros viejos",
+        "why": "Un lector nuevo encontraría registros viejos sin phone y sin valor por defecto con que rellenarlo. Dale un valor por defecto (hazlo opcional) y pasa."
+      },
+      "evolve": {
+        "title": "Evoluciona el schema",
+        "body": "Con compatibilidad <b>BACKWARD</b>, registra dos cambios seguros (añadir el cupón opcional, quitar la nota opcional) e intenta el peligroso (un phone obligatorio).",
+        "success": "Añadir opcionales y borrar pasa; un campo obligatorio nuevo se rechaza. El registry evitó que rompieras a todos los consumers."
+      },
+      "order": {
+        "q": "Con compatibilidad BACKWARD, ¿qué lado debe pasar primero al schema nuevo?",
+        "consumers": "Los consumers",
+        "producers": "Los producers",
+        "same": "Da igual",
+        "why": "Los consumers nuevos leen datos viejos y nuevos, así que actualízalos primero y después los producers. Con FORWARD es al revés."
+      },
+      "check": {
+        "default": {
+          "q": "El modo de compatibilidad por defecto de Schema Registry es…",
+          "backward": "BACKWARD",
+          "forward": "FORWARD",
+          "none": "NONE",
+          "why": "BACKWARD: los schemas nuevos deben leer los datos escritos con el anterior."
+        },
+        "add": {
+          "q": "Con BACKWARD, un campo nuevo debe añadirse…",
+          "default": "Con valor por defecto (opcional)",
+          "required": "Como obligatorio",
+          "rename": "Renombrando un campo viejo",
+          "why": "Los registros viejos no tienen ese campo, así que el lector necesita un valor por defecto."
+        },
+        "first": {
+          "q": "Compatibilidad BACKWARD: ¿a quién actualizas primero?",
+          "consumers": "A los consumers",
+          "producers": "A los producers",
+          "same": "A los dos a la vez",
+          "why": "Los lectores nuevos entienden los datos viejos, así que los consumers van primero."
+        },
+        "forward": {
+          "q": "Compatibilidad FORWARD significa…",
+          "old": "Los schemas viejos pueden leer datos escritos con el nuevo",
+          "new": "Los schemas nuevos pueden leer datos viejos",
+          "both": "En las dos direcciones",
+          "why": "FORWARD protege a los lectores viejos; FULL es en ambas direcciones."
+        }
+      }
+    },
+    "10-3": {
+      "title": "Cerraduras en las puertas",
+      "summary": "Kafka va en texto plano por defecto. TLS cifra, SASL comprueba quién eres, y normalmente quieres las dos.",
+      "brief": {
+        "title": "Puertas abiertas por defecto",
+        "body": "Tal como viene, un listener de Kafka es <b>PLAINTEXT</b>: cualquiera en la red puede leer los registros y cualquiera puede conectarse. <b>TLS</b> (el protocolo <code>SSL</code>) cifra el tráfico. <b>SASL</b> obliga a los clientes a demostrar quiénes son (PLAIN, SCRAM, Kerberos/GSSAPI u OAuth). <code>SASL_SSL</code> hace las dos cosas."
+      },
+      "map": {
+        "van": "Un furgón blindado",
+        "tls": "Cifrado TLS en tránsito",
+        "badge": "Enseñar la credencial en la puerta",
+        "sasl": "Autenticación SASL"
+      },
+      "open": {
+        "title": "Alguien está escuchando",
+        "body": "Con PLAINTEXT, un espía en la red lee cada pedido, números de tarjeta incluidos, y un cliente impostor se conecta sin ningún control."
+      },
+      "sslOnly": {
+        "q": "Cambias a SSL (TLS, sin autenticar clientes). ¿Eso impide que el impostor se conecte?",
+        "no": "No: TLS oculta los datos pero no comprueba quién es el cliente",
+        "yes": "Sí, TLS bloquea a los clientes desconocidos",
+        "half": "Solo la mitad de las veces",
+        "why": "SSL solo cifra. Para comprobar identidades añades SASL (o exiges certificados de cliente, mTLS)."
+      },
+      "lock": {
+        "title": "Ciérralo todo",
+        "body": "Elige un protocolo de listener para que el espía solo vea basura <b>y</b> el impostor se quede fuera.",
+        "success": "SASL_SSL: cifrado y autenticado. Lo siguiente: decidir qué puede hacer cada usuario autenticado."
+      },
+      "check": {
+        "default": {
+          "q": "Un listener de Kafka sin seguridad configurada usa…",
+          "plaintext": "PLAINTEXT",
+          "ssl": "SSL",
+          "sasl": "SASL_SSL",
+          "why": "Kafka no es seguro por defecto. Hay que configurarlo."
+        },
+        "ssl": {
+          "q": "El protocolo SSL (TLS) por sí solo…",
+          "encrypts": "Cifra el tráfico en tránsito",
+          "authenticates": "Comprueba usuarios y contraseñas de los clientes",
+          "authorizes": "Decide quién puede leer cada topic",
+          "why": "Cifrado; la identidad viene de SASL o certificados de cliente, y los permisos de las ACLs."
+        },
+        "both": {
+          "q": "¿Qué protocolo da cifrado y autenticación a la vez?",
+          "sasl_ssl": "SASL_SSL",
+          "ssl": "SSL",
+          "sasl_plaintext": "SASL_PLAINTEXT",
+          "why": "SASL para la identidad, SSL para el cifrado."
+        },
+        "mech": {
+          "q": "¿Cuál es un mecanismo SASL?",
+          "scram": "SCRAM",
+          "acl": "ACL",
+          "isr": "ISR",
+          "why": "Mecanismos SASL: PLAIN, SCRAM, GSSAPI (Kerberos), OAUTHBEARER."
+        }
+      }
+    },
+    "10-4": {
+      "title": "Quién puede hacer qué",
+      "summary": "ACLs: denegar por defecto, dar solo lo que cada usuario necesita, y no olvidar el consumer group.",
+      "brief": {
+        "title": "Una lista de invitados en cada puerta",
+        "body": "La autenticación le dice a Kafka <b>quién</b> eres (un principal como <code>User:analytics</code>). La <b>autorización</b> decide qué puedes hacer. Con un authorizer activo, nada está permitido salvo que una <b>ACL</b> lo diga: permitir a este principal esta operación (Read, Write…) sobre este recurso (un topic, un consumer group…)."
+      },
+      "map": {
+        "badge": "El nombre de la credencial",
+        "principal": "Principal (User:analytics)",
+        "list": "La lista de invitados de cada puerta",
+        "acl": "ACLs"
+      },
+      "denied": {
+        "title": "Todas las puertas cerradas",
+        "body": "Facturación no puede escribir invoices y analytics no puede leer orders: no hay ACLs, así que todo se deniega."
+      },
+      "need": {
+        "q": "Analytics lee orders en el consumer group \"analytics\". ¿Qué ACLs necesita?",
+        "both": "Read en el topic y Read en el grupo",
+        "topic": "Solo Read en el topic",
+        "group": "Solo Read en el grupo",
+        "why": "Los consumers de un grupo hacen commit de offsets y se unen al grupo, así que necesitan Read en el grupo además de en el topic."
+      },
+      "grant": {
+        "title": "Mínimo privilegio",
+        "body": "Da justo lo necesario: analytics lee orders (en su grupo) y billing escribe invoices. No dejes que analytics escriba en orders.",
+        "success": "Cada uno puede hacer su trabajo y nada más. Eso es el mínimo privilegio."
+      },
+      "check": {
+        "default": {
+          "q": "Con un authorizer activo y sin ACL que coincida, una petición se…",
+          "deny": "Deniega",
+          "allow": "Permite",
+          "read": "Permite solo si es lectura",
+          "why": "Denegar por defecto (allow.everyone.if.no.acl.found es false por defecto)."
+        },
+        "group": {
+          "q": "Un consumer de un grupo necesita Read en…",
+          "both": "El topic y el grupo",
+          "topic": "Solo el topic",
+          "group": "Solo el grupo",
+          "why": "En los dos: el topic para leer, el grupo para unirse y hacer commit."
+        },
+        "least": {
+          "q": "La forma más segura de dar acceso es…",
+          "least": "Solo las operaciones que cada usuario necesita",
+          "all": "Permitir todo a todos dentro de la red",
+          "admin": "Hacer super usuario a cada servicio",
+          "why": "El mínimo privilegio limita el daño si se filtra una credencial."
+        },
+        "authn": {
+          "q": "Antes de que una ACL se aplique a un usuario, Kafka debe…",
+          "authn": "Saber quién es el usuario (autenticación)",
+          "acl": "Crear un topic para el usuario",
+          "tls": "Desactivar TLS",
+          "why": "Las ACLs van por principal, así que primero va la autenticación (SASL o certificados)."
         }
       }
     }

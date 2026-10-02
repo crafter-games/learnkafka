@@ -259,12 +259,20 @@ export function LevelPlayer({ level, onRestart }: { level: Level; onRestart: () 
       session.action(id);
       setTick((n) => n + 1);
     },
+    actionPressed: (id) => {
+      const a = ctx.auth;
+      if (!a) return undefined;
+      const map = { aclReadOrders: ["analytics", "Read", "topic:orders"], aclReadGroup: ["analytics", "Read", "group:analytics"], aclWriteInvoices: ["billing", "Write", "topic:invoices"], aclWriteOrders: ["analytics", "Write", "topic:orders"] } as const;
+      const m = map[id as keyof typeof map];
+      return m ? a.allows(m[0], m[1], m[2]) : undefined;
+    },
     actionEnabled: (id) => {
       const { connector, app } = ctx;
       if (id === "connectorCrash") return !!connector?.running;
       if (id === "connectorRestart") return !!connector && !connector.running;
       if (id === "appCrash") return !!app?.running;
       if (id === "appRestart") return !!app && !app.running && !app.restoring;
+      if (id === "removeField") return !!ctx.schemas?.registry.latest(ctx.schemas.subject)?.fields.some((f) => f.name === "note");
       if (id === "shareJoin") return (ctx.share?.alive.length ?? 9) < 4;
       if (id === "shareCrash") return (ctx.share?.alive.length ?? 0) > 1;
       return true;
@@ -284,6 +292,8 @@ export function LevelPlayer({ level, onRestart }: { level: Level; onRestart: () 
       if (field === "onFailure") return ctx.share?.onFailure;
       if (field === "sequential" || field === "zeroCopy" || field === "tls" || field === "batch") return ctx.perf?.settings[field];
       if (field === "quota") return ctx.perf?.quota;
+      if (field === "compatibility") return ctx.schemas?.registry.compatibility;
+      if (field === "listener") return ctx.security?.protocol;
       if (field === "idempotent") return ctx.retrying?.idempotent;
       return ctx.batching?.config[field];
     },

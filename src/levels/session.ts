@@ -6,6 +6,7 @@ import { IsolatedReader, TxnProducer } from "@/sim/transactions";
 import { LogManager, TOMBSTONE } from "@/sim/storage";
 import { CountingApp, SourceConnector, WindowedCounter } from "@/sim/streams";
 import { ShareGroup } from "@/sim/share";
+import { Authorizer, SchemaRegistry, listener, sniff, type Protocol } from "@/sim/governance";
 import type { Headers, SimRecord } from "@/sim/events";
 import { seeded, type ActionId, type Level, type LevelCtx, type SimRecordLike, type TaskStats } from "./types";
 
@@ -60,7 +61,33 @@ export class LevelSession {
     const share = shc ? new ShareGroup(this.cluster, shc.topic, shc.mode, shc.options) : undefined;
     for (let i = 0; i < (shc?.members ?? 0); i++) share?.join();
     const perf = level.perf ? { settings: { sequential: false, zeroCopy: false, tls: false, batch: 1 }, quota: "none" as number | "none" } : undefined;
-    const streamTimers = [connector && setInterval(() => connector.tick(), 900), app && setInterval(() => app.tick(), 600), share && setInterval(() => share.tick(), 150)].filter(Boolean) as ReturnType<typeof setInterval>[];
+    const gov = level.governance;
+    const schemas = gov?.schema ? { registry: new SchemaRegistry(), subject: gov.schema.subject, sent: 0, refused: 0, lastRefused: false, history: [] as { change: ActionId; ok: boolean }[] } : undefined;
+    schemas?.registry.register(schemas.subject, gov!.schema!.fields);
+    const security = gov?.security ? { protocol: "PLAINTEXT" as Protocol, sniffed: [] as string[], admitted: 0, rejected: 0 } : undefined;
+    const auth = gov?.acl ? new Authorizer() : undefined;
+    let n = 0;
+    const govTimers = [
+      security &&
+        setInterval(() => {
+          const text = `${["alice", "bob", "carol"][n % 3]}: card 4242-${1000 + n} order #${++n}`;
+          this.cluster.produce("orders", ["alice", "bob", "carol"][n % 3], text);
+          security.sniffed = [...security.sniffed, sniff(security.protocol, text)].slice(-4);
+        }, 1300),
+      security &&
+        setInterval(() => {
+          if (listener(security.protocol).authenticated) security.rejected++;
+          else security.admitted++;
+        }, 2600),
+      auth &&
+        setInterval(() => {
+          this.cluster.produce("orders", ["alice", "bob", "carol"][n++ % 3], `order #${n}`);
+          if (auth.produce("billing", "invoices")) this.cluster.produce("invoices", null, `invoice #${n}`);
+          if (auth.consume("analytics", "orders", "analytics")) this.cluster.fetch("analytics", "orders", 0);
+          if (auth.produce("analytics", "orders")) this.cluster.produce("orders", "analytics", "?!");
+        }, 1600),
+    ];
+    const streamTimers = [...govTimers, connector && setInterval(() => connector.tick(), 900), app && setInterval(() => app.tick(), 600), share && setInterval(() => share.tick(), 150)].filter(Boolean) as ReturnType<typeof setInterval>[];
     this.cleanup = () => {
       streamTimers.forEach(clearInterval);
       batching?.stop();
@@ -85,6 +112,9 @@ export class LevelSession {
       windows,
       share,
       perf,
+      schemas,
+      security,
+      auth,
       wait: (ms) => new Promise((r) => setTimeout(r, ms)),
       produce: (topic, key, value = `order-${this.stats.produced + 1}`, partition) => {
         const r = this.produce(topic, key, value, {}, false, partition);
@@ -235,6 +265,41 @@ export class LevelSession {
     const { connector, app, windows } = this.ctx;
     const key = ["alice", "bob", "carol"][this.stats.produced % 3];
     const share = this.ctx.share;
+    const sc = this.ctx.schemas;
+    const ACLS = {
+      aclReadOrders: { principal: "analytics", operation: "Read" as const, resource: "topic:orders" },
+      aclReadGroup: { principal: "analytics", operation: "Read" as const, resource: "group:analytics" },
+      aclWriteInvoices: { principal: "billing", operation: "Write" as const, resource: "topic:invoices" },
+      aclWriteOrders: { principal: "analytics", operation: "Write" as const, resource: "topic:orders" },
+    };
+    if (id in ACLS && this.ctx.auth) {
+      const acl = ACLS[id as keyof typeof ACLS];
+      if (this.ctx.auth.has(acl)) this.ctx.auth.revoke(acl);
+      else this.ctx.auth.grant(acl);
+      return;
+    }
+    if (sc && (id === "sendValid" || id === "sendInvalid")) {
+      const latest = sc.registry.latest(sc.subject)!;
+      const record = id === "sendValid" ? latest.fields.filter((f) => f.required).map((f) => f.name) : ["id"];
+      if (sc.registry.validate(sc.subject, record)) {
+        sc.sent++;
+        sc.lastRefused = false;
+        this.produce("orders", key, `{schema id ${latest.id}}`, { "x-schema-id": String(latest.id) });
+      } else {
+        sc.refused++;
+        sc.lastRefused = true;
+      }
+      return;
+    }
+    if (sc && (id === "addOptional" || id === "addRequired" || id === "removeField")) {
+      const cur = sc.registry.latest(sc.subject)!.fields;
+      const next =
+        id === "addOptional" ? [...cur.filter((f) => f.name !== "coupon"), { name: "coupon", required: false }]
+        : id === "addRequired" ? [...cur.filter((f) => f.name !== "phone"), { name: "phone", required: true }]
+        : cur.filter((f) => f.name !== "note");
+      sc.history.push({ change: id, ok: sc.registry.register(sc.subject, next).ok });
+      return;
+    }
     if (id === "shareJoin") share?.join();
     else if (id === "shareCrash") share?.crash();
     else if (id === "dbInsert" && connector) connector.insert({ id: `customer-${connector.table.length + 1}`, value: ["Lima", "Quito", "Bogotá", "Madrid", "Austin"][connector.table.length % 5] });
@@ -256,6 +321,8 @@ export class LevelSession {
     else if (field === "acks" && replicas) replicas.acks = value as typeof replicas.acks;
     else if (field === "minInsync" && replicas) replicas.minInsync = Number(value);
     else if (field === "retainSegments" && this.ctx.log) this.ctx.log.setRetention(value === "all" ? Infinity : Number(value));
+    else if (field === "compatibility" && this.ctx.schemas) this.ctx.schemas.registry.compatibility = value as "BACKWARD";
+    else if (field === "listener" && this.ctx.security) this.ctx.security.protocol = value as "PLAINTEXT";
     else if (field === "groupType" && this.ctx.share) this.ctx.share.mode = value as "classic" | "share";
     else if (field === "onFailure" && this.ctx.share) this.ctx.share.onFailure = value as "release" | "reject";
     else if (this.ctx.perf && (field === "sequential" || field === "zeroCopy" || field === "tls")) this.ctx.perf.settings[field] = Boolean(value);
