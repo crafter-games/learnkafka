@@ -151,7 +151,14 @@
         "minInsync": "min.insync.replicas",
         "unclean": "unclean election",
         "retainSegments": "segments kept",
-        "grace": "grace (s)"
+        "grace": "grace (s)",
+        "groupType": "group type",
+        "onFailure": "on failure",
+        "sequential": "sequential I/O",
+        "zeroCopy": "zero-copy",
+        "tls": "TLS",
+        "batch": "records / request",
+        "quota": "analytics quota (MB/s)"
       },
       "member": {
         "join": "Hire a robot ({n})",
@@ -180,7 +187,9 @@
         "appRestart": "Start a new instance",
         "eventNow": "Click now",
         "eventLate5": "Click 5 s late",
-        "eventLate15": "Click 15 s late"
+        "eventLate15": "Click 15 s late",
+        "shareJoin": "Add a robot",
+        "shareCrash": "Crash a robot"
       }
     },
     "delivered": "Delivered (in completion order)",
@@ -223,6 +232,15 @@
       "open": "open",
       "closed": "closed",
       "dropped": "{n, plural, =0 {Nothing dropped} one {# late click dropped} other {# late clicks dropped}}"
+    },
+    "share": {
+      "classic": "classic group",
+      "share": "share group",
+      "rate": "{n} jobs/s",
+      "processed": "{n} done",
+      "redelivered": "{n} redelivered",
+      "archived": "{n} archived",
+      "idle": "{n, plural, one {# robot idle} other {# robots idle}}"
     }
   },
   "map": {
@@ -280,7 +298,11 @@
       "title": "Streams & Connect",
       "body": "Kafka beyond the brokers: Connect pipes data in and out, and Kafka Streams turns topics into tables, counts that survive crashes, and time windows."
     },
-    "w9": "Queues & Performance"
+    "w9": {
+      "title": "Queues & Performance",
+      "body": "Share groups turn Kafka into a work queue with locks and retries. Then: why Kafka is so fast, what TLS costs, and quotas that tame noisy clients."
+    },
+    "w10": "Schemas & Security"
   },
   "levels": {
     "1-1": {
@@ -2364,6 +2386,275 @@
           "arrival": "When the broker received it",
           "reader": "The reader's wall clock",
           "why": "Windows use event time, which is why late arrivals are possible and need a grace period."
+        }
+      }
+    },
+    "9-1": {
+      "title": "More robots than belts",
+      "summary": "A classic group can't use more consumers than partitions. A share group can.",
+      "brief": {
+        "title": "A queue, Kafka style",
+        "body": "In a classic consumer group each partition belongs to <b>one</b> member, so with 2 partitions a third and fourth consumer just wait. Sometimes you only want \"a pile of jobs, any free worker takes the next one\": a queue. Kafka 4 adds <b>share groups</b> (KIP-932) for that. Members take records from the same partitions together, so there can be more workers than partitions."
+      },
+      "map": {
+        "robot": "A robot worker",
+        "consumer": "A consumer",
+        "next": "Any free robot grabs the next parcel",
+        "share": "Share group"
+      },
+      "classic": {
+        "title": "Two robots, twiddling thumbs",
+        "body": "Four robots, two belts, a <b>classic</b> group: each belt has one owner and the other two robots say zzz."
+      },
+      "idle": {
+        "q": "4 robots, 2 belts, classic group. How many robots sit idle?",
+        "why": "One owner per partition: 2 work, 2 wait. Adding consumers beyond the partition count doesn't help a classic group."
+      },
+      "switch": {
+        "title": "Everyone to work",
+        "body": "Switch the group type to <b>share</b> and watch all four robots grab jobs. Get throughput above 3.4 jobs per second.",
+        "success": "Four workers on two partitions. Share groups make Kafka a work queue as well as a log."
+      },
+      "meter": "Jobs finished per second",
+      "order": {
+        "q": "Does a share group process each customer's records in order?",
+        "no": "No: records are handed to whichever worker is free",
+        "yes": "Yes, always",
+        "partition": "Only if there's one partition",
+        "why": "Order is the price: many workers pick from the same partition at once. Use a classic group when per-key order matters."
+      },
+      "check": {
+        "idle": {
+          "q": "A classic group has {members} members on a topic with {parts} partitions. How many members are idle?",
+          "why": "One member per partition at most: {members} − {parts} = {idle} idle."
+        },
+        "order": {
+          "q": "A share group guarantees per-key ordering…",
+          "no": "No",
+          "yes": "Yes",
+          "key": "Only with keys",
+          "why": "Records go to whichever member is free, so there's no ordering guarantee."
+        },
+        "when": {
+          "q": "When is a share group the right tool?",
+          "queue": "Independent jobs where any worker can take the next one",
+          "ordered": "Bank transactions that must stay in order per account",
+          "replay": "Rebuilding a table by replaying a compacted topic",
+          "why": "Queue-style work: more workers than partitions, order not needed."
+        },
+        "class": {
+          "q": "Which Java client class reads from a share group?",
+          "share": "KafkaShareConsumer",
+          "consumer": "KafkaConsumer with a special flag",
+          "streams": "KafkaStreams",
+          "why": "Share groups have their own client, KafkaShareConsumer."
+        }
+      }
+    },
+    "9-2": {
+      "title": "Locks and retries",
+      "summary": "Each record is locked while a worker has it. Accept, release or reject it; a poison record gets archived.",
+      "brief": {
+        "title": "A timer on every parcel",
+        "body": "In a share group, a worker <b>acquires</b> a record with a lock (30 s by default). When it's done it acknowledges: <b>ACCEPT</b> (processed), <b>RELEASE</b> (put it back for another try) or <b>REJECT</b> (it can never be processed). If the worker dies, the lock runs out and the record becomes available again. Each try adds to the <b>delivery count</b>; at the limit (5) the record is <b>archived</b>."
+      },
+      "map": {
+        "timer": "The timer on the parcel",
+        "lock": "Acquisition lock",
+        "stamps": "Stamps for each try",
+        "count": "Delivery count (limit 5)",
+        "pile": "The return-to-sender pile",
+        "archived": "Archived record"
+      },
+      "crash": {
+        "title": "A robot drops the parcel",
+        "body": "A robot crashes while holding a job. Nobody can take that job until its lock runs out; then it is delivered again (the red badge counts tries)."
+      },
+      "poison": {
+        "q": "A corrupt file fails every time and the worker RELEASEs it. The limit is 5 deliveries. What happens?",
+        "archived": "After the 5th try it is archived and skipped",
+        "forever": "It keeps coming back forever",
+        "blocks": "It blocks the whole partition",
+        "why": "The delivery limit stops poison records: after 5 deliveries the record is archived and the workers move on."
+      },
+      "reject": {
+        "title": "Don't retry the hopeless",
+        "body": "Corrupt PDFs (☠) arrive every few seconds. Releasing them wastes 5 tries each. Switch failures to <b>reject</b> so they're archived on the first try, and keep finishing the good jobs.",
+        "success": "REJECT for things that can never work, RELEASE for things that might work later."
+      },
+      "lock": {
+        "q": "A worker crashes holding a record. When can another worker get it?",
+        "expires": "When its acquisition lock expires",
+        "now": "Immediately",
+        "never": "Never, it's lost",
+        "why": "The broker waits for the lock to run out (group.share.record.lock.duration.ms), then makes the record available again."
+      },
+      "check": {
+        "reject": {
+          "q": "A record can never be processed (corrupt data). Which acknowledgement?",
+          "reject": "REJECT",
+          "release": "RELEASE",
+          "accept": "ACCEPT",
+          "why": "REJECT archives it right away; RELEASE would just retry it."
+        },
+        "crash": {
+          "q": "A share consumer crashes while holding records. They become available again…",
+          "lock": "When their locks expire",
+          "now": "Right away",
+          "never": "Never",
+          "why": "The acquisition lock protects the record until it times out."
+        },
+        "left": {
+          "q": "A record has been delivered {done} times and the limit is {limit}. How many more deliveries can it get?",
+          "why": "{limit} − {done} = {left}, then it is archived."
+        },
+        "release": {
+          "q": "RELEASE means the record…",
+          "again": "Goes back and will be delivered again",
+          "gone": "Is deleted",
+          "dlq": "Moves to a dead-letter topic",
+          "why": "RELEASE makes it available again (and the delivery count grows)."
+        }
+      }
+    },
+    "9-3": {
+      "title": "Why Kafka is fast",
+      "summary": "Appending to files, the OS page cache, zero-copy and batching. And what TLS costs.",
+      "brief": {
+        "title": "Tricks of a fast warehouse",
+        "body": "Kafka doesn't jump around the disk: it only <b>appends</b> to the end of log files, which disks are very good at. It leaves caching to the operating system's <b>page cache</b>. When a consumer reads, the broker can send bytes straight from the page cache to the network (<b>zero-copy</b>, sendfile) without copying them through the JVM. And everything travels in <b>batches</b>."
+      },
+      "map": {
+        "notebook": "Writing on the next line of a notebook",
+        "append": "Sequential append to the log",
+        "chute": "A chute from shelf to truck",
+        "zero": "Zero-copy (sendfile)",
+        "truck": "A full truck, not one parcel at a time",
+        "batch": "Batching"
+      },
+      "gap": {
+        "q": "On the same disks, how much faster are sequential (append) writes than random writes?",
+        "thousands": "Thousands of times faster",
+        "double": "About twice as fast",
+        "same": "About the same",
+        "why": "Kafka's design docs measured about 600 MB/s linear versus about 100 kB/s random on the same disks. That's why Kafka only appends."
+      },
+      "max": {
+        "title": "Full speed",
+        "body": "Turn the dials until the broker pushes at least <b>500 MB/s</b>. Watch the belt fill as throughput rises.",
+        "success": "Append-only writes, zero-copy and big batches: that's the recipe."
+      },
+      "tls": {
+        "q": "Your security team turns on TLS. What happens to zero-copy?",
+        "off": "It switches off: the bytes must be encrypted in the JVM first",
+        "same": "Nothing changes",
+        "faster": "It gets faster",
+        "why": "sendfile can't encrypt, so with TLS the broker copies data into the JVM to encrypt it. Still fast, just not zero-copy."
+      },
+      "secure": {
+        "title": "TLS is mandatory",
+        "body": "Turn on <b>TLS</b> and get the best throughput you still can (at least 300 MB/s).",
+        "success": "TLS costs zero-copy, but sequential writes and batching still carry most of the speed."
+      },
+      "meter": "Broker throughput",
+      "check": {
+        "seq": {
+          "q": "How does Kafka write to disk?",
+          "append": "It appends to the end of log files",
+          "index": "It updates records in place by key",
+          "memory": "It keeps everything in heap memory",
+          "why": "Sequential appends are what disks do best."
+        },
+        "zero": {
+          "q": "With zero-copy, the broker sends data from the page cache straight to…",
+          "socket": "The network socket",
+          "heap": "The JVM heap first",
+          "disk": "Another disk",
+          "why": "sendfile skips the copy into the application."
+        },
+        "tls": {
+          "q": "With TLS on, zero-copy is…",
+          "off": "Off",
+          "on": "Still on",
+          "faster": "Faster",
+          "why": "Encryption happens in the JVM, so the data must be copied there."
+        },
+        "cache": {
+          "q": "Which cache does Kafka lean on for recent data?",
+          "os": "The operating system's page cache",
+          "heap": "A big cache in the JVM heap",
+          "none": "None, it always reads the disk",
+          "why": "The page cache keeps recent log data in memory without bloating the JVM."
+        }
+      }
+    },
+    "9-4": {
+      "title": "The noisy neighbour",
+      "summary": "One client hogs the broker. A quota throttles it so everyone gets their share.",
+      "brief": {
+        "title": "One greedy client",
+        "body": "Brokers are shared. If one client (here, a batch <b>analytics</b> job) pushes as fast as it can, the others slow down. <b>Quotas</b> cap a client's bytes per second (<code>producer_byte_rate</code>, <code>consumer_byte_rate</code>) per user or client id. Over the limit, the broker doesn't drop anything: it <b>throttles</b> the client by delaying its responses."
+      },
+      "map": {
+        "limit": "A speed limit for one truck company",
+        "quota": "A client quota",
+        "wait": "Waiting at the gate",
+        "throttle": "Throttle time (delayed responses)"
+      },
+      "look": {
+        "title": "Watch the flood",
+        "body": "The broker handles 100 MB/s. Orders needs 50, analytics pushes 200. Watch who gets what.",
+        "success": "Analytics takes most of the broker and orders crawls at 20 MB/s."
+      },
+      "how": {
+        "q": "How does a broker enforce a quota?",
+        "delay": "It delays the client's responses (throttling)",
+        "drop": "It drops the extra messages",
+        "kick": "It disconnects the client",
+        "why": "The broker computes a throttle time and holds the response, so the client slows down by itself. Nothing is lost."
+      },
+      "cap": {
+        "title": "Give orders room",
+        "body": "Set a quota on the analytics client so orders gets its 50 MB/s.",
+        "success": "Analytics is throttled (see the throttle time), orders flows again, and nobody lost data."
+      },
+      "sees": {
+        "q": "What does the analytics producer notice when it is throttled?",
+        "slower": "Its sends take longer (throttle time in its metrics)",
+        "errors": "Errors and lost messages",
+        "nothing": "Nothing at all",
+        "why": "Throttled clients just go slower. The throttle time shows up in client metrics."
+      },
+      "meter": {
+        "orders": "orders (needs 50)",
+        "analytics": "analytics",
+        "throttle": "analytics throttle time"
+      },
+      "check": {
+        "how": {
+          "q": "Over its quota, a client is…",
+          "delay": "Throttled with delayed responses",
+          "drop": "Given dropped messages",
+          "kick": "Disconnected",
+          "why": "Throttling slows the client down; no data is dropped."
+        },
+        "who": {
+          "q": "Quotas are set per…",
+          "client": "User and/or client id",
+          "topic": "Topic",
+          "partition": "Partition",
+          "why": "Quotas target who is sending or reading: users and client ids."
+        },
+        "bytes": {
+          "q": "producer_byte_rate is in bytes per second. What value means {mb} MiB/s?",
+          "why": "{mb} × 1,048,576 = {bytes}."
+        },
+        "sees": {
+          "q": "A throttled consumer…",
+          "slower": "Gets its fetches more slowly",
+          "errors": "Gets errors and skipped records",
+          "nothing": "Is unaffected",
+          "why": "Fetch responses are delayed; the records are all still there."
         }
       }
     }

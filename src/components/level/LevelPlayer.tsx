@@ -265,6 +265,8 @@ export function LevelPlayer({ level, onRestart }: { level: Level; onRestart: () 
       if (id === "connectorRestart") return !!connector && !connector.running;
       if (id === "appCrash") return !!app?.running;
       if (id === "appRestart") return !!app && !app.running && !app.restoring;
+      if (id === "shareJoin") return (ctx.share?.alive.length ?? 9) < 4;
+      if (id === "shareCrash") return (ctx.share?.alive.length ?? 0) > 1;
       return true;
     },
     send: (via, key, topic = "orders") => {
@@ -278,6 +280,10 @@ export function LevelPlayer({ level, onRestart }: { level: Level; onRestart: () 
       if (field === "retainSegments") return ctx.log ? (Number.isFinite(ctx.log.opts.retainSegments) ? ctx.log.opts.retainSegments : "all") : undefined;
       if (field === "unclean") return ctx.replicas?.unclean;
       if (field === "grace") return ctx.windows?.grace;
+      if (field === "groupType") return ctx.share?.mode;
+      if (field === "onFailure") return ctx.share?.onFailure;
+      if (field === "sequential" || field === "zeroCopy" || field === "tls" || field === "batch") return ctx.perf?.settings[field];
+      if (field === "quota") return ctx.perf?.quota;
       if (field === "idempotent") return ctx.retrying?.idempotent;
       return ctx.batching?.config[field];
     },

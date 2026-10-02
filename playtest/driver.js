@@ -50,7 +50,8 @@
     }
     if (s.kind === "task") {
       // Settings first: pick the "right" option for each dial if it isn't selected yet
-      const want = ["acks=all", "idempotent=true", "codec=zstd", "batchSize=4", "lingerMs=1000", "maxPollRecords=5", "protocol=cooperative", "commit=after", "minInsync=2", "retainSegments=2", "grace=5"];
+      const want = ["acks=all", "idempotent=true", "codec=zstd", "batchSize=4", "lingerMs=1000", "maxPollRecords=5", "protocol=cooperative", "commit=after", "minInsync=2", "retainSegments=2", "grace=5", "groupType=share", "onFailure=reject", "sequential=true", "batch=100", "zeroCopy=true", "quota=20"];
+      if (/TLS/.test(document.querySelector("[data-objective]")?.textContent || "")) want.unshift("tls=true");
       const setting = want.map((w) => document.querySelector(`[data-setting="${w}"]`)).find((b) => b && b.getAttribute("aria-checked") !== "true");
       if (setting) {
         setting.click();

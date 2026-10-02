@@ -212,6 +212,14 @@ export class WorldMapStage {
         b.position.y = 0.42;
         movers.push(b);
       }
+    } else if (spec.id === 9) {
+      // More robots than belts: four arms sharing two conveyors
+      for (const z of [-0.5, 0.5]) for (let x = -1.2; x <= 1.2; x += 1) await place("conveyor-stripe-sides", x, z, 0, 0.8);
+      for (const [x, z] of [[-1.6, -1.3], [0.3, -1.4], [-0.6, 1.4], [1.4, 1.3]] as const) movers.push(await place("robot-arm-a", x, z, 0, 0.7));
+      for (const [x, z] of [[-0.6, -0.5], [0.8, 0.5]] as const) {
+        const b = await place("box-small", x, z, 0, 0.72);
+        b.position.y = 0.4;
+      }
     } else {
       // Upcoming worlds: under construction
       await place("warning-orange", -0.8, 0.6, 0, 0.9);
@@ -335,7 +343,7 @@ export class WorldMapStage {
       isl.group.position.y += (target - isl.group.position.y) * 0.1;
       if (isl.spec.locked) continue;
       for (const [k, m] of isl.movers.entries()) {
-        if (isl.spec.id === 4 || isl.spec.id === 6) m.rotation.y = Math.sin(this.t * 1.5 + k) * 0.6;
+        if (isl.spec.id === 4 || isl.spec.id === 6 || isl.spec.id === 9) m.rotation.y = Math.sin(this.t * 1.5 + k) * 0.6;
         else if (isl.spec.id === 5) m.position.y = 0.08 + Math.abs(Math.sin(this.t * 2 + k)) * 0.35;
         else {
           m.position.x += dt * 0.0006;

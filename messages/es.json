@@ -151,7 +151,14 @@
         "minInsync": "min.insync.replicas",
         "unclean": "elección unclean",
         "retainSegments": "segmentos a conservar",
-        "grace": "grace (s)"
+        "grace": "grace (s)",
+        "groupType": "tipo de grupo",
+        "onFailure": "si falla",
+        "sequential": "I/O secuencial",
+        "zeroCopy": "zero-copy",
+        "tls": "TLS",
+        "batch": "registros / petición",
+        "quota": "cuota de analytics (MB/s)"
       },
       "member": {
         "join": "Contratar robot ({n})",
@@ -180,7 +187,9 @@
         "appRestart": "Arrancar instancia nueva",
         "eventNow": "Clic ahora",
         "eventLate5": "Clic 5 s tarde",
-        "eventLate15": "Clic 15 s tarde"
+        "eventLate15": "Clic 15 s tarde",
+        "shareJoin": "Añadir un robot",
+        "shareCrash": "Tumbar un robot"
       }
     },
     "delivered": "Entregados (en orden de llegada)",
@@ -223,6 +232,15 @@
       "open": "abierta",
       "closed": "cerrada",
       "dropped": "{n, plural, =0 {Nada descartado} one {# clic tardío descartado} other {# clics tardíos descartados}}"
+    },
+    "share": {
+      "classic": "grupo clásico",
+      "share": "share group",
+      "rate": "{n} trabajos/s",
+      "processed": "{n} hechos",
+      "redelivered": "{n} reentregados",
+      "archived": "{n} archivados",
+      "idle": "{n, plural, one {# robot sin trabajo} other {# robots sin trabajo}}"
     }
   },
   "map": {
@@ -280,7 +298,11 @@
       "title": "Streams y Connect",
       "body": "Kafka más allá de los brokers: Connect mete y saca datos por tuberías, y Kafka Streams convierte topics en tablas, cuentas que sobreviven a caídas y ventanas de tiempo."
     },
-    "w9": "Colas y rendimiento"
+    "w9": {
+      "title": "Colas y rendimiento",
+      "body": "Los share groups convierten Kafka en una cola de trabajo con candados y reintentos. Y después: por qué Kafka es tan rápido, lo que cuesta TLS y las cuotas que frenan a los clientes ruidosos."
+    },
+    "w10": "Schemas y seguridad"
   },
   "levels": {
     "1-1": {
@@ -2364,6 +2386,275 @@
           "arrival": "Cuándo lo recibió el broker",
           "reader": "El reloj de quien lo lee",
           "why": "Las ventanas usan tiempo de evento; por eso pueden llegar registros tarde y hace falta un grace."
+        }
+      }
+    },
+    "9-1": {
+      "title": "Más robots que cintas",
+      "summary": "Un grupo clásico no puede usar más consumers que particiones. Un share group sí.",
+      "brief": {
+        "title": "Una cola, al estilo Kafka",
+        "body": "En un consumer group clásico cada partición pertenece a <b>un</b> miembro, así que con 2 particiones el tercer y cuarto consumer solo esperan. A veces solo quieres \"un montón de trabajos, el primer trabajador libre toma el siguiente\": una cola. Kafka 4 añade los <b>share groups</b> (KIP-932) para eso. Los miembros toman registros de las mismas particiones a la vez, así que puede haber más trabajadores que particiones."
+      },
+      "map": {
+        "robot": "Un robot trabajador",
+        "consumer": "Un consumer",
+        "next": "Cualquier robot libre toma el siguiente paquete",
+        "share": "Share group"
+      },
+      "classic": {
+        "title": "Dos robots de brazos cruzados",
+        "body": "Cuatro robots, dos cintas, un grupo <b>clásico</b>: cada cinta tiene un dueño y los otros dos robots dicen zzz."
+      },
+      "idle": {
+        "q": "4 robots, 2 cintas, grupo clásico. ¿Cuántos robots se quedan sin trabajo?",
+        "why": "Un dueño por partición: 2 trabajan y 2 esperan. Añadir consumers por encima del número de particiones no ayuda a un grupo clásico."
+      },
+      "switch": {
+        "title": "Todos a trabajar",
+        "body": "Cambia el tipo de grupo a <b>share</b> y mira cómo los cuatro robots toman trabajos. Supera los 3,4 trabajos por segundo.",
+        "success": "Cuatro trabajadores en dos particiones. Con los share groups Kafka es también una cola de trabajo, no solo un log."
+      },
+      "meter": "Trabajos terminados por segundo",
+      "order": {
+        "q": "¿Un share group procesa en orden los registros de cada cliente?",
+        "no": "No: cada registro va al trabajador que esté libre",
+        "yes": "Sí, siempre",
+        "partition": "Solo si hay una partición",
+        "why": "El orden es el precio: varios trabajadores toman de la misma partición a la vez. Usa un grupo clásico cuando importa el orden por key."
+      },
+      "check": {
+        "idle": {
+          "q": "Un grupo clásico tiene {members} miembros sobre un topic con {parts} particiones. ¿Cuántos miembros quedan sin trabajo?",
+          "why": "Como mucho un miembro por partición: {members} − {parts} = {idle} sin trabajo."
+        },
+        "order": {
+          "q": "Un share group garantiza el orden por key…",
+          "no": "No",
+          "yes": "Sí",
+          "key": "Solo si hay keys",
+          "why": "Los registros van al miembro que esté libre, así que no hay garantía de orden."
+        },
+        "when": {
+          "q": "¿Cuándo es un share group la herramienta adecuada?",
+          "queue": "Trabajos independientes donde cualquier trabajador puede tomar el siguiente",
+          "ordered": "Movimientos bancarios que deben ir en orden por cuenta",
+          "replay": "Reconstruir una tabla reproduciendo un topic compactado",
+          "why": "Trabajo tipo cola: más trabajadores que particiones y sin necesidad de orden."
+        },
+        "class": {
+          "q": "¿Qué clase del cliente Java lee de un share group?",
+          "share": "KafkaShareConsumer",
+          "consumer": "KafkaConsumer con una opción especial",
+          "streams": "KafkaStreams",
+          "why": "Los share groups tienen su propio cliente, KafkaShareConsumer."
+        }
+      }
+    },
+    "9-2": {
+      "title": "Candados y reintentos",
+      "summary": "Cada registro queda bloqueado mientras un trabajador lo tiene. Acéptalo, libéralo o recházalo; un registro envenenado acaba archivado.",
+      "brief": {
+        "title": "Un temporizador en cada paquete",
+        "body": "En un share group, un trabajador <b>adquiere</b> un registro con un candado (30 s por defecto). Al terminar lo confirma: <b>ACCEPT</b> (procesado), <b>RELEASE</b> (devuélvelo para otro intento) o <b>REJECT</b> (nunca se podrá procesar). Si el trabajador muere, el candado caduca y el registro vuelve a estar disponible. Cada intento suma al <b>contador de entregas</b>; al llegar al límite (5) el registro se <b>archiva</b>."
+      },
+      "map": {
+        "timer": "El temporizador del paquete",
+        "lock": "Candado de adquisición",
+        "stamps": "Un sello por cada intento",
+        "count": "Contador de entregas (límite 5)",
+        "pile": "El montón de devoluciones",
+        "archived": "Registro archivado"
+      },
+      "crash": {
+        "title": "Un robot suelta el paquete",
+        "body": "Un robot se cae con un trabajo en la mano. Nadie puede tomar ese trabajo hasta que caduque su candado; entonces se entrega de nuevo (la insignia roja cuenta los intentos)."
+      },
+      "poison": {
+        "q": "Un archivo corrupto falla siempre y el trabajador hace RELEASE. El límite es 5 entregas. ¿Qué pasa?",
+        "archived": "Tras el 5.º intento se archiva y se salta",
+        "forever": "Vuelve una y otra vez para siempre",
+        "blocks": "Bloquea toda la partición",
+        "why": "El límite de entregas frena los registros envenenados: tras 5 entregas se archiva y los trabajadores siguen."
+      },
+      "reject": {
+        "title": "No reintentes lo imposible",
+        "body": "Cada pocos segundos llegan PDFs corruptos (☠). Liberarlos gasta 5 intentos cada uno. Cambia los fallos a <b>reject</b> para que se archiven al primer intento, y sigue terminando los trabajos buenos.",
+        "success": "REJECT para lo que nunca funcionará, RELEASE para lo que podría funcionar más tarde."
+      },
+      "lock": {
+        "q": "Un trabajador se cae con un registro. ¿Cuándo puede tomarlo otro?",
+        "expires": "Cuando caduca su candado de adquisición",
+        "now": "Inmediatamente",
+        "never": "Nunca, se pierde",
+        "why": "El broker espera a que caduque el candado (group.share.record.lock.duration.ms) y luego lo vuelve a ofrecer."
+      },
+      "check": {
+        "reject": {
+          "q": "Un registro nunca se podrá procesar (datos corruptos). ¿Qué confirmación usas?",
+          "reject": "REJECT",
+          "release": "RELEASE",
+          "accept": "ACCEPT",
+          "why": "REJECT lo archiva al momento; RELEASE solo lo reintentaría."
+        },
+        "crash": {
+          "q": "Un share consumer se cae con registros adquiridos. Vuelven a estar disponibles…",
+          "lock": "Cuando caducan sus candados",
+          "now": "Enseguida",
+          "never": "Nunca",
+          "why": "El candado de adquisición protege el registro hasta que vence."
+        },
+        "left": {
+          "q": "Un registro se ha entregado {done} veces y el límite es {limit}. ¿Cuántas entregas más puede recibir?",
+          "why": "{limit} − {done} = {left}; después se archiva."
+        },
+        "release": {
+          "q": "RELEASE significa que el registro…",
+          "again": "Vuelve y se entregará otra vez",
+          "gone": "Se borra",
+          "dlq": "Se mueve a un topic de errores",
+          "why": "RELEASE lo deja disponible de nuevo (y el contador de entregas sube)."
+        }
+      }
+    },
+    "9-3": {
+      "title": "Por qué Kafka es rápido",
+      "summary": "Escribir al final de archivos, el page cache del sistema, zero-copy y batching. Y lo que cuesta TLS.",
+      "brief": {
+        "title": "Trucos de un almacén rápido",
+        "body": "Kafka no salta por el disco: solo <b>añade al final</b> de los archivos del log, algo que los discos hacen muy bien. Deja la caché al <b>page cache</b> del sistema operativo. Cuando un consumer lee, el broker puede enviar los bytes directo del page cache a la red (<b>zero-copy</b>, sendfile) sin copiarlos por la JVM. Y todo viaja en <b>batches</b>."
+      },
+      "map": {
+        "notebook": "Escribir en la siguiente línea de la libreta",
+        "append": "Escritura secuencial al final del log",
+        "chute": "Un tobogán del estante al camión",
+        "zero": "Zero-copy (sendfile)",
+        "truck": "Un camión lleno, no un paquete cada vez",
+        "batch": "Batching"
+      },
+      "gap": {
+        "q": "En los mismos discos, ¿cuánto más rápida es la escritura secuencial (al final) que la aleatoria?",
+        "thousands": "Miles de veces más rápida",
+        "double": "Más o menos el doble",
+        "same": "Más o menos igual",
+        "why": "Los documentos de diseño de Kafka midieron unos 600 MB/s en escritura lineal frente a unos 100 kB/s aleatoria en los mismos discos. Por eso Kafka solo añade al final."
+      },
+      "max": {
+        "title": "A toda máquina",
+        "body": "Gira los diales hasta que el broker mueva al menos <b>500 MB/s</b>. Mira cómo se llena la cinta al subir el rendimiento.",
+        "success": "Escrituras solo al final, zero-copy y batches grandes: esa es la receta."
+      },
+      "tls": {
+        "q": "Tu equipo de seguridad activa TLS. ¿Qué pasa con zero-copy?",
+        "off": "Se desactiva: los bytes hay que cifrarlos antes en la JVM",
+        "same": "Nada cambia",
+        "faster": "Va más rápido",
+        "why": "sendfile no puede cifrar, así que con TLS el broker copia los datos a la JVM para cifrarlos. Sigue siendo rápido, pero ya no es zero-copy."
+      },
+      "secure": {
+        "title": "TLS es obligatorio",
+        "body": "Activa <b>TLS</b> y consigue el mejor rendimiento que aún puedas (al menos 300 MB/s).",
+        "success": "TLS cuesta el zero-copy, pero la escritura secuencial y el batching siguen aportando casi toda la velocidad."
+      },
+      "meter": "Rendimiento del broker",
+      "check": {
+        "seq": {
+          "q": "¿Cómo escribe Kafka en disco?",
+          "append": "Añade al final de los archivos del log",
+          "index": "Actualiza los registros en su sitio por key",
+          "memory": "Lo guarda todo en la memoria de la JVM",
+          "why": "Añadir al final de forma secuencial es lo que mejor hacen los discos."
+        },
+        "zero": {
+          "q": "Con zero-copy, el broker envía datos del page cache directamente a…",
+          "socket": "El socket de red",
+          "heap": "Primero a la memoria de la JVM",
+          "disk": "Otro disco",
+          "why": "sendfile se salta la copia a la aplicación."
+        },
+        "tls": {
+          "q": "Con TLS activado, zero-copy está…",
+          "off": "Desactivado",
+          "on": "Activado igualmente",
+          "faster": "Más rápido",
+          "why": "El cifrado ocurre en la JVM, así que hay que copiar los datos allí."
+        },
+        "cache": {
+          "q": "¿En qué caché se apoya Kafka para los datos recientes?",
+          "os": "El page cache del sistema operativo",
+          "heap": "Una gran caché en la memoria de la JVM",
+          "none": "Ninguna, siempre lee el disco",
+          "why": "El page cache guarda en memoria los datos recientes del log sin inflar la JVM."
+        }
+      }
+    },
+    "9-4": {
+      "title": "El vecino ruidoso",
+      "summary": "Un cliente acapara el broker. Una cuota lo frena para que todos tengan su parte.",
+      "brief": {
+        "title": "Un cliente glotón",
+        "body": "Los brokers se comparten. Si un cliente (aquí, un proceso de <b>analytics</b>) envía todo lo rápido que puede, los demás se frenan. Las <b>cuotas</b> limitan los bytes por segundo de un cliente (<code>producer_byte_rate</code>, <code>consumer_byte_rate</code>) por usuario o client id. Si se pasa, el broker no descarta nada: lo <b>frena</b> retrasando sus respuestas."
+      },
+      "map": {
+        "limit": "Un límite de velocidad para una empresa de camiones",
+        "quota": "Una cuota de cliente",
+        "wait": "Esperar en la puerta",
+        "throttle": "Throttle time (respuestas retrasadas)"
+      },
+      "look": {
+        "title": "Mira la inundación",
+        "body": "El broker aguanta 100 MB/s. Orders necesita 50 y analytics empuja 200. Mira quién se lleva qué.",
+        "success": "Analytics se queda con casi todo el broker y orders se arrastra a 20 MB/s."
+      },
+      "how": {
+        "q": "¿Cómo hace cumplir una cuota el broker?",
+        "delay": "Retrasa las respuestas al cliente (throttling)",
+        "drop": "Descarta los mensajes de más",
+        "kick": "Desconecta al cliente",
+        "why": "El broker calcula un tiempo de espera y retiene la respuesta, así el cliente se frena solo. No se pierde nada."
+      },
+      "cap": {
+        "title": "Hazle sitio a orders",
+        "body": "Pon una cuota al cliente analytics para que orders tenga sus 50 MB/s.",
+        "success": "Analytics queda frenado (mira el throttle time), orders vuelve a fluir y nadie perdió datos."
+      },
+      "sees": {
+        "q": "¿Qué nota el producer de analytics cuando lo frenan?",
+        "slower": "Sus envíos tardan más (throttle time en sus métricas)",
+        "errors": "Errores y mensajes perdidos",
+        "nothing": "Nada en absoluto",
+        "why": "Los clientes frenados solo van más lentos. El throttle time aparece en las métricas del cliente."
+      },
+      "meter": {
+        "orders": "orders (necesita 50)",
+        "analytics": "analytics",
+        "throttle": "throttle time de analytics"
+      },
+      "check": {
+        "how": {
+          "q": "Si supera su cuota, a un cliente…",
+          "delay": "Se le frena retrasando las respuestas",
+          "drop": "Se le descartan mensajes",
+          "kick": "Se le desconecta",
+          "why": "El throttling frena al cliente; no se descartan datos."
+        },
+        "who": {
+          "q": "Las cuotas se definen por…",
+          "client": "Usuario y/o client id",
+          "topic": "Topic",
+          "partition": "Partición",
+          "why": "Las cuotas apuntan a quién envía o lee: usuarios y client ids."
+        },
+        "bytes": {
+          "q": "producer_byte_rate va en bytes por segundo. ¿Qué valor significa {mb} MiB/s?",
+          "why": "{mb} × 1.048.576 = {bytes}."
+        },
+        "sees": {
+          "q": "Un consumer frenado…",
+          "slower": "Recibe sus fetches más despacio",
+          "errors": "Recibe errores y registros saltados",
+          "nothing": "No se ve afectado",
+          "why": "Las respuestas de fetch se retrasan; todos los registros siguen ahí."
         }
       }
     }

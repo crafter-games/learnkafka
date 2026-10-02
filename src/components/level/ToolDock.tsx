@@ -37,7 +37,7 @@ export type ToolHandlers = {
   actionEnabled: (id: ActionId) => boolean;
 };
 
-const ACTION_STYLE: Partial<Record<ActionId, "danger" | "accent">> = { connectorCrash: "danger", appCrash: "danger", connectorRestart: "accent", appRestart: "accent", eventLate15: "danger" };
+const ACTION_STYLE: Partial<Record<ActionId, "danger" | "accent">> = { shareJoin: "accent", shareCrash: "danger", connectorCrash: "danger", appCrash: "danger", connectorRestart: "accent", appRestart: "accent", eventLate15: "danger" };
 
 /** World 8: one-shot buttons (insert a row, crash/restart a task, send an on-time or late event). */
 function ActionsTool({ tool, on }: { tool: Extract<Tool, { type: "actions" }>; on: ToolHandlers }) {
@@ -53,7 +53,7 @@ function ActionsTool({ tool, on }: { tool: Extract<Tool, { type: "actions" }>; o
           onClick={() => on.action(id)}
           className={`${gameButtonClass({ variant: ACTION_STYLE[id] === "accent" ? "accent" : "secondary", size: "md" })} ${ACTION_STYLE[id] === "danger" ? "border-danger/40 text-danger" : ""}`}
         >
-          {/Crash/.test(id) ? <Lightning weight="fill" /> : /Restart/.test(id) ? <ArrowClockwise weight="bold" /> : null}
+          {/Crash/.test(id) ? <Lightning weight="fill" /> : /Restart/.test(id) ? <ArrowClockwise weight="bold" /> : id === "shareJoin" ? <Plus weight="bold" /> : null}
           {t(id)}
         </button>
       ))}
@@ -397,6 +397,7 @@ function RouteTool({ tool, on }: { tool: Extract<Tool, { type: "route" }>; on: T
 }
 
 export function ToolDock({ tools, consumers, partitions, on }: { tools: Tool[]; consumers: ConsumerSpec[]; partitions: (topic: string) => number; on: ToolHandlers }) {
+  if (!tools.length) return null;
   return (
     <div data-dock className="card mx-auto flex w-fit max-w-full flex-wrap items-center gap-3 px-3 py-2.5 sm:px-4">
       {tools.map((tool, i) =>

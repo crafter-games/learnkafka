@@ -18,7 +18,7 @@ import { Logo } from "./ui/Logo";
 import { UnlockCode } from "./UnlockCode";
 import { Backdrop } from "./ui/Backdrop";
 
-const UPCOMING = [9] as const;
+const UPCOMING = [10] as const;
 const noop = () => () => {};
 
 type WorldEntry = { id: number; levels: Level[] };

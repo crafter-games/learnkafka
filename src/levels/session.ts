@@ -5,6 +5,7 @@ import { DEFAULT_GROUP, GroupSim } from "@/sim/group";
 import { IsolatedReader, TxnProducer } from "@/sim/transactions";
 import { LogManager, TOMBSTONE } from "@/sim/storage";
 import { CountingApp, SourceConnector, WindowedCounter } from "@/sim/streams";
+import { ShareGroup } from "@/sim/share";
 import type { Headers, SimRecord } from "@/sim/events";
 import { seeded, type ActionId, type Level, type LevelCtx, type SimRecordLike, type TaskStats } from "./types";
 
@@ -55,7 +56,11 @@ export class LevelSession {
     if (windows) windows.grace = sc!.windows!.grace;
     // The connector starts stopped; the level's first watch step switches it on
     if (connector) connector.running = false;
-    const streamTimers = [connector && setInterval(() => connector.tick(), 900), app && setInterval(() => app.tick(), 600)].filter(Boolean) as ReturnType<typeof setInterval>[];
+    const shc = level.share;
+    const share = shc ? new ShareGroup(this.cluster, shc.topic, shc.mode, shc.options) : undefined;
+    for (let i = 0; i < (shc?.members ?? 0); i++) share?.join();
+    const perf = level.perf ? { settings: { sequential: false, zeroCopy: false, tls: false, batch: 1 }, quota: "none" as number | "none" } : undefined;
+    const streamTimers = [connector && setInterval(() => connector.tick(), 900), app && setInterval(() => app.tick(), 600), share && setInterval(() => share.tick(), 150)].filter(Boolean) as ReturnType<typeof setInterval>[];
     this.cleanup = () => {
       streamTimers.forEach(clearInterval);
       batching?.stop();
@@ -78,6 +83,8 @@ export class LevelSession {
       connector,
       app,
       windows,
+      share,
+      perf,
       wait: (ms) => new Promise((r) => setTimeout(r, ms)),
       produce: (topic, key, value = `order-${this.stats.produced + 1}`, partition) => {
         const r = this.produce(topic, key, value, {}, false, partition);
@@ -227,7 +234,10 @@ export class LevelSession {
   action(id: ActionId) {
     const { connector, app, windows } = this.ctx;
     const key = ["alice", "bob", "carol"][this.stats.produced % 3];
-    if (id === "dbInsert" && connector) connector.insert({ id: `customer-${connector.table.length + 1}`, value: ["Lima", "Quito", "Bogotá", "Madrid", "Austin"][connector.table.length % 5] });
+    const share = this.ctx.share;
+    if (id === "shareJoin") share?.join();
+    else if (id === "shareCrash") share?.crash();
+    else if (id === "dbInsert" && connector) connector.insert({ id: `customer-${connector.table.length + 1}`, value: ["Lima", "Quito", "Bogotá", "Madrid", "Austin"][connector.table.length % 5] });
     else if (id === "connectorCrash") connector?.crash();
     else if (id === "connectorRestart") connector?.restart();
     else if (id === "appCrash") app?.crash();
@@ -246,6 +256,11 @@ export class LevelSession {
     else if (field === "acks" && replicas) replicas.acks = value as typeof replicas.acks;
     else if (field === "minInsync" && replicas) replicas.minInsync = Number(value);
     else if (field === "retainSegments" && this.ctx.log) this.ctx.log.setRetention(value === "all" ? Infinity : Number(value));
+    else if (field === "groupType" && this.ctx.share) this.ctx.share.mode = value as "classic" | "share";
+    else if (field === "onFailure" && this.ctx.share) this.ctx.share.onFailure = value as "release" | "reject";
+    else if (this.ctx.perf && (field === "sequential" || field === "zeroCopy" || field === "tls")) this.ctx.perf.settings[field] = Boolean(value);
+    else if (this.ctx.perf && field === "batch") this.ctx.perf.settings.batch = Number(value);
+    else if (this.ctx.perf && field === "quota") this.ctx.perf.quota = value === "none" ? "none" : Number(value);
     else if (field === "grace" && this.ctx.windows) this.ctx.windows.grace = Number(value);
     else if (field === "unclean" && replicas) replicas.unclean = Boolean(value);
     else if (field === "idempotent" && retrying) retrying.idempotent = Boolean(value);

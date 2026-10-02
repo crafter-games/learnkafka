@@ -531,6 +531,7 @@ export function StreamsView({ kind, ctx, topic }: { kind: StreamsPanel; ctx: Lev
       </div>
     );
   }
+  if (kind === "share" && ctx.share) return <ShareView ctx={ctx} />;
   if (kind === "windows" && ctx.windows) {
     const w = ctx.windows;
     return (
@@ -551,4 +552,66 @@ export function StreamsView({ kind, ctx, topic }: { kind: StreamsPanel; ctx: Lev
     );
   }
   return null;
+}
+
+const STATE_STYLE = {
+  available: "bg-paper-2 border-line text-ink-2",
+  acquired: "bg-producer/20 border-producer text-producer-dark",
+  acked: "bg-broker border-broker text-white",
+  archived: "bg-ink/70 border-ink text-paper",
+} as const;
+
+/** World 9: workers (robots) and every record's delivery state, per partition. */
+function ShareView({ ctx }: { ctx: LevelCtx }) {
+  const t = useTranslations("level.share");
+  const g = ctx.share!;
+  const parts = ctx.cluster.topic(g.topic).numPartitions;
+  const records = [...g.records.values()];
+  const poison = new Set(g.opts.poisonKeys);
+  return (
+    <div className="mt-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <Status tone={g.mode === "share" ? "ok" : "busy"}>{t(g.mode)}</Status>
+        <span className="font-mono text-sm font-bold text-ink">{t("rate", { n: g.rate.toFixed(1) })}</span>
+      </div>
+      <ul className="mb-3 flex flex-wrap gap-1.5">
+        {g.members.map((m) => {
+          const held = m.holding ? g.records.get(m.holding) : undefined;
+          const idle = m.alive && !held;
+          return (
+            <li
+              key={m.id}
+              className={`flex items-center gap-1.5 rounded-xl border px-2 py-1 font-mono text-xs font-bold ${!m.alive ? "border-danger/40 bg-danger/10 text-danger line-through" : idle ? "border-line bg-paper-2 text-ink-2" : "border-producer bg-producer/15 text-producer-dark"}`}
+            >
+              <Robot size={14} weight="fill" />
+              {m.id}
+              <span className="font-normal">{!m.alive ? "✗" : held ? `P${held.partition}·${held.offset}` : "zzz"}</span>
+            </li>
+          );
+        })}
+      </ul>
+      {Array.from({ length: parts }, (_, p) => (
+        <div key={p} className="mb-1.5 flex items-center gap-1.5">
+          <span className="w-6 font-mono text-xs font-bold text-partition">P{p}</span>
+          <div className="flex flex-wrap gap-1">
+            {records
+              .filter((r) => r.partition === p)
+              .slice(-12)
+              .map((r) => (
+                <span key={r.id} title={`${r.key} · ${r.state}`} className={`relative grid size-6 place-items-center rounded-md border text-[10px] font-bold ${STATE_STYLE[r.state]}`}>
+                  {r.key !== null && poison.has(r.key) ? "☠" : r.state === "acked" ? "✓" : r.state === "archived" ? "✗" : r.offset}
+                  {r.deliveries > 1 && <span className="absolute -right-1.5 -top-1.5 grid size-4 place-items-center rounded-full bg-danger text-[9px] text-white">{r.deliveries}</span>}
+                </span>
+              ))}
+          </div>
+        </div>
+      ))}
+      <p className="mt-2 flex flex-wrap gap-x-3 text-xs font-bold text-ink-2">
+        <span className="text-broker">{t("processed", { n: g.processed })}</span>
+        <span className="text-producer-dark">{t("redelivered", { n: g.redeliveries })}</span>
+        <span>{t("archived", { n: g.archived })}</span>
+        {g.idle > 0 && <span className="text-danger">{t("idle", { n: g.idle })}</span>}
+      </p>
+    </div>
+  );
 }
