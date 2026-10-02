@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ALL_LEVELS, buildCheck, starsFor } from ".";
+import { ALL_LEVELS, buildCheck, starsFor, buildExam } from ".";
 
 describe("levels", () => {
   it("every level has a brief first and a 4-question check", () => {
@@ -40,5 +40,19 @@ describe("morning shift", () => {
     const { buildReview } = await import(".");
     const q = buildReview(["record", "offset", "topic", "sticky", "parallelism", "reading"], 4);
     expect(q).toHaveLength(5);
+  });
+});
+
+describe("final exam", () => {
+  it("draws 20 questions spread across every completed world", () => {
+    const ids = ALL_LEVELS.map((l) => l.id);
+    const { questions, worlds } = buildExam(ids, 7);
+    expect(questions).toHaveLength(20);
+    expect(new Set(worlds).size).toBe(10);
+  });
+  it("only asks about played levels", () => {
+    const { worlds } = buildExam(["1-1", "1-2"], 3);
+    expect(worlds.every((w) => w === 1)).toBe(true);
+    expect(worlds.length).toBe(8);
   });
 });

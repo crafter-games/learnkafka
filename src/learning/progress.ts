@@ -18,6 +18,12 @@ type Progress = {
   concepts: Partial<Record<Concept, ConceptState>>;
   /** Days (YYYY-MM-DD) on which a morning shift was completed. */
   shifts: string[];
+  /** Best final-exam result. */
+  exam: { best: number; total: number; passed: boolean; at: string } | null;
+  /** Name printed on the certificate. */
+  name: string;
+  recordExam: (answers: Answer[]) => void;
+  setName: (name: string) => void;
   recordCheck: (levelId: string, stars: number, answers: Answer[]) => void;
   recordReview: (answers: Answer[]) => void;
   /** Redeem an unlock code; returns whether it was valid. */
@@ -45,6 +51,16 @@ export const useProgress = create<Progress>()(
       levels: {},
       concepts: {},
       shifts: [],
+      exam: null,
+      name: "",
+      recordExam: (answers) =>
+        set((s) => {
+          const correct = answers.filter((a) => a.correct).length;
+          const passed = correct / answers.length >= 0.8;
+          const better = !s.exam || correct > s.exam.best;
+          return { concepts: updateConcepts(s.concepts, answers), exam: better ? { best: correct, total: answers.length, passed: passed || !!s.exam?.passed, at: today() } : { ...s.exam!, passed: s.exam!.passed || passed } };
+        }),
+      setName: (name) => set({ name: name.slice(0, 40) }),
       recordCheck: (levelId, stars, answers) =>
         set((s) => {
           const prev = s.levels[levelId];
@@ -63,9 +79,9 @@ export const useProgress = create<Progress>()(
         }));
         return true;
       },
-      reset: () => set({ levels: {}, concepts: {}, shifts: [] }),
+      reset: () => set({ levels: {}, concepts: {}, shifts: [], exam: null }),
     }),
-    { name: "kafka-express:progress", version: 2, migrate: (state) => ({ shifts: [], ...(state as object) }) as unknown as Progress },
+    { name: "kafka-express:progress", version: 3, migrate: (state) => ({ shifts: [], exam: null, name: "", ...(state as object) }) as unknown as Progress },
   ),
 );
 
@@ -96,3 +112,6 @@ export function isUnlocked(levels: Progress["levels"], id: string) {
   if (i <= 0) return true;
   return (levels[ALL_LEVELS[i - 1].id]?.stars ?? 0) > 0;
 }
+
+/** Every level has at least one star. */
+export const allComplete = (levels: Progress["levels"]) => ALL_LEVELS.every((l) => (levels[l.id]?.stars ?? 0) > 0);

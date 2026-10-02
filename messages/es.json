@@ -299,7 +299,8 @@
       "paused": "en pausa (rebalanceo)",
       "nobody": "nadie",
       "idle": "{n, plural, one {# robot sin trabajo} other {# robots sin trabajo}}"
-    }
+    },
+    "finale": "Ver tu certificado"
   },
   "map": {
     "home": "Inicio",
@@ -363,7 +364,9 @@
     "w10": {
       "title": "Schemas y seguridad",
       "body": "El último tramo hacia producción: Schema Registry y la evolución segura de schemas, cifrado y autenticación con TLS y SASL, y ACLs que dan a cada servicio solo lo que necesita."
-    }
+    },
+    "exam": "Examen final",
+    "certificate": "Certificado"
   },
   "levels": {
     "1-1": {
@@ -2991,5 +2994,42 @@
     "bad": "Ese código no funciona.",
     "ok": "¡Desbloqueado! Todos los niveles completos con 3 estrellas.",
     "close": "Cerrar"
+  },
+  "exam": {
+    "title": "Examen final",
+    "back": "Volver al mapa",
+    "introTitle": "{n} preguntas, todos los mundos mezclados",
+    "introBody": "Las preguntas salen de los {worlds, plural, one {# mundo} other {# mundos}} que has jugado, mezcladas y con números nuevos cada vez. Acierta {pass} para aprobar. Sin fábrica a la vista: todo de memoria.",
+    "emptyTitle": "Juega un nivel primero",
+    "emptyBody": "El examen pregunta por los mundos que has jugado. Termina un nivel y vuelve.",
+    "best": "Tu mejor resultado: {best}/{total}",
+    "start": "Empezar el examen",
+    "retry": "Intentar de nuevo",
+    "passed": "¡Aprobado!",
+    "failed": "Todavía no",
+    "passedBody": "Sabes Kafka. Tu certificado ya lleva el sello del examen.",
+    "failedBody": "Las barras rojas te dicen a dónde volver. Repite esos niveles o haz un Turno de la mañana, y vuelve a intentarlo.",
+    "certificate": "Ver tu certificado",
+    "map": "Mapa de mundos"
+  },
+  "finale": {
+    "back": "Volver al mapa",
+    "title": "¡Despachador maestro!",
+    "body": "Todos los mundos, todos los niveles. Has operado Kafka desde el primer paquete hasta los schemas y la seguridad.",
+    "nameLabel": "Nombre en el certificado",
+    "namePlaceholder": "Tu nombre",
+    "kicker": "Kafka Express · Apache Kafka",
+    "certTitle": "Certificado de finalización",
+    "awardedTo": "Se certifica que",
+    "anonymous": "Un despachador valiente",
+    "certBody": "ha completado los {worlds} mundos y {levels} niveles de Kafka Express.",
+    "examPassed": "Examen final aprobado: {best}/{total}",
+    "examTip": "Aprueba el examen final para añadir su sello",
+    "madeBy": "Hecho por Jibaru",
+    "download": "Descargar certificado (PNG)",
+    "exam": "Examen final",
+    "map": "Mapa de mundos",
+    "lockedTitle": "Ya casi",
+    "lockedBody": "Te {n, plural, one {falta # nivel} other {faltan # niveles}} para tu certificado."
   }
 }

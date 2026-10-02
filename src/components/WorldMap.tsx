@@ -3,12 +3,12 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "motion/react";
-import { CaretLeft, CaretRight, Check, Coffee, Fire, LockSimple, Package, Play, Star } from "@phosphor-icons/react";
+import { CaretLeft, CaretRight, Check, Coffee, Fire, GraduationCap, LockSimple, Package, Play, Star, Trophy } from "@phosphor-icons/react";
 import { Link, useRouter } from "@/i18n/navigation";
 import { audioBus } from "@/audio/audioBus";
 import { WORLDS } from "@/levels";
 import type { Level } from "@/levels/types";
-import { dueConcepts, isUnlocked, shiftStreak, useProgress } from "@/learning/progress";
+import { allComplete, dueConcepts, isUnlocked, shiftStreak, useProgress } from "@/learning/progress";
 import type { IslandSpec, WorldMapStage } from "@/stage/worldMapStage";
 import { AudioDirector } from "./AudioDirector";
 import { Hud } from "./Hud";
@@ -30,6 +30,7 @@ export function WorldMap() {
   const { levels, concepts, shifts } = useProgress();
   // Progress lives in localStorage: build the islands only after mount (avoids a hydration mismatch)
   const mounted = useSyncExternalStore(noop, () => true, () => false);
+  const complete = mounted && allComplete(levels);
   const host = useRef<HTMLDivElement>(null);
   const stageRef = useRef<WorldMapStage | null>(null);
   const headerRef = useRef<HTMLElement>(null);
@@ -159,6 +160,16 @@ export function WorldMap() {
             )}
             {due > 0 && <span className="absolute -right-1.5 -top-1.5 grid size-5 place-items-center rounded-full bg-danger text-[11px] font-extrabold text-white">{due}</span>}
           </Link>
+          <Link href="/exam" className={gameButtonClass({ size: "sm" })} aria-label={t("exam")}>
+            <GraduationCap size={18} weight="fill" className="text-partition" />
+            <span className="hidden sm:inline">{t("exam")}</span>
+          </Link>
+          {complete && (
+            <Link href="/finale" className={gameButtonClass({ variant: "accent", size: "sm" })} aria-label={t("certificate")}>
+              <Trophy size={18} weight="fill" />
+              <span className="hidden lg:inline">{t("certificate")}</span>
+            </Link>
+          )}
           <UnlockCode />
           <Link href="/play" className={gameButtonClass({ size: "sm" })} aria-label={t("sandbox.title")}>
             <Package size={18} weight="fill" className="text-partition" />

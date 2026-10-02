@@ -75,3 +75,28 @@ export function buildReview(concepts: Question["concept"][], seed: number): Buil
   }
   return picked.filter(Boolean).map((q) => ({ ...q.build(rng), concept: q.concept, review: false }));
 }
+
+export const EXAM_SIZE = 20;
+
+/**
+ * The final exam: questions from the given levels, spread round-robin across worlds so every
+ * world is covered (interleaving), each built with fresh numbers. Returns the world of each one.
+ */
+export function buildExam(levelIds: string[], seed: number, size = EXAM_SIZE): { questions: BuiltQuestion[]; worlds: number[] } {
+  const rng = seeded(seed);
+  const shuffle = <T,>(a: T[]) => {
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  };
+  const byWorld = new Map<number, { q: Question; world: number }[]>();
+  for (const l of ALL_LEVELS.filter((x) => levelIds.includes(x.id)))
+    for (const q of l.check) byWorld.set(l.world, [...(byWorld.get(l.world) ?? []), { q, world: l.world }]);
+  const queues = [...byWorld.values()].map((list) => shuffle([...list]));
+  const picked: { q: Question; world: number }[] = [];
+  while (picked.length < size && queues.some((q) => q.length)) for (const q of queues) if (q.length && picked.length < size) picked.push(q.shift()!);
+  shuffle(picked);
+  return { questions: picked.map(({ q }) => ({ ...q.build(rng), concept: q.concept, review: false })), worlds: picked.map((p) => p.world) };
+}

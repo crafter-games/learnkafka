@@ -299,7 +299,8 @@
       "paused": "paused (rebalancing)",
       "nobody": "nobody",
       "idle": "{n, plural, one {# robot idle} other {# robots idle}}"
-    }
+    },
+    "finale": "See your certificate"
   },
   "map": {
     "home": "Home",
@@ -363,7 +364,9 @@
     "w10": {
       "title": "Schemas & Security",
       "body": "The last mile to production: Schema Registry and safe schema evolution, encryption and authentication with TLS and SASL, and ACLs that give each service only what it needs."
-    }
+    },
+    "exam": "Final exam",
+    "certificate": "Certificate"
   },
   "levels": {
     "1-1": {
@@ -2991,5 +2994,42 @@
     "bad": "That code doesn’t work.",
     "ok": "Unlocked! Every level is complete with 3 stars.",
     "close": "Close"
+  },
+  "exam": {
+    "title": "Final exam",
+    "back": "Back to the map",
+    "introTitle": "{n} questions, every world mixed",
+    "introBody": "Questions come from the {worlds, plural, one {# world} other {# worlds}} you have played, shuffled together and with new numbers each time. Get {pass} right to pass. No stage to peek at: it's all from memory.",
+    "emptyTitle": "Play a level first",
+    "emptyBody": "The exam asks about the worlds you have played. Finish a level and come back.",
+    "best": "Best so far: {best}/{total}",
+    "start": "Start the exam",
+    "retry": "Try again",
+    "passed": "Passed!",
+    "failed": "Not yet",
+    "passedBody": "You know your Kafka. Your certificate now carries the exam seal.",
+    "failedBody": "The red bars show where to go back. Replay those levels or do a Morning Shift, then try again.",
+    "certificate": "See your certificate",
+    "map": "World map"
+  },
+  "finale": {
+    "back": "Back to the map",
+    "title": "Master dispatcher!",
+    "body": "Every world, every level. You have run Kafka from the first parcel to schemas and security.",
+    "nameLabel": "Name on the certificate",
+    "namePlaceholder": "Your name",
+    "kicker": "Kafka Express · Apache Kafka",
+    "certTitle": "Certificate of completion",
+    "awardedTo": "This certifies that",
+    "anonymous": "A brave dispatcher",
+    "certBody": "has completed all {worlds} worlds and {levels} levels of Kafka Express.",
+    "examPassed": "Final exam passed: {best}/{total}",
+    "examTip": "Pass the final exam to add its seal",
+    "madeBy": "Made by Jibaru",
+    "download": "Download certificate (PNG)",
+    "exam": "Final exam",
+    "map": "World map",
+    "lockedTitle": "Almost there",
+    "lockedBody": "{n, plural, one {# level} other {# levels}} left before your certificate."
   }
 }
