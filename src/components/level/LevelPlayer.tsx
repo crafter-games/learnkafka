@@ -205,7 +205,7 @@ export function LevelPlayer({ level, onRestart }: { level: Level; onRestart: () 
         {step.receipts && ctx.replicas && <Receipts receipts={ctx.replicas.receipts} />}
         {step.groupStats && ctx.group && <GroupStats processed={ctx.group.processedCount} duplicates={ctx.group.duplicates} lost={ctx.group.lost()} lag={ctx.group.lag()} />}
         {step.kind === "task" && step.keyMoves && <KeyMoves cluster={cluster} topic={step.keyMoves.topic} keys={step.keyMoves.keys} />}
-        {step.streams && <StreamsView kind={step.streams} ctx={ctx} topic={level.topics[0].name} />}
+        {step.streams && <StreamsView kind={step.streams} ctx={ctx} topic={level.topics[0].name} consumers={level.consumers} />}
         {step.deliveries && <Deliveries items={ctx.delivered} />}
       </>
     ) : null;

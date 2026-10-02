@@ -273,6 +273,32 @@
       "noAcls": "None: everything is denied.",
       "attempts": "latest requests",
       "missingAcl": "missing: {acl}"
+    },
+    "live": {
+      "noRecord": "Send a record to see its parts.",
+      "lastRecord": "the last record",
+      "keyHint": "decides the partition (and the order)",
+      "valueHint": "the payload, any bytes",
+      "headersHint": "optional metadata",
+      "timeHint": "when it happened",
+      "whereHint": "where it landed in the log",
+      "positions": "{topic} · partition 0",
+      "next": "next: offset {n}",
+      "behind": "{n} to go",
+      "stillThere": "{n} records still in the log: reading deletes nothing",
+      "perPartition": "records per partition",
+      "sticky": "(no key: sticky batch)",
+      "hashed": "(murmur2 hash of the key)",
+      "wrong": "misrouted",
+      "writes": "writes on the log",
+      "idemOn": "idempotence on",
+      "idemOff": "idempotence off",
+      "dupsWritten": "{n} duplicates written",
+      "dupsDropped": "{n} retries dropped by seq",
+      "crew": "who owns each partition",
+      "paused": "paused (rebalancing)",
+      "nobody": "nobody",
+      "idle": "{n, plural, one {# robot idle} other {# robots idle}}"
     }
   },
   "map": {

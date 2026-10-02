@@ -50,6 +50,7 @@ const level21: Level = {
     {
       kind: "task",
       title: msg("2-1.rush.title"),
+      streams: "partitions",
       body: msg("2-1.rush.body"),
       tools: [{ type: "addPartition", topic: "orders", max: 4 }],
       onEnter: (ctx) => {
@@ -208,6 +209,7 @@ const level23: Level = {
     {
       kind: "watch",
       title: msg("2-3.fill.title"),
+      streams: "partitions",
       body: msg("2-3.fill.body"),
       script: async (ctx) => {
         for (let i = 0; i < 6; i++) {
@@ -231,6 +233,7 @@ const level23: Level = {
     {
       kind: "task",
       title: msg("2-3.all.title"),
+      streams: "partitions",
       body: msg("2-3.all.body"),
       tools: [{ type: "produce", topic: "orders", keys: [], allowNull: true }],
       progress: (ctx) => ({ done: ctx.cluster.topic("orders").endOffsets().filter((n) => n >= 4).length, total: 3 }),

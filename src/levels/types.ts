@@ -157,7 +157,8 @@ export type ActionId =
   | "shareJoin" | "shareCrash" | "dbInsert" | "connectorCrash" | "connectorRestart" | "appCrash" | "appRestart" | "eventNow" | "eventLate5" | "eventLate15";
 
 /** Which World 8 live panel a step shows. */
-export type StreamsPanel = "connect" | "table" | "store" | "windows" | "share" | "schema" | "security" | "acl";
+export type StreamsPanel = "connect" | "table" | "store" | "windows" | "share" | "schema" | "security" | "acl"
+  | "record" | "positions" | "partitions" | "routing" | "dedupe" | "crew";
 
 export type Step =
   | { kind: "brief"; title: Msg; body: Msg; mapping?: { icon: string; thing: Msg; kafka: Msg }[]; breaks?: Msg; code?: string }

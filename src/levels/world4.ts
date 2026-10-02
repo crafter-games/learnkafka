@@ -109,6 +109,7 @@ const level42: Level = {
     {
       kind: "task",
       title: msg("4-2.hire.title"),
+      streams: "crew",
       body: msg("4-2.hire.body"),
       tools: [{ type: "members", actions: ["join"], max: 4 }],
       progress: (ctx) => {

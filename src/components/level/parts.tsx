@@ -9,6 +9,7 @@ import {
 } from "@phosphor-icons/react";
 import type { Input, LevelCtx, Msg, StreamsPanel } from "@/levels/types";
 import { streamView, tableView } from "@/sim/streams";
+import { keyColor } from "@/stage/keyColors";
 import type { Cluster } from "@/sim/cluster";
 import { gameButtonClass } from "../ui/GameButton";
 
@@ -441,8 +442,14 @@ function Status({ tone, children }: { tone: "ok" | "bad" | "busy"; children: Rea
 }
 
 /** World 8 live panels: the connector's source table, stream vs table, the state store, windows. */
-export function StreamsView({ kind, ctx, topic }: { kind: StreamsPanel; ctx: LevelCtx; topic: string }) {
+export function StreamsView({ kind, ctx, topic, consumers = [] }: { kind: StreamsPanel; ctx: LevelCtx; topic: string; consumers?: { group: string; label: string; color: string }[] }) {
   const t = useTranslations("level.streams");
+  if (kind === "record") return <RecordView ctx={ctx} topic={topic} />;
+  if (kind === "positions") return <PositionsView ctx={ctx} topic={topic} consumers={consumers} />;
+  if (kind === "partitions") return <PartitionsView ctx={ctx} topic={topic} />;
+  if (kind === "routing") return <RoutingView ctx={ctx} />;
+  if (kind === "dedupe") return <DedupeView ctx={ctx} topic={topic} />;
+  if (kind === "crew" && ctx.group) return <CrewView ctx={ctx} />;
   if (kind === "connect" && ctx.connector) {
     const c = ctx.connector;
     const committed = c.committed();
@@ -717,6 +724,201 @@ function AclView({ ctx }: { ctx: LevelCtx }) {
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+const kColor = (key: string | null) => keyColor(key);
+
+/** World 1: the anatomy of the newest record, like a big parcel label. */
+function RecordView({ ctx, topic }: { ctx: LevelCtx; topic: string }) {
+  const t = useTranslations("level.live");
+  const r = streamView(ctx.cluster, topic).filter((x) => !x.headers["x-control"]).at(-1);
+  if (!r) return <p className="mt-3 rounded-xl bg-paper-2 px-3 py-2 text-sm text-ink-2">{t("noRecord")}</p>;
+  const headers = Object.entries(r.headers).filter(([k]) => !k.startsWith("x-"));
+  const row = (label: string, value: React.ReactNode, hint: string) => (
+    <li className="grid grid-cols-[88px_1fr] items-baseline gap-2 border-t border-line py-1.5 first:border-t-0">
+      <span className="font-mono text-xs font-bold uppercase text-ink-2">{label}</span>
+      <span className="min-w-0">
+        <span className="block truncate font-mono text-sm font-bold text-ink">{value}</span>
+        <span className="block text-xs leading-tight text-ink-2">{hint}</span>
+      </span>
+    </li>
+  );
+  return (
+    <div className="mt-3">
+      <p className={panelTitle}>{t("lastRecord")}</p>
+      <motion.ul key={`${r.partition}/${r.offset}`} initial={{ scale: 0.96, opacity: 0.4 }} animate={{ scale: 1, opacity: 1 }} className="rounded-xl border-2 border-dashed border-producer/50 bg-paper-2 px-3 py-1">
+        {row(
+          "key",
+          <span className="inline-flex items-center gap-1.5">
+            <span className="size-3 rounded-[3px]" style={{ background: kColor(r.key) }} />
+            {r.key === null ? "null" : JSON.stringify(r.key)}
+          </span>,
+          t("keyHint"),
+        )}
+        {row("value", r.value, t("valueHint"))}
+        {row("headers", headers.length ? JSON.stringify(Object.fromEntries(headers)) : "{}", t("headersHint"))}
+        {row("timestamp", new Date(r.timestamp).toLocaleTimeString(), t("timeHint"))}
+        {row("→", `P${r.partition} · offset ${r.offset}`, t("whereHint"))}
+      </motion.ul>
+    </div>
+  );
+}
+
+/** World 1: the log of a partition with each group's position (reading never deletes). */
+function PositionsView({ ctx, topic, consumers }: { ctx: LevelCtx; topic: string; consumers: { group: string; label: string; color: string }[] }) {
+  const t = useTranslations("level.live");
+  const log = ctx.cluster.topic(topic).partitions[0];
+  const shown = log.slice(-14);
+  const first = log.length - shown.length;
+  return (
+    <div className="mt-3">
+      <p className={panelTitle}>{t("positions", { topic })}</p>
+      <div className="flex flex-wrap gap-1">
+        {shown.map((r) => (
+          <span key={r.offset} className="grid size-7 place-items-center rounded-md border border-line bg-paper-2 font-mono text-[11px] font-bold" style={{ boxShadow: `inset 0 -4px 0 ${kColor(r.key)}` }}>
+            {r.offset}
+          </span>
+        ))}
+        <span className="grid size-7 place-items-center rounded-md border border-dashed border-ink/30 font-mono text-[11px] text-ink-2">{log.length}</span>
+      </div>
+      <ul className="mt-2 space-y-1">
+        {consumers.map((c) => {
+          const pos = ctx.cluster.position(c.group, topic, 0);
+          return (
+            <li key={c.group} className="flex items-center gap-2 text-sm">
+              <span className="size-3 rounded-full" style={{ background: c.color }} />
+              <b>{c.label}</b>
+              <span className="font-mono text-ink-2">{t("next", { n: pos })}</span>
+              <span className="ml-auto font-mono text-xs text-ink-2">{t("behind", { n: Math.max(0, log.length - pos) })}</span>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="mt-2 text-xs font-bold text-broker">{t("stillThere", { n: log.length, hidden: first })}</p>
+    </div>
+  );
+}
+
+/** Records per partition, plus where the latest keys went. */
+function PartitionsView({ ctx, topic }: { ctx: LevelCtx; topic: string }) {
+  const t = useTranslations("level.live");
+  const tp = ctx.cluster.topic(topic);
+  const max = Math.max(4, ...tp.partitions.map((l) => l.length));
+  const recent = streamView(ctx.cluster, topic).slice(-4).reverse();
+  return (
+    <div className="mt-3">
+      <p className={panelTitle}>{t("perPartition")}</p>
+      <ul className="space-y-1.5">
+        {tp.partitions.map((log, p) => (
+          <li key={p} className="flex items-center gap-2">
+            <span className="w-7 font-mono text-xs font-bold text-partition">P{p}</span>
+            <span className="h-4 flex-1 overflow-hidden rounded-full bg-paper-2">
+              <motion.span className="flex h-full items-center justify-end gap-0.5 rounded-full bg-partition/80 pr-1" animate={{ width: `${(log.length / max) * 100}%` }}>
+                {log.slice(-5).map((r) => (
+                  <span key={r.offset} className="size-2 rounded-[2px]" style={{ background: kColor(r.key) }} />
+                ))}
+              </motion.span>
+            </span>
+            <span className="w-6 text-right font-mono text-sm font-bold">{log.length}</span>
+          </li>
+        ))}
+      </ul>
+      {recent.length > 0 && (
+        <ul className="mt-2 space-y-0.5 font-mono text-xs">
+          {recent.map((r) => (
+            <li key={`${r.partition}/${r.offset}`} className="flex items-center gap-1.5 text-ink-2">
+              <span className="size-2.5 rounded-[2px]" style={{ background: kColor(r.key) }} />
+              <b className="text-ink">{r.key ?? "null"}</b> → P{r.partition}
+              <span className="text-ink/40">{r.key === null ? t("sticky") : t("hashed")}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/** World 1-4: how many events went to each topic, and the misroutes. */
+function RoutingView({ ctx }: { ctx: LevelCtx }) {
+  const t = useTranslations("level.live");
+  const count = (name: string) => ctx.cluster.topic(name).partitions.reduce((n, l) => n + l.length, 0);
+  return (
+    <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+      {[
+        { label: "orders", n: count("orders"), cls: "bg-producer/15 text-producer-dark" },
+        { label: "payments", n: count("payments"), cls: "bg-partition/15 text-partition-dark" },
+        { label: t("wrong"), n: ctx.stats.routedWrong, cls: ctx.stats.routedWrong ? "bg-danger/15 text-danger" : "bg-paper-2 text-ink-2" },
+      ].map((c) => (
+        <div key={c.label} className={`rounded-xl px-2 py-2 ${c.cls}`}>
+          <motion.p key={c.n} initial={{ scale: 1.3 }} animate={{ scale: 1 }} className="font-display text-3xl font-extrabold">
+            {c.n}
+          </motion.p>
+          <p className="font-mono text-xs font-bold">{c.label}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** World 3: every write with its sequence number; duplicates in red, dropped retries counted. */
+function DedupeView({ ctx, topic }: { ctx: LevelCtx; topic: string }) {
+  const t = useTranslations("level.live");
+  const rp = ctx.retrying;
+  const writes = streamView(ctx.cluster, topic).slice(-10);
+  return (
+    <div className="mt-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className={panelTitle}>{t("writes")}</p>
+        <Status tone={rp?.idempotent ? "ok" : "bad"}>{rp?.idempotent ? t("idemOn") : t("idemOff")}</Status>
+      </div>
+      <ul className="flex flex-wrap gap-1">
+        {writes.map((r) => {
+          const dup = r.headers["x-dup"] === "1";
+          return (
+            <li key={`${r.partition}/${r.offset}`} className={`rounded-md px-1.5 py-0.5 font-mono text-xs font-bold ${dup ? "bg-danger text-white" : "bg-paper-2 text-ink"}`}>
+              {r.key} · seq {r.headers["x-seq"] ?? "?"}
+              {dup && " DUP"}
+            </li>
+          );
+        })}
+      </ul>
+      <p className="mt-2 flex flex-wrap gap-x-3 text-xs font-bold">
+        <span className={rp?.duplicates ? "text-danger" : "text-ink-2"}>{t("dupsWritten", { n: rp?.duplicates ?? 0 })}</span>
+        <span className="text-broker">{t("dupsDropped", { n: rp?.rejected ?? 0 })}</span>
+      </p>
+    </div>
+  );
+}
+
+/** World 4: which robot owns which partition, and who is idle. */
+function CrewView({ ctx }: { ctx: LevelCtx }) {
+  const t = useTranslations("level.live");
+  const g = ctx.group!;
+  const owners = new Map<number, { id: string; color: string }>();
+  for (const m of g.alive) for (const p of m.partitions) owners.set(p, m);
+  return (
+    <div className="mt-3">
+      <p className={panelTitle}>{t("crew")}</p>
+      <ul className="space-y-1.5">
+        {Array.from({ length: g.partitions }, (_, p) => {
+          const o = owners.get(p);
+          return (
+            <li key={p} className="flex items-center gap-2 text-sm">
+              <span className="w-7 font-mono text-xs font-bold text-partition">P{p}</span>
+              {o ? (
+                <span className="inline-flex items-center gap-1.5 rounded-lg px-2 py-0.5 font-mono text-xs font-bold text-white" style={{ background: o.color }}>
+                  <Robot size={13} weight="fill" /> {o.id}
+                </span>
+              ) : (
+                <span className="rounded-lg bg-danger/15 px-2 py-0.5 text-xs font-bold text-danger">{g.paused.has(p) ? t("paused") : t("nobody")}</span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {g.alive.filter((m) => m.partitions.length === 0).length > 0 && <p className="mt-2 text-xs font-bold text-danger">{t("idle", { n: g.alive.filter((m) => m.partitions.length === 0).length })}</p>}
     </div>
   );
 }

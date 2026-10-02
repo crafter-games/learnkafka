@@ -50,6 +50,7 @@ const level11: Level = {
     {
       kind: "task",
       title: msg("1-1.pack.title"),
+      streams: "record",
       body: msg("1-1.pack.body"),
       tools: [{ type: "produce", topic: "orders", keys: ["alice", "bob", "carol"], headers: true }],
       progress: (ctx, start) => ({ done: ctx.stats.produced - start.produced, total: 1 }),
@@ -81,6 +82,7 @@ const level11: Level = {
     {
       kind: "task",
       title: msg("1-1.more.title"),
+      streams: "record",
       body: msg("1-1.more.body"),
       tools: [{ type: "produce", topic: "orders", keys: ["alice", "bob", "carol", "dave"], allowNull: true, allowCustom: true }],
       progress: (ctx, start) => {
@@ -140,6 +142,7 @@ const level12: Level = {
     {
       kind: "watch",
       title: msg("1-2.arrive.title"),
+      streams: "positions",
       body: msg("1-2.arrive.body"),
       script: async (ctx) => {
         for (const k of ["alice", "bob", "carol", "alice"]) {
@@ -161,6 +164,7 @@ const level12: Level = {
     {
       kind: "task",
       title: msg("1-2.catch.title"),
+      streams: "positions",
       body: msg("1-2.catch.body"),
       tools: [{ type: "fetch", topic: "orders", partition: 0, groups: ["billing", "shipping"] }],
       progress: (ctx) => ({ done: Math.min(3, ctx.cluster.position("shipping", "orders", 0)), total: 3 }),
@@ -242,6 +246,7 @@ const level13: Level = {
     {
       kind: "watch",
       title: msg("1-3.warm.title"),
+      streams: "partitions",
       body: msg("1-3.warm.body"),
       script: async (ctx) => {
         for (const k of ["alice", "bob", "carol", "dave", "alice"]) {
@@ -297,6 +302,7 @@ const level13: Level = {
     {
       kind: "task",
       title: msg("1-3.fill.title"),
+      streams: "partitions",
       body: msg("1-3.fill.body"),
       tools: [{ type: "produce", topic: "orders", keys: ["alice", "bob", "carol", "dave", "erin"], allowCustom: true }],
       progress: (ctx) => ({ done: Math.min(5, ctx.cluster.topic("orders").partitions[1].length), total: 5 }),
@@ -353,6 +359,7 @@ const level14: Level = {
     {
       kind: "task",
       title: msg("1-4.route.title"),
+      streams: "routing",
       body: msg("1-4.route.body"),
       tools: [{ type: "route", topics: ["orders", "payments"], count: 6 }],
       progress: (ctx, start) => ({ done: Math.min(6, ctx.stats.routedOk - start.routedOk), total: 6 }),

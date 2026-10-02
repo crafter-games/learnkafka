@@ -273,6 +273,32 @@
       "noAcls": "Ninguna: todo se deniega.",
       "attempts": "últimas peticiones",
       "missingAcl": "falta: {acl}"
+    },
+    "live": {
+      "noRecord": "Envía un registro para ver sus partes.",
+      "lastRecord": "el último registro",
+      "keyHint": "decide la partición (y el orden)",
+      "valueHint": "el contenido, cualquier dato en bytes",
+      "headersHint": "metadatos opcionales",
+      "timeHint": "cuándo ocurrió",
+      "whereHint": "dónde quedó en el log",
+      "positions": "{topic} · partición 0",
+      "next": "siguiente: offset {n}",
+      "behind": "faltan {n}",
+      "stillThere": "{n} registros siguen en el log: leer no borra nada",
+      "perPartition": "registros por partición",
+      "sticky": "(sin key: batch sticky)",
+      "hashed": "(hash murmur2 de la key)",
+      "wrong": "mal enviados",
+      "writes": "escrituras en el log",
+      "idemOn": "idempotencia activada",
+      "idemOff": "idempotencia desactivada",
+      "dupsWritten": "{n} duplicados escritos",
+      "dupsDropped": "{n} reintentos descartados por seq",
+      "crew": "quién tiene cada partición",
+      "paused": "en pausa (rebalanceo)",
+      "nobody": "nadie",
+      "idle": "{n, plural, one {# robot sin trabajo} other {# robots sin trabajo}}"
     }
   },
   "map": {

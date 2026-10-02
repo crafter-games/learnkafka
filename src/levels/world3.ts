@@ -253,6 +253,7 @@ const level34: Level = {
     {
       kind: "task",
       title: msg("3-4.flaky.title"),
+      streams: "dedupe",
       body: msg("3-4.flaky.body"),
       tools: [{ type: "send", via: "retrying", keys: ["alice", "bob"] }],
       progress: (ctx, start) => ({ done: Math.min(1, (ctx.retrying?.duplicates ?? 0) - start.dups), total: 1 }),
@@ -268,6 +269,7 @@ const level34: Level = {
     {
       kind: "task",
       title: msg("3-4.fix.title"),
+      streams: "dedupe",
       body: msg("3-4.fix.body"),
       tools: [{ type: "setting", field: "idempotent", options: [false, true] }, { type: "send", via: "retrying", keys: ["carol", "dave"] }],
       progress: (ctx, start) => {
